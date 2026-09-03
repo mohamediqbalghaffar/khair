@@ -11,11 +11,12 @@ import {
   MapPin,
   CheckCircle2,
   Check,
+  Trash2,
   X
 } from 'lucide-react';
 
 export const ProjectsView: React.FC = () => {
-  const { projects, addProject, updateProject } = useApp();
+  const { projects, addProject, updateProject, deleteProject } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -24,11 +25,11 @@ export const ProjectsView: React.FC = () => {
     title: '',
     category: 'خۆراک' as Project['category'],
     description: '',
-    targetBudgetUSD: 20000,
+    targetBudgetUSD: 0,
     startDate: new Date().toISOString().split('T')[0],
-    endDate: '2026-06-30',
+    endDate: '',
     status: 'active' as Project['status'],
-    governorates: ['هەولێر', 'سلێمانی'],
+    governorates: ['هەولێر'],
     image: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=600&auto=format&fit=crop&q=80'
   });
 
@@ -127,13 +128,27 @@ export const ProjectsView: React.FC = () => {
                   <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-white/90 text-slate-800 shadow-sm">
                     {proj.category}
                   </span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    proj.status === 'completed'
-                      ? 'bg-emerald-500 text-white shadow-sm'
-                      : 'bg-purple-600 text-white animate-pulse shadow-sm'
-                  }`}>
-                    {proj.status === 'completed' ? 'تەواوکراو' : 'بەردەوامە'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      proj.status === 'completed'
+                        ? 'bg-emerald-500 text-white shadow-sm'
+                        : 'bg-purple-600 text-white animate-pulse shadow-sm'
+                    }`}>
+                      {proj.status === 'completed' ? 'تەواوکراو' : 'بەردەوامە'}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`دڵنیایت لە سڕینەوەی پڕۆژەی [${proj.title}]؟`)) {
+                          deleteProject(proj.id);
+                        }
+                      }}
+                      className="p-1 rounded-full bg-black/40 hover:bg-rose-600 text-white transition-colors"
+                      title="سڕینەوەی پڕۆژە"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="absolute bottom-3 right-4 left-4">
@@ -283,7 +298,6 @@ export const ProjectsView: React.FC = () => {
                   required
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="بۆ نموونە: دابینکردنی فلتەری ئاو بۆ کەمپی خازر"
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>
@@ -308,7 +322,7 @@ export const ProjectsView: React.FC = () => {
                   <label className="block text-slate-700 font-bold mb-1">بودجەی پێویست ($ دۆلار):</label>
                   <input
                     type="number"
-                    min={100}
+                    min={0}
                     required
                     value={formData.targetBudgetUSD}
                     onChange={(e) => setFormData({ ...formData, targetBudgetUSD: Number(e.target.value) })}
@@ -324,7 +338,6 @@ export const ProjectsView: React.FC = () => {
                   required
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="پێداویستییەکان، ژمارەی خێزانەکان، ئامانجی سەرەکی..."
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>

@@ -13,12 +13,12 @@ export const OnlinePaymentModal: React.FC<Props> = ({ isOpen, onClose, onReceipt
   const { addDonation, addTransaction, donors, projects } = useApp();
 
   const [gateway, setGateway] = useState<'fib' | 'fastpay' | 'zaincash' | 'card'>('fib');
-  const [amount, setAmount] = useState<number>(100000);
+  const [amount, setAmount] = useState<number>(50000);
   const [currency, setCurrency] = useState<'IQD' | 'USD'>('IQD');
-  const [donorName, setDonorName] = useState<string>('بەخشەری خێرخواز');
-  const [phone, setPhone] = useState<string>('07501234567');
+  const [donorName, setDonorName] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [notes, setNotes] = useState<string>('بەخشینی ئۆنلاین بۆ سندووقی خێرخوازی');
+  const [notes, setNotes] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [successReceipt, setSuccessReceipt] = useState<string | null>(null);
 

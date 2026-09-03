@@ -424,7 +424,7 @@ export const Topbar: React.FC = () => {
                 <div className="absolute left-0 mt-3 w-72 rounded-3xl liquid-glass-dropdown p-2.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
                   <div className="px-3 py-2 border-b border-slate-200 mb-1">
                     <p className="text-xs font-bold text-slate-800">گۆڕینی ڕۆڵی بەکارهێنەر</p>
-                    <p className="text-[10px] text-slate-500">بۆ تاقیکردنەوەی دەسەڵاتە جیاوازەکان</p>
+                    <p className="text-[10px] text-slate-500">دیاریکردنی دەسەڵات و بەرپرسیارێتییەکان لە سیستەمدا</p>
                   </div>
                   <div className="space-y-1">
                     {rolesList.map(r => (

@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   Send,
   Warehouse,
+  Plus,
+  Trash2,
   X
 } from 'lucide-react';
 
@@ -14,6 +16,8 @@ export const InventoryView: React.FC = () => {
   const {
     inventory,
     beneficiaries,
+    addInventoryItem,
+    deleteInventoryItem,
     updateInventoryQuantity,
     distributeAidFromInventory
   } = useApp();
@@ -21,6 +25,17 @@ export const InventoryView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItemForDistribution, setSelectedItemForDistribution] = useState<InventoryItem | null>(null);
   const [isDistributeModalOpen, setIsDistributeModalOpen] = useState(false);
+  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+
+  // New Item Form
+  const [newItemForm, setNewItemForm] = useState({
+    name: '',
+    category: 'خۆراک' as InventoryItem['category'],
+    quantity: 0,
+    unit: 'دانە' as InventoryItem['unit'],
+    location: 'هەولێر - کۆگای سەرەکی بەحرکە',
+    minAlertThreshold: 10
+  });
 
   // Distribution Form
   const [targetBeneficiaryId, setTargetBeneficiaryId] = useState('');
@@ -34,6 +49,21 @@ export const InventoryView: React.FC = () => {
 
   const lowStockItems = inventory.filter(i => i.quantity <= i.minAlertThreshold);
 
+  const handleAddItemSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItemForm.name) return;
+    addInventoryItem(newItemForm);
+    setIsAddItemModalOpen(false);
+    setNewItemForm({
+      name: '',
+      category: 'خۆراک',
+      quantity: 0,
+      unit: 'دانە',
+      location: 'هەولێر - کۆگای سەرەکی بەحرکە',
+      minAlertThreshold: 10
+    });
+  };
+
   const handleDistributeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItemForDistribution || !targetBeneficiaryId) return;
@@ -46,7 +76,6 @@ export const InventoryView: React.FC = () => {
     );
 
     if (success) {
-      alert(`هاوکاری (${distributeQty} ${selectedItemForDistribution.unit}) بە سەرکەوتوویی دابەشکرا و لە کۆگا کەمکرایەوە.`);
       setIsDistributeModalOpen(false);
       setSelectedItemForDistribution(null);
     } else {
@@ -68,6 +97,14 @@ export const InventoryView: React.FC = () => {
             بەدواداچوونی سەبەتەی خۆراک، جلوبەرگ، زۆپا، و دابەشکردنی ڕاستەوخۆ بۆ خێزانەکان
           </p>
         </div>
+
+        <button
+          onClick={() => setIsAddItemModalOpen(true)}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all"
+        >
+          <Plus className="w-4 h-4" />
+          زیادکردنی کاڵای نوێ بۆ کۆگا
+        </button>
       </div>
 
       {/* Low Stock Warning Banner */}
@@ -174,6 +211,17 @@ export const InventoryView: React.FC = () => {
                   >
                     +
                   </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`دڵنیایت لە سڕینەوەی کاڵای [${item.name}] لە کۆگا؟`)) {
+                        deleteInventoryItem(item.id);
+                      }
+                    }}
+                    className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center border border-rose-200"
+                    title="سڕینەوەی کاڵا"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 <button
@@ -273,6 +321,125 @@ export const InventoryView: React.FC = () => {
                   className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
                 >
                   تەواوکردنی دابەشکردن
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Item Modal */}
+      {isAddItemModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl">
+            <button
+              onClick={() => setIsAddItemModalOpen(false)}
+              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Plus className="w-5 h-5 text-amber-600" />
+              تۆمارکردنی کاڵای نوێ لە کۆگا
+            </h3>
+
+            <form onSubmit={handleAddItemSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">ناوی کاڵا:</label>
+                <input
+                  type="text"
+                  required
+                  value={newItemForm.name}
+                  onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">پۆلێن / جۆر:</label>
+                  <select
+                    value={newItemForm.category}
+                    onChange={(e) => setNewItemForm({ ...newItemForm, category: e.target.value as InventoryItem['category'] })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+                  >
+                    <option value="خۆراک">خۆراک</option>
+                    <option value="پۆشاک">پۆشاک</option>
+                    <option value="پێداویستی پزیشکی">پێداویستی پزیشکی</option>
+                    <option value="گەرمکەرەوە و سووتەمەنی">گەرمکەرەوە و سووتەمەنی</option>
+                    <option value="کەلوپەلی ناوماڵ">کەلوپەلی ناوماڵ</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">یەکە:</label>
+                  <select
+                    value={newItemForm.unit}
+                    onChange={(e) => setNewItemForm({ ...newItemForm, unit: e.target.value as InventoryItem['unit'] })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+                  >
+                    <option value="دانە">دانە</option>
+                    <option value="سەبەتە">سەبەتە</option>
+                    <option value="کارتۆن">کارتۆن</option>
+                    <option value="سێت">سێت</option>
+                    <option value="لیتر">لیتر</option>
+                    <option value="تەن">تەن</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">بڕی سەرەتایی:</label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={newItemForm.quantity}
+                    onChange={(e) => setNewItemForm({ ...newItemForm, quantity: Number(e.target.value) })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">ئاستی هۆشداری کەمبوونەوە:</label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={newItemForm.minAlertThreshold}
+                    onChange={(e) => setNewItemForm({ ...newItemForm, minAlertThreshold: Number(e.target.value) })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">شوێنی کۆگا:</label>
+                <select
+                  value={newItemForm.location}
+                  onChange={(e) => setNewItemForm({ ...newItemForm, location: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+                >
+                  <option value="هەولێر - کۆگای سەرەکی بەحرکە">هەولێر - کۆگای سەرەکی بەحرکە</option>
+                  <option value="سلێمانی - کۆگای تاسڵوجە">سلێمانی - کۆگای تاسڵوجە</option>
+                  <option value="دهۆک - کۆگای ناوەندی">دهۆک - کۆگای ناوەندی</option>
+                  <option value="هەڵەبجە - بنکەی دابەشکردن">هەڵەبجە - بنکەی دابەشکردن</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsAddItemModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                >
+                  پاشگەزبوونەوە
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
+                >
+                  تۆمارکردن لە کۆگا
                 </button>
               </div>
             </form>

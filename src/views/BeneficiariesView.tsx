@@ -23,7 +23,7 @@ export const BeneficiariesView: React.FC = () => {
     addBeneficiary,
     deleteBeneficiary,
     addAidRecord,
-    sendSimulationSMS
+    sendSMS
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,8 +45,8 @@ export const BeneficiariesView: React.FC = () => {
     phone: '',
     governorate: 'هەولێر' as Beneficiary['governorate'],
     address: '',
-    familyMembers: 4,
-    monthlyIncomeIQD: 100000,
+    familyMembers: 1,
+    monthlyIncomeIQD: 0,
     needCategory: 'poor' as NeedCategory,
     status: 'approved' as BeneficiaryStatus,
     notes: ''
@@ -128,9 +128,8 @@ export const BeneficiariesView: React.FC = () => {
 
   const handleSendSMS = () => {
     if (!selectedBeneficiary) return;
-    sendSimulationSMS(selectedBeneficiary.phone, selectedBeneficiary.fullName, smsText);
+    sendSMS(selectedBeneficiary.phone, selectedBeneficiary.fullName, smsText);
     setIsSMSModalOpen(false);
-    alert(`نامەی کورت بۆ (${selectedBeneficiary.fullName} - ${selectedBeneficiary.phone}) نێردرا!`);
   };
 
   const categoryLabels: Record<NeedCategory, string> = {
@@ -614,7 +613,6 @@ export const BeneficiariesView: React.FC = () => {
                     required
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    placeholder="بۆ نموونە: دڵشاد حەسەن کەریم"
                     className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                   />
                 </div>
@@ -625,7 +623,6 @@ export const BeneficiariesView: React.FC = () => {
                     required
                     value={formData.nationalId}
                     onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
-                    placeholder="بۆ نموونە: 19904829103"
                     className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
                   />
                 </div>
@@ -639,7 +636,6 @@ export const BeneficiariesView: React.FC = () => {
                     required
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="0750XXXXXXX"
                     className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
                   />
                 </div>
@@ -668,7 +664,6 @@ export const BeneficiariesView: React.FC = () => {
                   required
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="گەڕەکی سەربەستی، کۆڵانی ١٢، نزیک مارکێتی گوڵ"
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>
@@ -715,7 +710,6 @@ export const BeneficiariesView: React.FC = () => {
                   rows={3}
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="وردەکاری زیاتر سەبارەت بە خێزانەکە..."
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>

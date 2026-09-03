@@ -16,7 +16,7 @@ export const GeoMapView: React.FC = () => {
 
   const activeStat = governorateStats.find(g => g.name === selectedGov) || governorateStats[0];
 
-  // Coordinates simulation on map canvas for Kurdistan governorates
+  // Coordinates on map canvas for Kurdistan governorates
   const mapNodes = [
     { name: 'دهۆک', x: 26, y: 22, count: 280 },
     { name: 'زاخۆ', x: 18, y: 15, count: 140 },
@@ -133,7 +133,7 @@ export const GeoMapView: React.FC = () => {
           {/* Stylized Vector Map Area */}
           <div className="relative w-full h-[380px] rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center">
             
-            {/* Topographic Background Simulation */}
+            {/* Topographic Background Overlay */}
             <svg className="absolute inset-0 w-full h-full opacity-20 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
               <path d="M 50 150 Q 200 80 400 130 T 750 200" fill="none" stroke="#0284c7" strokeWidth="2" strokeDasharray="6,6" />
               <path d="M 80 220 Q 250 180 500 240 T 780 320" fill="none" stroke="#0284c7" strokeWidth="1.5" strokeDasharray="8,8" />

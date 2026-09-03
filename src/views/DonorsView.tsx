@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Donation, DonorType } from '../types';
+import { Donor, Donation, DonorType } from '../types';
 import {
   HeartHandshake,
   Search,
@@ -9,6 +9,7 @@ import {
   Building2,
   User,
   Send,
+  Trash2,
   X
 } from 'lucide-react';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
@@ -19,8 +20,9 @@ export const DonorsView: React.FC = () => {
     donations,
     projects,
     addDonor,
+    deleteDonor,
     addDonation,
-    sendSimulationSMS
+    sendSMS
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,7 +45,7 @@ export const DonorsView: React.FC = () => {
   // New Donation Form State
   const [donationForm, setDonationForm] = useState({
     donorId: '',
-    amount: 500000,
+    amount: 0,
     currency: 'IQD' as 'IQD' | 'USD',
     method: 'FIB' as Donation['method'],
     date: new Date().toISOString().split('T')[0],
@@ -222,8 +224,7 @@ export const DonorsView: React.FC = () => {
               <div className="mt-4 pt-2 flex items-center justify-between gap-2">
                 <button
                   onClick={() => {
-                    sendSimulationSMS(donor.phone, donor.fullName, `بەڕێز ${donor.fullName}، سوپاس و پێزانینی بێپایانی ڕێکخراوی بۆتان بامۆکی قبوڵ بفەرموون بۆ هاوکاری و بەخشندەییتان.`);
-                    alert(`نامەی سوپاسگوزاری بۆ (${donor.fullName}) نێردرا!`);
+                    sendSMS(donor.phone, donor.fullName, `بەڕێز ${donor.fullName}، سوپاس و پێزانینی بێپایانی ڕێکخراوی بۆتان بامۆکی قبوڵ بفەرموون بۆ هاوکاری و بەخشندەییتان.`);
                   }}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
                 >
@@ -240,6 +241,18 @@ export const DonorsView: React.FC = () => {
                   title="تۆمارکردنی بەخشینی نوێ"
                 >
                   + بەخشین
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (confirm(`دڵنیایت لە سڕینەوەی بەخشەر [${donor.fullName}]؟`)) {
+                      deleteDonor(donor.id);
+                    }
+                  }}
+                  className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors border border-rose-200"
+                  title="سڕینەوەی بەخشەر"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -337,7 +350,6 @@ export const DonorsView: React.FC = () => {
                   required
                   value={donorForm.fullName}
                   onChange={(e) => setDonorForm({ ...donorForm, fullName: e.target.value })}
-                  placeholder="بۆ نموونە: حاجی عومەر یان کۆمپانیای دڵنیا"
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>
@@ -363,7 +375,6 @@ export const DonorsView: React.FC = () => {
                     required
                     value={donorForm.phone}
                     onChange={(e) => setDonorForm({ ...donorForm, phone: e.target.value })}
-                    placeholder="0750XXXXXXX"
                     className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
                   />
                 </div>
@@ -389,7 +400,6 @@ export const DonorsView: React.FC = () => {
                   type="email"
                   value={donorForm.email}
                   onChange={(e) => setDonorForm({ ...donorForm, email: e.target.value })}
-                  placeholder="donor@example.com"
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
                 />
               </div>
@@ -400,7 +410,6 @@ export const DonorsView: React.FC = () => {
                   rows={2}
                   value={donorForm.notes}
                   onChange={(e) => setDonorForm({ ...donorForm, notes: e.target.value })}
-                  placeholder="تێبینی سەبارەت بە خواستی بەخشینەکانی..."
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>
@@ -536,7 +545,6 @@ export const DonorsView: React.FC = () => {
                   type="text"
                   value={donationForm.notes}
                   onChange={(e) => setDonationForm({ ...donationForm, notes: e.target.value })}
-                  placeholder="بۆ نموونە: هاوکاری بۆ سندووقی زستانە"
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>

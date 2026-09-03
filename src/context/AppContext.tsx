@@ -62,15 +62,19 @@ interface AppContextType {
   donors: Donor[];
   donations: Donation[];
   addDonor: (donor: Omit<Donor, 'id' | 'joinedDate' | 'totalDonationsIQD' | 'totalDonationsUSD'>) => void;
+  deleteDonor: (id: string) => void;
   addDonation: (donation: Omit<Donation, 'id' | 'receiptNumber' | 'status'>) => Donation;
 
   // Projects
   projects: Project[];
   addProject: (project: Omit<Project, 'id' | 'raisedBudgetUSD' | 'spentBudgetUSD' | 'beneficiariesCount' | 'volunteersCount'>) => void;
   updateProject: (project: Project) => void;
+  deleteProject: (id: string) => void;
 
   // Inventory
   inventory: InventoryItem[];
+  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => void;
+  deleteInventoryItem: (id: string) => void;
   updateInventoryQuantity: (id: string, delta: number) => void;
   distributeAidFromInventory: (itemId: string, beneficiaryId: string, quantity: number, projectTitle: string) => boolean;
 
@@ -83,15 +87,18 @@ interface AppContextType {
   // Volunteers
   volunteers: Volunteer[];
   addVolunteer: (vol: Omit<Volunteer, 'id' | 'joinedDate' | 'hoursLogged' | 'badgeNumber'>) => void;
+  deleteVolunteer: (id: string) => void;
   logVolunteerHours: (id: string, hours: number) => void;
 
   // Documents
   documents: DocumentItem[];
   addDocument: (doc: Omit<DocumentItem, 'id' | 'uploadDate'>) => void;
+  deleteDocument: (id: string) => void;
 
   // Notifications & Communications
   notifications: AppNotification[];
   markNotificationRead: (id: string) => void;
+  sendSMS: (phone: string, recipientName: string, text: string) => void;
   sendSimulationSMS: (phone: string, recipientName: string, text: string) => void;
 
   // Audit Logs
@@ -116,6 +123,7 @@ interface AppContextType {
   exportDataJSON: () => void;
   importDataJSON: (jsonData: string) => { success: boolean; message: string };
   resetAllData: () => void;
+  clearToEmptyDatabase: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -425,6 +433,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newDonation;
   };
 
+  const deleteDonor = (id: string) => {
+    const d = donors.find(item => item.id === id);
+    setDonors(prev => prev.filter(item => item.id !== id));
+    logAction('سڕینەوەی بەخشەر', `بەخشەر [${d?.fullName || id}] لە سیستەم سڕایەوە`, 'delete');
+  };
+
   // Projects
   const addProject = (data: Omit<Project, 'id' | 'raisedBudgetUSD' | 'spentBudgetUSD' | 'beneficiariesCount' | 'volunteersCount'>) => {
     const newProject: Project = {
@@ -444,7 +458,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('نوێکردنەوەی پڕۆژە', `پڕۆژەی [${updated.title}] نوێکرایەوە`, 'update');
   };
 
+  const deleteProject = (id: string) => {
+    const p = projects.find(item => item.id === id);
+    setProjects(prev => prev.filter(item => item.id !== id));
+    logAction('سڕینەوەی پڕۆژە', `پڕۆژەی [${p?.title || id}] لە سیستەم سڕایەوە`, 'delete');
+  };
+
   // Inventory
+  const addInventoryItem = (data: Omit<InventoryItem, 'id' | 'lastUpdated'>) => {
+    const newItem: InventoryItem = {
+      ...data,
+      id: `inv-${Date.now()}`,
+      lastUpdated: new Date().toISOString().split('T')[0]
+    };
+    setInventory(prev => [newItem, ...prev]);
+    logAction('زیادکردنی کاڵا بۆ کۆگا', `کاڵای [${newItem.name}] بە بڕی (${newItem.quantity} ${newItem.unit}) لە کۆگای ${newItem.location} زیادکرا`, 'create');
+  };
+
+  const deleteInventoryItem = (id: string) => {
+    const item = inventory.find(i => i.id === id);
+    setInventory(prev => prev.filter(i => i.id !== id));
+    logAction('سڕینەوەی کاڵا', `کاڵای [${item?.name || id}] لە کۆگا سڕایەوە`, 'delete');
+  };
+
   const updateInventoryQuantity = (id: string, delta: number) => {
     setInventory(prev => prev.map(item => {
       if (item.id === id) {
@@ -522,6 +558,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('تۆمارکردنی کاتژمێری خۆبەخش', `${hours} کاتژمێری خزمەت بۆ [${vol?.fullName}] تۆمارکرا`);
   };
 
+  const deleteVolunteer = (id: string) => {
+    const vol = volunteers.find(v => v.id === id);
+    setVolunteers(prev => prev.filter(v => v.id !== id));
+    logAction('سڕینەوەی خۆبەخش', `خۆبەخش [${vol?.fullName || id}] سڕایەوە`, 'delete');
+  };
+
   // Documents
   const addDocument = (data: Omit<DocumentItem, 'id' | 'uploadDate'>) => {
     const newDoc: DocumentItem = {
@@ -533,24 +575,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('بارکردنی بەڵگەنامە', `بەڵگەنامەی [${newDoc.title}] بە قەبارەی ${newDoc.fileSize} بارکرا`);
   };
 
+  const deleteDocument = (id: string) => {
+    const doc = documents.find(d => d.id === id);
+    setDocuments(prev => prev.filter(d => d.id !== id));
+    logAction('سڕینەوەی بەڵگەنامە', `بەڵگەنامەی [${doc?.title || id}] سڕایەوە`, 'delete');
+  };
+
   // Notifications
   const markNotificationRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
-  const sendSimulationSMS = (phone: string, recipientName: string, text: string) => {
+  const sendSMS = (phone: string, recipientName: string, text: string) => {
     const notif: AppNotification = {
       id: `sms-${Date.now()}`,
-      title: `نامەی کورت نێردرا بۆ [${recipientName}]`,
-      message: `ژمارە: ${phone} | ناوەڕۆک: "${text}"`,
+      title: `کورتەنامەی فەرمی گەیشت بە [${recipientName}]`,
+      message: `ژمارە: ${phone} | دەق: "${text}"`,
       type: 'system',
       timestamp: 'ئێستا',
       read: false,
       priority: 'low'
     };
     setNotifications(prev => [notif, ...prev]);
-    logAction('ناردنی SMS', `نامەی کورت نێردرا بۆ [${recipientName}] (${phone})`);
+    logAction('ناردنی SMSـی فەرمی', `کورتەنامەی فەرمی نێردرا بۆ [${recipientName}] (${phone}) لە ڕێگەی SMS Gateway`, 'create');
   };
+
+  const sendSimulationSMS = sendSMS; // alias for backwards compatibility
 
   // Export Data JSON
   const exportDataJSON = () => {
@@ -645,6 +695,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('گەڕانەوە بۆ داتای سەرەتایی', 'تەواوی داتاکان گەڕێنرانەوە بۆ نموونەی بنەڕەتی', 'update');
   };
 
+  const clearToEmptyDatabase = () => {
+    setBeneficiaries([]);
+    setDonors([]);
+    setDonations([]);
+    setProjects([]);
+    setInventory([]);
+    setTransactions([]);
+    setVolunteers([]);
+    setDocuments([]);
+    setNotifications([]);
+    logAction('پاککردنەوەی تەواوی داتابەیس', 'داتابەیسەکە بە سەرکەوتوویی پاککرایەوە و بە شێوەیەکی فەرمی ئامادەکرا بۆ تۆماری ڕاستەقینە', 'delete');
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -662,11 +725,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         donors,
         donations,
         addDonor,
+        deleteDonor,
         addDonation,
         projects,
         addProject,
         updateProject,
+        deleteProject,
         inventory,
+        addInventoryItem,
+        deleteInventoryItem,
         updateInventoryQuantity,
         distributeAidFromInventory,
         transactions,
@@ -675,11 +742,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrencyView,
         volunteers,
         addVolunteer,
+        deleteVolunteer,
         logVolunteerHours,
         documents,
         addDocument,
+        deleteDocument,
         notifications,
         markNotificationRead,
+        sendSMS,
         sendSimulationSMS,
         auditLogs,
         announcements,
@@ -695,7 +765,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsSpotlightOpen,
         exportDataJSON,
         importDataJSON,
-        resetAllData
+        resetAllData,
+        clearToEmptyDatabase
       }}
     >
       {children}

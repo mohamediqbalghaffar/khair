@@ -107,7 +107,7 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
               </div>
             </div>
 
-            {/* Official Stamp Simulation */}
+            {/* Official Organization Stamp */}
             <div className="relative border-2 border-dashed border-cyan-600/60 rounded-2xl p-3 text-center rotate-[-3deg] bg-cyan-50/70">
               <p className="text-[10px] text-cyan-800 font-bold uppercase tracking-wider">مۆری فەرمی ڕێکخراو</p>
               <p className="text-xs font-black text-cyan-900">بەشی دارایی و وەرگرتن</p>

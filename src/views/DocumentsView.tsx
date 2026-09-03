@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { DocumentItem } from '../types';
 import {
@@ -12,22 +12,26 @@ import {
   Download,
   Eye,
   ShieldCheck,
+  Trash2,
+  CheckCircle2,
   X
 } from 'lucide-react';
 
 export const DocumentsView: React.FC = () => {
-  const { documents, addDocument } = useApp();
+  const { documents, addDocument, deleteDocument } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form State
   const [formData, setFormData] = useState({
     title: '',
     category: 'ناسنامە' as DocumentItem['category'],
     fileType: 'PDF',
-    fileSize: '2.4 MB',
+    fileSize: '1.2 MB',
     relatedEntity: ''
   });
 
@@ -38,15 +42,33 @@ export const DocumentsView: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFileName(file.name);
+      const ext = file.name.split('.').pop()?.toUpperCase() || 'PDF';
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      const sizeKB = Math.round(file.size / 1024);
+      const sizeStr = file.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
+      setFormData(prev => ({
+        ...prev,
+        title: prev.title || file.name.replace(/\.[^/.]+$/, ''),
+        fileSize: sizeStr,
+        fileType: ext
+      }));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addDocument(formData);
     setIsAddModalOpen(false);
+    setSelectedFileName(null);
     setFormData({
       title: '',
       category: 'ناسنامە',
       fileType: 'PDF',
-      fileSize: '2.4 MB',
+      fileSize: '1.2 MB',
       relatedEntity: ''
     });
   };
@@ -177,11 +199,30 @@ export const DocumentsView: React.FC = () => {
                 بینین
               </button>
               <button
-                onClick={() => alert(`داگرتنی فایلی [${doc.title}] دەستیپێکرد...`)}
+                onClick={() => {
+                  const blob = new Blob([`بەڵگەنامەی فەرمی ڕێکخراوی بۆتان بامۆکی\nناونیشان: ${doc.title}\nپەیوەستە بە: ${doc.relatedEntity}\nبەروار: ${doc.uploadDate}`], { type: 'text/plain;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${doc.title}.txt`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
                 className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
                 title="داگرتن"
               >
                 <Download className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm(`دڵنیایت لە سڕینەوەی بەڵگەنامەی [${doc.title}]؟`)) {
+                    deleteDocument(doc.id);
+                  }
+                }}
+                className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors border border-rose-200"
+                title="سڕینەوەی بەڵگەنامە"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -230,7 +271,13 @@ export const DocumentsView: React.FC = () => {
               </button>
               <button
                 onClick={() => {
-                  alert(`فایلی (${selectedDoc.title}) دابەزێندرا.`);
+                  const blob = new Blob([`بەڵگەنامەی فەرمی ڕێکخراوی بۆتان بامۆکی\nناونیشان: ${selectedDoc.title}\nپەیوەستە بە: ${selectedDoc.relatedEntity}\nقەبارە: ${selectedDoc.fileSize}\nبەروار: ${selectedDoc.uploadDate}`], { type: 'text/plain;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${selectedDoc.title}.txt`;
+                  a.click();
+                  URL.revokeObjectURL(url);
                   setSelectedDoc(null);
                 }}
                 className="flex items-center gap-2 px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold"
@@ -267,7 +314,6 @@ export const DocumentsView: React.FC = () => {
                   required
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="بۆ نموونە: ناسنامەی باری شارستانی"
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>
@@ -309,16 +355,39 @@ export const DocumentsView: React.FC = () => {
                   required
                   value={formData.relatedEntity}
                   onChange={(e) => setFormData({ ...formData, relatedEntity: e.target.value })}
-                  placeholder="ناوی سوودمەند، بەخشەر یان پڕۆژە"
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>
 
-              {/* Drag and Drop Simulation Box */}
-              <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-cyan-500 transition-colors cursor-pointer bg-slate-50">
-                <UploadCloud className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-800">فایلەکە ڕابکێشە بۆ ئێرە یان کلیک بکە</p>
-                <p className="text-[10px] text-slate-500 mt-1">پشتیوانی PDF, JPG, PNG تا قەبارەی 15MB</p>
+              {/* Real File Upload Box */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.xlsx,.xls"
+                className="hidden"
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-2xl p-6 text-center transition-colors cursor-pointer ${
+                  selectedFileName
+                    ? 'border-emerald-400 bg-emerald-50/60'
+                    : 'border-slate-300 hover:border-cyan-500 bg-slate-50'
+                }`}
+              >
+                {selectedFileName ? (
+                  <>
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-slate-900">{selectedFileName}</p>
+                    <p className="text-[10px] text-emerald-700 font-bold mt-1">فایلەکە دیاریکرا ({formData.fileSize})</p>
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-slate-800">کلیک بکە بۆ دیاریکردنی فایل لە ئامێرەکەتەوە</p>
+                    <p className="text-[10px] text-slate-500 mt-1">پشتیوانی PDF, JPG, PNG, DOCX تا قەبارەی 15MB</p>
+                  </>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">

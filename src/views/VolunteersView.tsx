@@ -10,11 +10,12 @@ import {
   QrCode,
   Printer,
   Droplet,
+  Trash2,
   X
 } from 'lucide-react';
 
 export const VolunteersView: React.FC = () => {
-  const { volunteers, addVolunteer, logVolunteerHours } = useApp();
+  const { volunteers, addVolunteer, deleteVolunteer, logVolunteerHours } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVolunteerBadge, setSelectedVolunteerBadge] = useState<Volunteer | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -27,7 +28,7 @@ export const VolunteersView: React.FC = () => {
     phone: '',
     email: '',
     governorate: 'هەولێر',
-    skills: ['دابەشکردنی مەیدانی', 'فریاگوزاری سەرەتایی'],
+    skills: [] as string[],
     bloodType: 'O+',
     availability: 'ڕۆژانی پشوو' as Volunteer['availability'],
     status: 'active' as Volunteer['status']
@@ -47,7 +48,7 @@ export const VolunteersView: React.FC = () => {
       phone: '',
       email: '',
       governorate: 'هەولێر',
-      skills: ['دابەشکردنی مەیدانی', 'فریاگوزاری سەرەتایی'],
+      skills: [],
       bloodType: 'O+',
       availability: 'ڕۆژانی پشوو',
       status: 'active'
@@ -172,6 +173,18 @@ export const VolunteersView: React.FC = () => {
               >
                 <Award className="w-3.5 h-3.5" />
                 کارتی ناسنامە
+              </button>
+
+              <button
+                onClick={() => {
+                  if (confirm(`دڵنیایت لە سڕینەوەی خۆبەخش [${vol.fullName}]؟`)) {
+                    deleteVolunteer(vol.id);
+                  }
+                }}
+                className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors border border-rose-200"
+                title="سڕینەوەی خۆبەخش"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
 
@@ -327,7 +340,6 @@ export const VolunteersView: React.FC = () => {
                   required
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  placeholder="بۆ نموونە: هەڵمەت سەباح عەزیز"
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>
@@ -340,7 +352,6 @@ export const VolunteersView: React.FC = () => {
                     required
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="0750XXXXXXX"
                     className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
                   />
                 </div>
@@ -400,7 +411,6 @@ export const VolunteersView: React.FC = () => {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="volunteer@example.com"
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
                 />
               </div>

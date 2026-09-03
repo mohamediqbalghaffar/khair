@@ -32,14 +32,14 @@ export const FinanceView: React.FC = () => {
   // New Transaction Form State
   const [txForm, setTxForm] = useState({
     type: 'expense' as 'income' | 'expense',
-    amount: 1500000,
+    amount: 0,
     currency: 'IQD' as 'IQD' | 'USD',
-    category: 'کڕینی خۆراک و سەبەتە',
+    category: '',
     date: new Date().toISOString().split('T')[0],
     description: '',
     recordedBy: 'ژمێریاری ڕێکخراو',
     relatedProjectId: '',
-    receiptNumber: `EXP-${new Date().getFullYear()}-0${Math.floor(Math.random() * 90 + 10)}`
+    receiptNumber: ''
   });
 
   // Financial aggregates
@@ -65,14 +65,14 @@ export const FinanceView: React.FC = () => {
     setIsAddModalOpen(false);
     setTxForm({
       type: 'expense',
-      amount: 1500000,
+      amount: 0,
       currency: 'IQD',
-      category: 'کڕینی خۆراک و سەبەتە',
+      category: '',
       date: new Date().toISOString().split('T')[0],
       description: '',
       recordedBy: 'ژمێریاری ڕێکخراو',
       relatedProjectId: '',
-      receiptNumber: `EXP-${new Date().getFullYear()}-0${Math.floor(Math.random() * 90 + 10)}`
+      receiptNumber: ''
     });
   };
 
@@ -409,7 +409,6 @@ export const FinanceView: React.FC = () => {
                     required
                     value={txForm.category}
                     onChange={(e) => setTxForm({ ...txForm, category: e.target.value })}
-                    placeholder="خۆراک، لۆجستی، مووچە..."
                     className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                   />
                 </div>
@@ -431,7 +430,6 @@ export const FinanceView: React.FC = () => {
                   required
                   value={txForm.description}
                   onChange={(e) => setTxForm({ ...txForm, description: e.target.value })}
-                  placeholder="هۆکاری خەرجی یان داهات، شوێنی کڕین..."
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>

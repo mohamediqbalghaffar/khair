@@ -8,7 +8,7 @@ interface Props {
 }
 
 export const SecurityModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const { twoFactorEnabled, setTwoFactorEnabled, exportDataJSON, importDataJSON, setIsLocked } = useApp();
+  const { twoFactorEnabled, setTwoFactorEnabled, exportDataJSON, importDataJSON, setIsLocked, clearToEmptyDatabase } = useApp();
   const [jsonInput, setJsonInput] = useState<string>('');
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
@@ -169,6 +169,27 @@ export const SecurityModal: React.FC<Props> = ({ isOpen, onClose }) => {
           >
             گەڕاندنەوە و نوێکردنەوەی تەواوی داتابەیس لە فایلی یەدەگ
           </button>
+        </div>
+
+        {/* Production Mode / Clean Database */}
+        <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-xs font-bold text-amber-900">پاککردنەوەی داتابەیس بۆ دەستپێکی ڕاستەقینە</h4>
+              <p className="text-[10px] text-amber-700 mt-0.5">بە کۆتاییهاتنی قۆناغی تاقیکاری، دەتوانیت داتابەیس بەتاڵ بکەیتەوە بۆ دەستپێکردنی تۆماری فەرمی</p>
+            </div>
+            <button
+              onClick={() => {
+                if (confirm('ئایا دڵنیایت لە پاککردنەوەی تەواوی داتابەیس بۆ دەستپێکردنی تۆماری ڕاستەقینە؟ (پێشنیار دەکەین سەرەتا فایلی یەدەگ داببەزێنیت)')) {
+                  clearToEmptyDatabase();
+                  setStatusMessage({ text: 'داتابەیس بە سەرکەوتوویی پاککرایەوە و ئامادەیە بۆ تۆماری فەرمی', isError: false });
+                }
+              }}
+              className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shrink-0"
+            >
+              پاککردنەوەی داتا
+            </button>
+          </div>
         </div>
 
         {/* Footer */}

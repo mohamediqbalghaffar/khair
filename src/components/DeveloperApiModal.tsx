@@ -158,7 +158,7 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-sm"
           >
             <Play className="w-3.5 h-3.5" />
-            تاقیکردنەوەی داواکاری و بینینی وەڵامی ڕاستەوخۆ (Test Endpoint)
+            ناردنی داواکاری و وەرگرتنی داتای ڕاستەوخۆ (Execute API Endpoint)
           </button>
         </div>
 
