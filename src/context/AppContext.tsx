@@ -525,7 +525,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const exportDataJSON = () => {
     const fullBackup = {
       exportDate: new Date().toISOString(),
-      organization: 'ڕێکخراوی ئایندەی خێرخوازی',
+      organization: 'ڕێکخراوی بۆتان بامۆکی',
       beneficiaries,
       donors,
       donations,

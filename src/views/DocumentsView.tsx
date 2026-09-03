@@ -214,7 +214,7 @@ export const DocumentsView: React.FC = () => {
               <ShieldCheck className="w-12 h-12 text-emerald-600 mx-auto" />
               <p className="text-xs text-slate-900 font-bold">بەڵگەنامەی پارێزراوی ئەلیکترۆنی</p>
               <p className="text-[11px] text-slate-600 leading-relaxed">
-                ئەم فایلە بە کۆدکردنی پارێزراو لە داتابەیسی ڕێکخراوی ئایندە پاشەکەوت کراوە بەپێی ڕێنماییەکانی پاراستنی تایبەتمەندی خێزانەکان.
+                ئەم فایلە بە کۆدکردنی پارێزراو لە داتابەیسی ڕێکخراوی بۆتان بامۆکی پاشەکەوت کراوە بەپێی ڕێنماییەکانی پاراستنی تایبەتمەندی خێزانەکان.
               </p>
               <div className="inline-block font-mono text-[11px] px-3 py-1 rounded-xl bg-white border border-slate-200 text-slate-700 shadow-sm">
                 پەیوەستە بە: {selectedDoc.relatedEntity} • قەبارە: {selectedDoc.fileSize}

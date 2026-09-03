@@ -33,10 +33,10 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
           <div className="text-center border-b border-slate-200 pb-5">
             <div className="flex items-center justify-center gap-2 mb-2">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-sm">
-                ئـ
+                بـ
               </div>
               <div>
-                <h2 className="text-xl font-bold tracking-tight text-slate-900">ڕێکخراوی ئایندە بۆ کاری خێرخوازی</h2>
+                <h2 className="text-xl font-bold tracking-tight text-slate-900">ڕێکخراوی بۆتان بامۆکی بۆ کاری خێرخوازی</h2>
                 <p className="text-xs text-cyan-700 font-bold">مۆڵەتی فەرمی ژمارە: NGO-KRG-2024-9412</p>
               </div>
             </div>

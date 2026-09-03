@@ -39,8 +39,25 @@ export const DashboardView: React.FC = () => {
     setActiveTab
   } = useApp();
 
-  // Filters State
-  const [timeFilter, setTimeFilter] = useState<string>('all');
+  // Find first and last record dates dynamically across all records
+  const { minRecordDate, maxRecordDate } = React.useMemo(() => {
+    const allDates: string[] = [
+      ...beneficiaries.map(b => b.registeredDate),
+      ...donations.map(d => d.date),
+      ...beneficiaries.flatMap(b => b.aidHistory.map(a => a.date)),
+      ...projects.map(p => p.startDate),
+      ...projects.map(p => p.endDate)
+    ].filter(Boolean).sort();
+
+    return {
+      minRecordDate: allDates.length > 0 ? allDates[0] : '2023-01-01',
+      maxRecordDate: allDates.length > 0 ? allDates[allDates.length - 1] : '2026-12-31'
+    };
+  }, [beneficiaries, donations, projects]);
+
+  // Filters State: Exact From & To Dates of Years (Default: from first record date to last record date)
+  const [fromDate, setFromDate] = useState<string>(minRecordDate);
+  const [toDate, setToDate] = useState<string>(maxRecordDate);
   const [governorateFilter, setGovernorateFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -48,18 +65,17 @@ export const DashboardView: React.FC = () => {
   // Active Detailed Modal State (Clickable KPI cards)
   const [activeModal, setActiveModal] = useState<ActiveModalType>(null);
 
-  // Helper date checker
+  // Update default dates if dataset changes
+  React.useEffect(() => {
+    if (minRecordDate && !fromDate) setFromDate(minRecordDate);
+    if (maxRecordDate && !toDate) setToDate(maxRecordDate);
+  }, [minRecordDate, maxRecordDate]);
+
+  // Helper date checker: checks if a record date falls within [fromDate, toDate]
   const matchesTime = (dateStr?: string) => {
-    if (!dateStr || timeFilter === 'all') return true;
-    if (timeFilter === 'this_month') {
-      return dateStr.startsWith('2026-03') || dateStr.startsWith('2026-02');
-    }
-    if (timeFilter === 'year_2026') {
-      return dateStr.startsWith('2026');
-    }
-    if (timeFilter === 'year_2025') {
-      return dateStr.startsWith('2025');
-    }
+    if (!dateStr) return true;
+    if (fromDate && dateStr < fromDate) return false;
+    if (toDate && dateStr > toDate) return false;
     return true;
   };
 
@@ -134,10 +150,11 @@ export const DashboardView: React.FC = () => {
     'خوێندکاری هەژار': filteredBeneficiaries.filter(b => b.needCategory === 'student').length,
   };
 
-  const isAnyFilterActive = timeFilter !== 'all' || governorateFilter !== 'all' || categoryFilter !== 'all' || searchQuery !== '';
+  const isAnyFilterActive = fromDate !== minRecordDate || toDate !== maxRecordDate || governorateFilter !== 'all' || categoryFilter !== 'all' || searchQuery !== '';
 
   const resetFilters = () => {
-    setTimeFilter('all');
+    setFromDate(minRecordDate);
+    setToDate(maxRecordDate);
     setGovernorateFilter('all');
     setCategoryFilter('all');
     setSearchQuery('');
@@ -202,26 +219,43 @@ export const DashboardView: React.FC = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           
-          {/* 1. Time Period Filter */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">ماوەی کات (Time Period):</label>
-            <select
-              value={timeFilter}
-              onChange={(e) => setTimeFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white"
-            >
-              <option value="all">هەموو کات (All Time)</option>
-              <option value="this_month">ئەم مانگە / ئەم دواییە</option>
-              <option value="year_2026">ساڵی ٢٠٢٦</option>
-              <option value="year_2025">ساڵی ٢٠٢٥</option>
-            </select>
+          {/* 1. Time Period Filter: Exact From & To Dates of Years */}
+          <div className="sm:col-span-2 lg:col-span-2">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-slate-700">ماوەی کات (لە - بۆ بەروار):</label>
+              <span className="text-[10px] text-cyan-800 font-mono bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-200">
+                {fromDate} ⬅ {toDate}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="relative">
+                <span className="text-[10px] text-slate-400 absolute right-2.5 top-2 pointer-events-none font-bold">لە:</span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="w-full pr-7 pl-2 py-1.5 text-xs rounded-xl liquid-input text-slate-900 font-mono bg-white"
+                  title="لە بەرواری (From Date)"
+                />
+              </div>
+              <div className="relative">
+                <span className="text-[10px] text-slate-400 absolute right-2.5 top-2 pointer-events-none font-bold">بۆ:</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="w-full pr-7 pl-2 py-1.5 text-xs rounded-xl liquid-input text-slate-900 font-mono bg-white"
+                  title="بۆ بەرواری (To Date)"
+                />
+              </div>
+            </div>
           </div>
 
           {/* 2. Governorate Filter */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">پارێزگا و ناوچە (Governorate):</label>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">پارێزگا و ناوچە:</label>
             <select
               value={governorateFilter}
               onChange={(e) => setGovernorateFilter(e.target.value)}
@@ -238,15 +272,15 @@ export const DashboardView: React.FC = () => {
             </select>
           </div>
 
-          {/* 3. Category Filter */}
+          {/* 3. Category Filter: Renamed strictly to حاڵەت */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">پۆلێنی پێداویستی (Need Category):</label>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">حاڵەت:</label>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="w-full px-3 py-2 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white"
             >
-              <option value="all">هەموو جۆرەکانی پێداویستی</option>
+              <option value="all">هەموو حاڵەتەکان</option>
               <option value="poor">هەژار و کەمدەرامەت</option>
               <option value="orphan">بێباوک و هەتیو</option>
               <option value="sick">نەخۆش و دەستکورت</option>
@@ -257,7 +291,7 @@ export const DashboardView: React.FC = () => {
 
           {/* 4. Search Query */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">گەڕانی دەقی لە داشبۆرد:</label>
+            <label className="block text-[11px] font-bold text-slate-700 mb-1">گەڕانی دەقی لە داشبۆرد:</label>
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
               <input
@@ -413,7 +447,7 @@ export const DashboardView: React.FC = () => {
         <div className="lg:col-span-1 rounded-3xl bg-white/90 backdrop-blur-2xl p-6 border border-slate-200/90 shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-base font-bold text-slate-900">پۆلێنکردنی پێداویستییەکان</h3>
+              <h3 className="text-base font-bold text-slate-900">پۆلێنکردنی حاڵەتەکان</h3>
               <p className="text-xs text-slate-500 mt-0.5">بەپێی بارودۆخی خێزانەکان</p>
             </div>
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-800">

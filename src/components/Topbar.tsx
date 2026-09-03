@@ -75,7 +75,7 @@ export const Topbar: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
-                ڕێکخراوی ئایندە
+                ڕێکخراوی بۆتان بامۆکی
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
                   خێرخوازی
                 </span>

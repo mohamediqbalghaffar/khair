@@ -222,7 +222,7 @@ export const DonorsView: React.FC = () => {
               <div className="mt-4 pt-2 flex items-center justify-between gap-2">
                 <button
                   onClick={() => {
-                    sendSimulationSMS(donor.phone, donor.fullName, `بەڕێز ${donor.fullName}، سوپاس و پێزانینی بێپایانی ڕێکخراوی ئایندە قبوڵ بفەرموون بۆ هاوکاری و بەخشندەییتان.`);
+                    sendSimulationSMS(donor.phone, donor.fullName, `بەڕێز ${donor.fullName}، سوپاس و پێزانینی بێپایانی ڕێکخراوی بۆتان بامۆکی قبوڵ بفەرموون بۆ هاوکاری و بەخشندەییتان.`);
                     alert(`نامەی سوپاسگوزاری بۆ (${donor.fullName}) نێردرا!`);
                   }}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"

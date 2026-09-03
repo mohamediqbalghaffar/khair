@@ -63,7 +63,7 @@ export const BeneficiariesView: React.FC = () => {
   });
 
   // SMS Form State
-  const [smsText, setSmsText] = useState('سڵاو بەڕێز، تکایە ئاگاداربە هاوکارییە دیاریکراوەکەت لە بنکەی سەرەکی ڕێکخراوی ئایندە ئامادەیە بۆ وەرگرتن.');
+  const [smsText, setSmsText] = useState('سڵاو بەڕێز، تکایە ئاگاداربە هاوکارییە دیاریکراوەکەت لە بنکەی سەرەکی ڕێکخراوی بۆتان بامۆکی ئامادەیە بۆ وەرگرتن.');
 
   // Filtering
   const filteredBeneficiaries = beneficiaries.filter(b => {
@@ -203,7 +203,7 @@ export const BeneficiariesView: React.FC = () => {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="w-full px-3 py-2 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white"
           >
-            <option value="all">هەموو جۆرەکانی پێداویستی</option>
+            <option value="all">هەموو حاڵەتەکان</option>
             <option value="poor">هەژار و دەستکورت</option>
             <option value="orphan">بێباوک و هەتیو</option>
             <option value="sick">نەخۆشی درێژخایەن</option>
@@ -238,7 +238,7 @@ export const BeneficiariesView: React.FC = () => {
                 <th className="py-3.5 px-4">ناوی تەواو</th>
                 <th className="py-3.5 px-4">ژ. ناسنامە / مۆبایل</th>
                 <th className="py-3.5 px-4">پارێزگا / ناونیشان</th>
-                <th className="py-3.5 px-4">پێداویستی / خێزان</th>
+                <th className="py-3.5 px-4">حاڵەت / خێزان</th>
                 <th className="py-3.5 px-4">داهاتی مانگانە</th>
                 <th className="py-3.5 px-4">دۆخی دۆسیە</th>
                 <th className="py-3.5 px-4 text-center">کردارەکان</th>
@@ -694,7 +694,7 @@ export const BeneficiariesView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">پۆلێنکردنی پێداویستی:</label>
+                  <label className="block text-slate-700 font-bold mb-1">حاڵەت:</label>
                   <select
                     value={formData.needCategory}
                     onChange={(e) => setFormData({ ...formData, needCategory: e.target.value as any })}
