@@ -9,11 +9,13 @@ import {
   Users,
   UserCheck,
   MapPin,
+  CheckCircle2,
+  Check,
   X
 } from 'lucide-react';
 
 export const ProjectsView: React.FC = () => {
-  const { projects, addProject } = useApp();
+  const { projects, addProject, updateProject } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -50,6 +52,19 @@ export const ProjectsView: React.FC = () => {
       governorates: ['هەولێر', 'سلێمانی'],
       image: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=600&auto=format&fit=crop&q=80'
     });
+  };
+
+  const toggleProjectMilestone = (projectId: string, milestoneId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+    const defaultMilestones = [
+      { id: 'm1', title: 'دەستنیشانکردنی خێزانە کەمدەرامەتەکان', completed: true },
+      { id: 'm2', title: 'دابینکردنی بودجە و کاڵاکانی کۆگا', completed: true },
+      { id: 'm3', title: 'دابەشکردنی مەیدانی لە ڕێگەی خۆبەخشان', completed: project.status === 'completed' }
+    ];
+    const currentMilestones = project.milestones || defaultMilestones;
+    const updatedMilestones = currentMilestones.map(m => m.id === milestoneId ? { ...m, completed: !m.completed } : m);
+    updateProject({ ...project, milestones: updatedMilestones });
   };
 
   return (
@@ -196,6 +211,47 @@ export const ProjectsView: React.FC = () => {
                       {g}
                     </span>
                   ))}
+                </div>
+
+                {/* Interactive Milestones Tracker (Feature 4) */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />
+                      قۆناغەکانی جێبەجێکردن (Milestones):
+                    </span>
+                    <span className="text-[10px] text-purple-800 font-mono bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                      {(proj.milestones || [
+                        { id: 'm1', title: 'دەستنیشانکردنی خێزانە کەمدەرامەتەکان', completed: true },
+                        { id: 'm2', title: 'دابینکردنی بودجە و کاڵاکانی کۆگا', completed: true },
+                        { id: 'm3', title: 'دابەشکردنی مەیدانی لە ڕێگەی خۆبەخشان', completed: proj.status === 'completed' }
+                      ]).filter(m => m.completed).length} / 3 تەواوکراوە
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {(proj.milestones || [
+                      { id: 'm1', title: 'دەستنیشانکردنی خێزانە کەمدەرامەتەکان', completed: true },
+                      { id: 'm2', title: 'دابینکردنی بودجە و کاڵاکانی کۆگا', completed: true },
+                      { id: 'm3', title: 'دابەشکردنی مەیدانی لە ڕێگەی خۆبەخشان', completed: proj.status === 'completed' }
+                    ]).map(m => (
+                      <div
+                        key={m.id}
+                        onClick={() => toggleProjectMilestone(proj.id, m.id)}
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] transition-all cursor-pointer ${
+                          m.completed
+                            ? 'bg-purple-50/70 border-purple-200 text-purple-900 font-bold'
+                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded-md border flex items-center justify-center shrink-0 ${
+                          m.completed ? 'bg-purple-600 border-purple-600 text-white' : 'border-slate-300'
+                        }`}>
+                          {m.completed && <Check className="w-2.5 h-2.5" />}
+                        </div>
+                        <span className="flex-1">{m.title}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

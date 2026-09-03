@@ -4,6 +4,7 @@ import { LiquidBackground } from './components/LiquidBackground';
 import { Topbar } from './components/Topbar';
 import { NavigationDock } from './components/NavigationDock';
 import { SpotlightModal } from './components/SpotlightModal';
+import { LockScreenModal } from './components/LockScreenModal';
 
 // Views
 import { DashboardView } from './views/DashboardView';
@@ -65,6 +66,9 @@ const MainContent: React.FC = () => {
 
       {/* Global Spotlight Search Modal */}
       <SpotlightModal />
+
+      {/* iOS 26 Liquid Lock Screen Modal */}
+      <LockScreenModal />
     </div>
   );
 };

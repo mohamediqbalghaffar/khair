@@ -22,7 +22,8 @@ import {
   CheckCircle2,
   Clock,
   Droplet,
-  ArrowRight
+  ArrowRight,
+  Download
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -160,6 +161,36 @@ export const DashboardView: React.FC = () => {
     setSearchQuery('');
   };
 
+  const exportImpactReport = () => {
+    const report = [
+      `ڕاپۆرتی کاریگەری و شەفافییەت - ڕێکخراوی بۆتان بامۆکی`,
+      `بەرواری هەناردەکردن: ${new Date().toLocaleDateString('ckb-IQ')} - ${new Date().toLocaleTimeString()}`,
+      `ماوەی فلتەرکراو: لە ${fromDate} بۆ ${toDate}`,
+      `پارێزگا: ${governorateFilter}`,
+      `حاڵەت: ${categoryFilter}`,
+      `------------------------------------------------`,
+      `کۆی خێزانە سوودمەندەکان: ${totalBeneficiaries}`,
+      `خێزانە هاوکاریکراوەکان: ${aidedBeneficiaries} (${Math.round((aidedBeneficiaries / (totalBeneficiaries || 1)) * 100)}%)`,
+      `کۆی بەخشین (دینار): ${totalDonationsIQD.toLocaleString()} د.ع`,
+      `کۆی بەخشین (دۆلار): $${totalDonationsUSD.toLocaleString()}`,
+      `پڕۆژە چالاکەکان: ${activeProjectsCount}`,
+      `کۆی کاتژمێری خزمەتی خۆبەخشان: ${totalVolunteerHours} کاتژمێر`,
+      `ژمارەی بەخشینەکان: ${filteredDonations.length}`,
+      `------------------------------------------------`,
+      `دوایین چالاکییە مەیدانییەکان:`,
+      ...recentAids.map((a, i) => `${i+1}. ${a.beneficiaryName} - ${a.projectTitle} (${a.type === 'monetary' ? `${a.amountIQD?.toLocaleString()} د.ع` : `${a.quantity} ${a.itemName}`}) - ${a.date}`)
+    ].join('\n');
+
+    const blob = new Blob(["\uFEFF" + report], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `bamboki_impact_report_${fromDate}_${toDate}.txt`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   return (
     <div className="space-y-6 pb-24">
       
@@ -182,17 +213,25 @@ export const DashboardView: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
             <button
               onClick={celebrateImpact}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl liquid-button-primary text-white text-xs font-bold shadow-md"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl liquid-button-primary text-white text-xs font-bold shadow-md"
             >
               <HeartHandshake className="w-4 h-4" />
               ئاهەنگی کاریگەری هاوکاری
             </button>
             <button
+              onClick={exportImpactReport}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-white/90 hover:bg-white border border-slate-200 text-slate-800 text-xs font-bold transition-all shadow-sm"
+              title="داگرتنی پوختەی ئاماری فلتەرکراو"
+            >
+              <Download className="w-4 h-4 text-emerald-600" />
+              هەناردەکردنی ڕاپۆرت
+            </button>
+            <button
               onClick={() => setActiveTab('beneficiaries')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/90 hover:bg-white border border-slate-200 text-slate-800 text-xs font-bold transition-all shadow-sm"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-white/90 hover:bg-white border border-slate-200 text-slate-800 text-xs font-bold transition-all shadow-sm"
             >
               <PlusCircle className="w-4 h-4 text-cyan-600" />
               تۆمارکردنی سوودمەند

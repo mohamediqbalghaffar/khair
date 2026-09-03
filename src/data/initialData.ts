@@ -9,7 +9,9 @@ import {
   AppNotification,
   DocumentItem,
   AuditLog,
-  GovernorateStats
+  GovernorateStats,
+  Announcement,
+  AutomatedReminder
 } from '../types';
 
 export const INITIAL_BENEFICIARIES: Beneficiary[] = [
@@ -689,5 +691,59 @@ export const GOVERNORATE_STATS: GovernorateStats[] = [
     activeProjectsCount: 2,
     volunteersCount: 14,
     coordinates: { x: 22, y: 15 }
+  }
+];
+
+export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: 'ann-01',
+    title: 'دابەشکردنی سەبەتەی خۆراکی مانگانە لە هەولێر',
+    content: 'ڕۆژی یەکشەممە کاتژمێر ٩:٠٠ی بەیانی لە کۆگای سەرەکی، قۆناغی دووەمی دابەشکردنی سەبەتەی خۆراک بۆ خێزانە پەسەندکراوەکان دەستپێدەکات.',
+    author: 'سەرکەوت کامیل (بەڕێوەبەری گشتی)',
+    date: '2026-03-01',
+    tag: 'مەیدانی'
+  },
+  {
+    id: 'ann-02',
+    title: 'کۆبوونەوەی هەفتانەی لقی سلێمانی و تیمی خۆبەخشان',
+    content: 'بانگهێشتی سەرجەم خۆبەخشانی مەیدانی دەکەین بۆ کۆبوونەوەی پلاندانانی هاوکاری دەرمانی نەخۆشە هەژارەکان.',
+    author: 'ئاکۆ عەبدولڕەحمان (بەرپرسی پڕۆژەکان)',
+    date: '2026-02-28',
+    tag: 'کۆبوونەوە'
+  },
+  {
+    id: 'ann-03',
+    title: 'دەستپێکردنی کەمپەینی بەپەلەی پشتیوانی هەتیوان',
+    content: 'سندووقی پشتگیری بێباوکان کرایەوە بۆ وەرگرتنی پێداویستی و جلوبەرگی نوێ.',
+    author: 'شەونم ئەحمەد (بەشی کۆمەک)',
+    date: '2026-02-25',
+    tag: 'پڕۆژەکان'
+  }
+];
+
+export const INITIAL_REMINDERS: AutomatedReminder[] = [
+  {
+    id: 'rem-01',
+    title: 'پشکنینی مەیدانی خێزانی ڕێبوار جەلال',
+    details: 'سەردانیکردنی پزیشکی بۆ نوێکردنەوەی ڕاپۆرتی چارەسەر لە دهۆک',
+    dueDate: '2026-03-08',
+    type: 'followup',
+    completed: false
+  },
+  {
+    id: 'rem-02',
+    title: 'کڕینی زۆپای نەوتی و پڕکردنەوەی کۆگا',
+    details: 'ئاگاداری کەمبوونەوەی کۆگای دهۆک (کەمتر لە ١٥ دانە)',
+    dueDate: '2026-03-05',
+    type: 'inventory',
+    completed: false
+  },
+  {
+    id: 'rem-03',
+    title: 'ڕادەستکردنی ڕاپۆرتی شەفافیەتی دارایی',
+    details: 'ڕاپۆرتی خەرجی و داهاتی مانگی شوبات بۆ چاودێری دارایی',
+    dueDate: '2026-03-06',
+    type: 'finance',
+    completed: true
   }
 ];

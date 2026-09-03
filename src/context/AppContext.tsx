@@ -12,7 +12,9 @@ import {
   AppNotification,
   DocumentItem,
   AuditLog,
-  AidRecord
+  AidRecord,
+  Announcement,
+  AutomatedReminder
 } from '../types';
 import {
   INITIAL_BENEFICIARIES,
@@ -24,7 +26,9 @@ import {
   INITIAL_VOLUNTEERS,
   INITIAL_NOTIFICATIONS,
   INITIAL_DOCUMENTS,
-  INITIAL_AUDIT_LOGS
+  INITIAL_AUDIT_LOGS,
+  INITIAL_ANNOUNCEMENTS,
+  INITIAL_REMINDERS
 } from '../data/initialData';
 
 export type NavTab =
@@ -93,10 +97,24 @@ interface AppContextType {
   // Audit Logs
   auditLogs: AuditLog[];
 
-  // Spotlight & Utilities
+  // Announcements & Automated Reminders (Feature 9)
+  announcements: Announcement[];
+  addAnnouncement: (title: string, content: string, tag: 'مەیدانی' | 'کۆبوونەوە' | 'پڕۆژەکان' | 'بەپەلە') => void;
+  reminders: AutomatedReminder[];
+  toggleReminder: (id: string) => void;
+  addReminder: (title: string, details: string, dueDate: string, type: 'distribution' | 'followup' | 'inventory' | 'finance') => void;
+
+  // Security (Feature 14)
+  isLocked: boolean;
+  setIsLocked: (locked: boolean) => void;
+  twoFactorEnabled: boolean;
+  setTwoFactorEnabled: (enabled: boolean) => void;
+
+  // Technical Foundations (Feature 15)
   isSpotlightOpen: boolean;
   setIsSpotlightOpen: (open: boolean) => void;
   exportDataJSON: () => void;
+  importDataJSON: (jsonData: string) => { success: boolean; message: string };
   resetAllData: () => void;
 }
 
@@ -203,6 +221,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem('ngo_audit_logs');
     return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
   });
+
+  const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
+    const saved = localStorage.getItem('ngo_announcements');
+    return saved ? JSON.parse(saved) : INITIAL_ANNOUNCEMENTS;
+  });
+
+  const [reminders, setReminders] = useState<AutomatedReminder[]>(() => {
+    const saved = localStorage.getItem('ngo_reminders');
+    return saved ? JSON.parse(saved) : INITIAL_REMINDERS;
+  });
+
+  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState<boolean>(true);
 
   // Save changes to LocalStorage
   useEffect(() => {
@@ -546,6 +577,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('هەناردەکردنی داتا', 'یەدەگی تەواوی داتابەیسەکە بە فۆرماتی JSON دابەزێندرا', 'export');
   };
 
+  // Import Data JSON
+  const importDataJSON = (jsonData: string): { success: boolean; message: string } => {
+    try {
+      const data = JSON.parse(jsonData);
+      if (data.beneficiaries && Array.isArray(data.beneficiaries)) setBeneficiaries(data.beneficiaries);
+      if (data.donors && Array.isArray(data.donors)) setDonors(data.donors);
+      if (data.donations && Array.isArray(data.donations)) setDonations(data.donations);
+      if (data.projects && Array.isArray(data.projects)) setProjects(data.projects);
+      if (data.inventory && Array.isArray(data.inventory)) setInventory(data.inventory);
+      if (data.transactions && Array.isArray(data.transactions)) setTransactions(data.transactions);
+      if (data.volunteers && Array.isArray(data.volunteers)) setVolunteers(data.volunteers);
+      if (data.documents && Array.isArray(data.documents)) setDocuments(data.documents);
+      logAction('هاوردەکردنی داتا', 'داتابەیسەکە لە فایلی یەدەگی JSON بە سەرکەوتوویی نوێکرایەوە', 'create');
+      return { success: true, message: 'داتاکان بە سەرکەوتوویی هاوردەکران و تەواوی بەشەکان نوێکرانەوە.' };
+    } catch (err) {
+      return { success: false, message: 'فایلی JSON هەڵەی تێدایە یان فۆرماتەکەی نادروستە.' };
+    }
+  };
+
+  // Announcements & Reminders
+  const addAnnouncement = (title: string, content: string, tag: 'مەیدانی' | 'کۆبوونەوە' | 'پڕۆژەکان' | 'بەپەلە') => {
+    const newAnn: Announcement = {
+      id: `ann-${Date.now()}`,
+      title,
+      content,
+      author: ROLE_PROFILES[currentRole].name,
+      date: new Date().toISOString().split('T')[0],
+      tag
+    };
+    setAnnouncements(prev => [newAnn, ...prev]);
+    logAction('ڕاگەیاندراوی نوێ', `ڕاگەیاندراو بڵاوکرایەوە: ${title}`, 'create');
+  };
+
+  const toggleReminder = (id: string) => {
+    setReminders(prev => prev.map(r => r.id === id ? { ...r, completed: !r.completed } : r));
+  };
+
+  const addReminder = (title: string, details: string, dueDate: string, type: 'distribution' | 'followup' | 'inventory' | 'finance') => {
+    const newRem: AutomatedReminder = {
+      id: `rem-${Date.now()}`,
+      title,
+      details,
+      dueDate,
+      type,
+      completed: false
+    };
+    setReminders(prev => [newRem, ...prev]);
+    logAction('بیرخەرەوەی نوێ', `بیرخەرەوە زیادکرا: ${title}`, 'create');
+  };
+
   // Reset Data to Defaults
   const resetAllData = () => {
     localStorage.clear();
@@ -559,6 +640,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(INITIAL_NOTIFICATIONS);
     setDocuments(INITIAL_DOCUMENTS);
     setAuditLogs(INITIAL_AUDIT_LOGS);
+    setAnnouncements(INITIAL_ANNOUNCEMENTS);
+    setReminders(INITIAL_REMINDERS);
     logAction('گەڕانەوە بۆ داتای سەرەتایی', 'تەواوی داتاکان گەڕێنرانەوە بۆ نموونەی بنەڕەتی', 'update');
   };
 
@@ -599,9 +682,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markNotificationRead,
         sendSimulationSMS,
         auditLogs,
+        announcements,
+        addAnnouncement,
+        reminders,
+        toggleReminder,
+        addReminder,
+        isLocked,
+        setIsLocked,
+        twoFactorEnabled,
+        setTwoFactorEnabled,
         isSpotlightOpen,
         setIsSpotlightOpen,
         exportDataJSON,
+        importDataJSON,
         resetAllData
       }}
     >

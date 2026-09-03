@@ -85,6 +85,7 @@ export interface Project {
   beneficiariesCount: number;
   volunteersCount: number;
   image: string;
+  milestones?: { id: string; title: string; completed: boolean }[];
 }
 
 export interface InventoryItem {
@@ -165,4 +166,22 @@ export interface GovernorateStats {
   activeProjectsCount: number;
   volunteersCount: number;
   coordinates: { x: number; y: number }; // For visual liquid map
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  author: string;
+  date: string;
+  tag: 'مەیدانی' | 'کۆبوونەوە' | 'پڕۆژەکان' | 'بەپەلە';
+}
+
+export interface AutomatedReminder {
+  id: string;
+  title: string;
+  details: string;
+  dueDate: string;
+  type: 'distribution' | 'followup' | 'inventory' | 'finance';
+  completed: boolean;
 }

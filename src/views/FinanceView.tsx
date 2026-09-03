@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { Donation } from '../types';
 import {
   Wallet,
   TrendingUp,
@@ -7,18 +8,26 @@ import {
   Plus,
   Search,
   FileSpreadsheet,
+  Smartphone,
+  Target,
+  PieChart,
   X
 } from 'lucide-react';
+import { OnlinePaymentModal } from '../components/OnlinePaymentModal';
+import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 
 export const FinanceView: React.FC = () => {
   const {
     transactions,
     addTransaction,
+    donations
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isOnlinePayOpen, setIsOnlinePayOpen] = useState(false);
+  const [activeReceiptDonation, setActiveReceiptDonation] = useState<Donation | null>(null);
 
   // New Transaction Form State
   const [txForm, setTxForm] = useState({
@@ -108,6 +117,14 @@ export const FinanceView: React.FC = () => {
           </button>
           
           <button
+            onClick={() => setIsOnlinePayOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 text-cyan-800 text-xs font-bold transition-all shadow-sm"
+          >
+            <Smartphone className="w-4 h-4 text-cyan-600" />
+            بەخشینی ئۆنلاین (FIB/FastPay)
+          </button>
+          
+          <button
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-2xl liquid-button-primary text-white text-xs font-bold shadow-md"
           >
@@ -168,6 +185,48 @@ export const FinanceView: React.FC = () => {
           </p>
         </div>
 
+      </div>
+
+      {/* Budget Planning & Forecasting Widget (Feature 6) */}
+      <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Target className="w-5 h-5 text-indigo-600" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">پلاندانانی بودجە و پێشبینی خەرجییەکان (Budget Planning & Forecast)</h3>
+              <p className="text-[11px] text-slate-500">بەراوردی بودجەی تەرخانکراو بەرامبەر خەرجی ڕاستەقینە بەپێی بەشەکان</p>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
+            ساڵی ٢٠٢٦
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+          {[
+            { title: 'کڕینی خۆراک و سەبەتە', budget: 15000000, spent: 6800000, color: 'from-emerald-500 to-teal-600' },
+            { title: 'دەرمان و چارەسەری نەخۆش', budget: 8000000, spent: 4200000, color: 'from-cyan-500 to-blue-600' },
+            { title: 'سندووقی بێباوک و هەتیوان', budget: 10000000, spent: 5500000, color: 'from-purple-500 to-indigo-600' },
+            { title: 'تێچووی گواستنەوە و مەیدانی', budget: 3000000, spent: 1100000, color: 'from-amber-500 to-orange-600' },
+          ].map((cat, i) => {
+            const percent = Math.min(100, Math.round((cat.spent / cat.budget) * 100));
+            return (
+              <div key={i} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-800">{cat.title}</span>
+                  <span className="font-mono font-bold text-slate-900">{percent}٪</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div className={`h-full rounded-full bg-gradient-to-r ${cat.color}`} style={{ width: `${percent}%` }} />
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                  <span>خەرجکراو: {(cat.spent / 1000000).toFixed(1)}م د.ع</span>
+                  <span>بودجە: {(cat.budget / 1000000).toFixed(1)}م د.ع</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -396,6 +455,21 @@ export const FinanceView: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Feature 6: Online Payment Gateway Modal */}
+      <OnlinePaymentModal
+        isOpen={isOnlinePayOpen}
+        onClose={() => setIsOnlinePayOpen(false)}
+        onReceiptGenerated={(rec) => {
+          const match = donations.find(d => d.receiptNumber === rec);
+          if (match) setActiveReceiptDonation(match);
+        }}
+      />
+
+      {/* Official Receipt Modal for online donations */}
+      <OfficialReceiptModal
+        donation={activeReceiptDonation}
+        onClose={() => setActiveReceiptDonation(null)}
+      />
 
     </div>
   );
