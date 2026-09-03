@@ -181,8 +181,15 @@ export const DonorsView: React.FC = () => {
 
       {/* View 1: Donors Cards Grid */}
       {activeSubTab === 'donors' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredDonors.map(donor => (
+        donors.length === 0 ? (
+          <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-16 border border-slate-200/90 text-center shadow-sm">
+            <HeartHandshake className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-sm font-bold text-slate-700">هیچ بەخشەرێک تۆمار نەکراوە (سفر تۆمار)</p>
+            <p className="text-xs text-slate-400 mt-1">بۆ دەستپێکردنی تۆمارکردنی فەرمی، کلیک لە دوگمەی «بەخشەری نوێ» بکە لە سەرەوە</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredDonors.map(donor => (
             <div
               key={donor.id}
               className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 border border-slate-200/90 hover:border-emerald-500/50 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between"
@@ -258,7 +265,8 @@ export const DonorsView: React.FC = () => {
             </div>
           ))}
         </div>
-      )}
+      )
+    )}
 
       {/* View 2: Donations List & Official Receipts */}
       {activeSubTab === 'donations' && (
@@ -277,7 +285,15 @@ export const DonorsView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredDonations.length === 0 ? (
+                {donations.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-16 text-center">
+                      <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="text-sm font-bold text-slate-700">هیچ پسوولەیەکی بەخشین تۆمار نەکراوە (سفر پسوولە)</p>
+                      <p className="text-xs text-slate-400 mt-1">بۆ تۆمارکردنی بەخشینی نوێ، کلیک لە دوگمەی «تۆمارکردنی بەخشین + پسوولە» بکە لە سەرەوە</p>
+                    </td>
+                  </tr>
+                ) : filteredDonations.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-400">
                       هیچ بەخشینێک نەدۆزرایەوە

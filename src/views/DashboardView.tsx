@@ -51,8 +51,8 @@ export const DashboardView: React.FC = () => {
     ].filter(Boolean).sort();
 
     return {
-      minRecordDate: allDates.length > 0 ? allDates[0] : '2023-01-01',
-      maxRecordDate: allDates.length > 0 ? allDates[allDates.length - 1] : '2026-12-31'
+      minRecordDate: allDates.length > 0 ? allDates[0] : `${new Date().getFullYear()}-01-01`,
+      maxRecordDate: allDates.length > 0 ? allDates[allDates.length - 1] : `${new Date().getFullYear()}-12-31`
     };
   }, [beneficiaries, donations, projects]);
 
@@ -402,7 +402,7 @@ export const DashboardView: React.FC = () => {
                 {totalBeneficiaries} <span className="text-sm font-normal text-slate-500">خێزان</span>
               </div>
               <p className="text-[11px] text-emerald-700 mt-1 font-bold">
-                {aidedBeneficiaries} خێزان هاوکاری وەرگرتووە ({Math.round((aidedBeneficiaries / (totalBeneficiaries || 1)) * 100)}٪)
+                {aidedBeneficiaries} خێزان هاوکاری وەرگرتووە ({totalBeneficiaries > 0 ? Math.round((aidedBeneficiaries / totalBeneficiaries) * 100) : 0}٪)
               </p>
             </div>
           </div>
@@ -464,7 +464,7 @@ export const DashboardView: React.FC = () => {
                 {totalVolunteerHours} <span className="text-sm font-normal text-slate-500">کاتژمێر</span>
               </div>
               <p className="text-[11px] text-amber-700 mt-1 font-bold">
-                {filteredVolunteers.length} گەنجی دڵسۆز لە مەیداندا
+                {filteredVolunteers.length} خۆبەخش لە مەیداندا
               </p>
             </div>
           </div>
@@ -532,7 +532,10 @@ export const DashboardView: React.FC = () => {
 
           <div className="space-y-3">
             {recentAids.length === 0 ? (
-              <p className="text-center py-8 text-xs text-slate-400">هیچ تۆمارێکی هاوکاری نەدۆزرایەوە بەپێی ئەم فلتەرە</p>
+              <div className="py-8 text-center space-y-1 rounded-2xl bg-slate-50/50 border border-dashed border-slate-200">
+                <p className="text-xs text-slate-600 font-bold">هیچ هاوکارییەک تۆمار نەکراوە (سفر تۆمار)</p>
+                <p className="text-[10px] text-slate-400">بە تۆمارکردنی سوودمەندان و دابەشکردنی کۆمەک، چالاکییەکان لێرەدا دەردەکەون</p>
+              </div>
             ) : (
               recentAids.map((aid) => (
                 <div
@@ -655,20 +658,26 @@ export const DashboardView: React.FC = () => {
                 لیستی بەخشینە تۆمارکراوەکان ({filteredDonations.length})
               </div>
               <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
-                {filteredDonations.map(d => (
-                  <div key={d.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
-                    <div>
-                      <p className="font-bold text-slate-900">{d.donorName}</p>
-                      <p className="text-[11px] text-slate-500 font-mono">{d.receiptNumber} • {d.method} • {d.date}</p>
-                    </div>
-                    <div className="text-left">
-                      <span className="font-black text-emerald-700 text-sm">
-                        {d.amount.toLocaleString()} {d.currency === 'IQD' ? 'د.ع' : '$'}
-                      </span>
-                      <p className="text-[10px] text-slate-500">{d.projectName || 'سندووقی گشتی'}</p>
-                    </div>
+                {filteredDonations.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 font-bold">
+                    هیچ بەخشینێک تۆمار نەکراوە (سفر پسوولە)
                   </div>
-                ))}
+                ) : (
+                  filteredDonations.map(d => (
+                    <div key={d.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
+                      <div>
+                        <p className="font-bold text-slate-900">{d.donorName}</p>
+                        <p className="text-[11px] text-slate-500 font-mono">{d.receiptNumber} • {d.method} • {d.date}</p>
+                      </div>
+                      <div className="text-left">
+                        <span className="font-black text-emerald-700 text-sm">
+                          {d.amount.toLocaleString()} {d.currency === 'IQD' ? 'د.ع' : '$'}
+                        </span>
+                        <p className="text-[10px] text-slate-500">{d.projectName || 'سندووقی گشتی'}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -742,22 +751,28 @@ export const DashboardView: React.FC = () => {
                 لیستی خێزانەکان ({filteredBeneficiaries.length})
               </div>
               <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
-                {filteredBeneficiaries.map(b => (
-                  <div key={b.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
-                    <div>
-                      <p className="font-bold text-slate-900 text-sm">{b.fullName}</p>
-                      <p className="text-[11px] text-slate-500">{b.governorate} • {b.address} • {b.familyMembers} کەس</p>
-                    </div>
-                    <div className="text-left">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        b.status === 'aided' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
-                      }`}>
-                        {b.status === 'aided' ? `هاوکاریکراو (${b.aidHistory.length})` : 'پەسەندکراوە'}
-                      </span>
-                      <p className="text-[11px] font-bold text-slate-700 mt-1">{b.monthlyIncomeIQD.toLocaleString()} د.ع</p>
-                    </div>
+                {filteredBeneficiaries.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 font-bold">
+                    هیچ خێزانێکی سوودمەند تۆمار نەکراوە (سفر خێزان)
                   </div>
-                ))}
+                ) : (
+                  filteredBeneficiaries.map(b => (
+                    <div key={b.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
+                      <div>
+                        <p className="font-bold text-slate-900 text-sm">{b.fullName}</p>
+                        <p className="text-[11px] text-slate-500">{b.governorate} • {b.address} • {b.familyMembers} کەس</p>
+                      </div>
+                      <div className="text-left">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          b.status === 'aided' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                        }`}>
+                          {b.status === 'aided' ? `هاوکاریکراو (${b.aidHistory.length})` : 'پەسەندکراوە'}
+                        </span>
+                        <p className="text-[11px] font-bold text-slate-700 mt-1">{b.monthlyIncomeIQD.toLocaleString()} د.ع</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -807,42 +822,48 @@ export const DashboardView: React.FC = () => {
 
             {/* Projects List with Progress */}
             <div className="space-y-3.5 mb-5 max-h-72 overflow-y-auto pr-1">
-              {filteredProjects.map(p => {
-                const raisedPercent = Math.min(100, Math.round((p.raisedBudgetUSD / p.targetBudgetUSD) * 100));
-                const spentPercent = Math.min(100, Math.round((p.spentBudgetUSD / p.targetBudgetUSD) * 100));
+              {filteredProjects.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400 font-bold">
+                  هیچ پڕۆژەیەک تۆمار نەکراوە (سفر پڕۆژە)
+                </div>
+              ) : (
+                filteredProjects.map(p => {
+                  const raisedPercent = p.targetBudgetUSD > 0 ? Math.min(100, Math.round((p.raisedBudgetUSD / p.targetBudgetUSD) * 100)) : 0;
+                  const spentPercent = p.targetBudgetUSD > 0 ? Math.min(100, Math.round((p.spentBudgetUSD / p.targetBudgetUSD) * 100)) : 0;
 
-                return (
-                  <div key={p.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">{p.title}</h4>
-                        <span className="text-[10px] text-purple-700 font-bold">{p.category} • {p.governorates.join(', ')}</span>
+                  return (
+                    <div key={p.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900">{p.title}</h4>
+                          <span className="text-[10px] text-purple-700 font-bold">{p.category} • {p.governorates.join(', ')}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          p.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {p.status === 'completed' ? 'تەواوکراو' : 'بەردەوامە'}
+                        </span>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        p.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'
-                      }`}>
-                        {p.status === 'completed' ? 'تەواوکراو' : 'بەردەوامە'}
-                      </span>
-                    </div>
 
-                    {/* Progress meters */}
-                    <div className="space-y-1.5 text-[11px]">
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>کۆکراوە: ${p.raisedBudgetUSD.toLocaleString()} / ${p.targetBudgetUSD.toLocaleString()}</span>
-                        <span className="font-bold text-emerald-700 font-mono">{raisedPercent}٪</span>
+                      {/* Progress meters */}
+                      <div className="space-y-1.5 text-[11px]">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>کۆکراوە: ${p.raisedBudgetUSD.toLocaleString()} / ${p.targetBudgetUSD.toLocaleString()}</span>
+                          <span className="font-bold text-emerald-700 font-mono">{raisedPercent}٪</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${raisedPercent}%` }} />
+                        </div>
                       </div>
-                      <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${raisedPercent}%` }} />
-                      </div>
-                    </div>
 
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-200/80">
-                      <span>{p.beneficiariesCount} سوودمەند • {p.volunteersCount} خۆبەخش</span>
-                      <span className="font-mono">{p.startDate} تا {p.endDate}</span>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-200/80">
+                        <span>{p.beneficiariesCount} سوودمەند • {p.volunteersCount} خۆبەخش</span>
+                        <span className="font-mono">{p.startDate} تا {p.endDate}</span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             {/* Footer Action */}
@@ -913,25 +934,31 @@ export const DashboardView: React.FC = () => {
                 لیستی ئەندامانی تیمی مەیدانی ({filteredVolunteers.length})
               </div>
               <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
-                {filteredVolunteers.map(v => (
-                  <div key={v.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-xs">
-                        {v.fullName.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900">{v.fullName}</p>
-                        <p className="text-[10px] text-slate-500 font-mono">{v.badgeNumber} • {v.governorate} • خوێن: {v.bloodType}</p>
-                      </div>
-                    </div>
-                    <div className="text-left">
-                      <span className="font-black text-amber-700 text-xs block">
-                        {v.hoursLogged} کاتژمێر
-                      </span>
-                      <span className="text-[10px] text-slate-500">{v.availability}</span>
-                    </div>
+                {filteredVolunteers.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 font-bold">
+                    هیچ خۆبەخشێک تۆمار نەکراوە (سفر ئەندام)
                   </div>
-                ))}
+                ) : (
+                  filteredVolunteers.map(v => (
+                    <div key={v.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-xs">
+                          {v.fullName.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">{v.fullName}</p>
+                          <p className="text-[10px] text-slate-500 font-mono">{v.badgeNumber} • {v.governorate} • خوێن: {v.bloodType}</p>
+                        </div>
+                      </div>
+                      <div className="text-left">
+                        <span className="font-black text-amber-700 text-xs block">
+                          {v.hoursLogged} کاتژمێر
+                        </span>
+                        <span className="text-[10px] text-slate-500">{v.availability}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 

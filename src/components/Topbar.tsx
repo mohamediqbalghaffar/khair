@@ -19,7 +19,8 @@ import {
   Plus,
   Check,
   Sparkles,
-  Megaphone
+  Megaphone,
+  User
 } from 'lucide-react';
 import { DeveloperApiModal } from './DeveloperApiModal';
 import { SecurityModal } from './SecurityModal';
@@ -407,11 +408,17 @@ export const Topbar: React.FC = () => {
                 onClick={() => setShowRoleMenu(!showRoleMenu)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-100 hover:bg-slate-200/70 border border-slate-200 transition-all text-right group shadow-sm"
               >
-                <img
-                  src={currentUser.avatar}
-                  alt={currentUser.name}
-                  className="w-8 h-8 rounded-xl object-cover ring-1 ring-slate-300"
-                />
+                {currentUser.avatar ? (
+                  <img
+                    src={currentUser.avatar}
+                    alt={currentUser.name}
+                    className="w-8 h-8 rounded-xl object-cover ring-1 ring-slate-300"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-teal-600 flex items-center justify-center text-white shadow-sm ring-1 ring-cyan-200">
+                    <User className="w-4 h-4" />
+                  </div>
+                )}
                 <div className="hidden sm:block text-right">
                   <p className="text-xs font-bold text-slate-900 leading-tight">{currentUser.name}</p>
                   <p className="text-[10px] text-cyan-700 font-bold">{currentUser.roleTitleKurdish}</p>
@@ -480,16 +487,16 @@ export const Topbar: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm('دڵنیایت لە گەڕانەوەی تەواوی داتاکان بۆ باری سەرەتایی؟')) {
+                        if (confirm('دڵنیایت لە خاوێنکردنەوەی تەواوی داتاکان بۆ سفر؟')) {
                           resetAllData();
                           setShowRoleMenu(false);
                         }
                       }}
                       className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-[11px] font-bold text-rose-700 transition-colors border border-rose-200"
-                      title="ڕیسێتکردنەوە بۆ نموونە بنەڕەتییەکان"
+                      title="خاوێنکردنەوەی سەرجەم تۆمارەکان بۆ سفر"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      داتای بنەڕەت
+                      داتای سفر
                     </button>
                   </div>
                 </div>

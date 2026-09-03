@@ -286,7 +286,15 @@ export const FinanceView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredTransactions.length === 0 ? (
+              {transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center">
+                    <Wallet className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-700">هیچ جووڵەیەکی دارایی تۆمار نەکراوە (سفر داهات و خەرجی)</p>
+                    <p className="text-xs text-slate-400 mt-1">بۆ تۆمارکردنی داهات یان خەرجی، کلیک لە دوگمەی «تۆمارکردنی خەرجی / داهات» بکە لە سەرەوە</p>
+                  </td>
+                </tr>
+              ) : filteredTransactions.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-slate-400">
                     هیچ تۆمارێکی دارایی نەدۆزرایەوە

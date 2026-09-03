@@ -161,8 +161,15 @@ export const DocumentsView: React.FC = () => {
       </div>
 
       {/* Documents Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {filteredDocs.map(doc => (
+      {documents.length === 0 ? (
+        <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-16 border border-slate-200/90 text-center shadow-sm">
+          <Files className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-bold text-slate-700">هیچ بەڵگەنامەیەک بار نەکراوە (سفر دۆسیە)</p>
+          <p className="text-xs text-slate-400 mt-1">بۆ بارکردنی بەڵگەنامە و وێنە و گرێبەست، کلیک لە دوگمەی «بارکردنی بەڵگەنامەی نوێ» بکە لە سەرەوە</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {filteredDocs.map(doc => (
           <div
             key={doc.id}
             className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 border border-slate-200/90 hover:border-teal-500/50 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
@@ -228,6 +235,7 @@ export const DocumentsView: React.FC = () => {
           </div>
         ))}
       </div>
+    )}
 
       {/* File Preview Modal */}
       {selectedDoc && (

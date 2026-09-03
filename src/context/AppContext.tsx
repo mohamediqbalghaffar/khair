@@ -128,58 +128,69 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const SYSTEM_VERSION = 'v5_clean_zero_production';
+
 const ROLE_PROFILES: Record<UserRole, UserProfile> = {
   admin: {
     id: 'user-admin',
-    name: 'سەرکەوت کامیل',
+    name: 'بەڕێوەبەری سیستەم',
     role: 'admin',
     roleTitleKurdish: 'بەڕێوەبەری گشتی (Admin)',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+    avatar: ''
   },
   manager: {
     id: 'user-manager',
-    name: 'ئاکۆ عەبدولڕەحمان',
+    name: 'بەرپرسی پڕۆژەکان',
     role: 'manager',
     roleTitleKurdish: 'بەرپرسی پڕۆژەکان (Manager)',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
+    avatar: ''
   },
   staff: {
     id: 'user-staff',
-    name: 'شەیما نەوزاد',
+    name: 'کارمەندی تۆمار',
     role: 'staff',
     roleTitleKurdish: 'کارمەندی تۆمار (Staff)',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80'
+    avatar: ''
   },
   volunteer: {
     id: 'user-volunteer',
-    name: 'کاروان ساڵح',
+    name: 'خۆبەخشی مەیدانی',
     role: 'volunteer',
     roleTitleKurdish: 'خۆبەخش (Volunteer)',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80'
+    avatar: ''
   },
   donor: {
     id: 'user-donor',
-    name: 'حاجی ڕەشید دۆسکی',
+    name: 'بەخشەری خێرخواز',
     role: 'donor',
     roleTitleKurdish: 'بەخشەر (Donor)',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'
+    avatar: ''
   },
   auditor: {
     id: 'user-auditor',
-    name: 'دڵنیا عیزەدین',
+    name: 'چاودێری دارایی',
     role: 'auditor',
     roleTitleKurdish: 'چاودێری دارایی (Auditor)',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'
+    avatar: ''
   }
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Clear legacy mock records from browser LocalStorage if version upgraded
+  if (typeof window !== 'undefined') {
+    const savedVer = localStorage.getItem('ngo_system_version');
+    if (savedVer !== SYSTEM_VERSION) {
+      localStorage.clear();
+      localStorage.setItem('ngo_system_version', SYSTEM_VERSION);
+    }
+  }
+
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [currentRole, setCurrentRole] = useState<UserRole>('admin');
   const [currencyView, setCurrencyView] = useState<'IQD' | 'USD'>('IQD');
   const [isSpotlightOpen, setIsSpotlightOpen] = useState<boolean>(false);
 
-  // Load or initialize state from LocalStorage
+  // Load or initialize state from LocalStorage (starts from clean zero records)
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>(() => {
     const saved = localStorage.getItem('ngo_beneficiaries');
     return saved ? JSON.parse(saved) : INITIAL_BENEFICIARIES;
@@ -677,25 +688,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('بیرخەرەوەی نوێ', `بیرخەرەوە زیادکرا: ${title}`, 'create');
   };
 
-  // Reset Data to Defaults
+  // Reset Data to Clean Zero
   const resetAllData = () => {
     localStorage.clear();
-    setBeneficiaries(INITIAL_BENEFICIARIES);
-    setDonors(INITIAL_DONORS);
-    setDonations(INITIAL_DONATIONS);
-    setProjects(INITIAL_PROJECTS);
-    setInventory(INITIAL_INVENTORY);
-    setTransactions(INITIAL_TRANSACTIONS);
-    setVolunteers(INITIAL_VOLUNTEERS);
-    setNotifications(INITIAL_NOTIFICATIONS);
-    setDocuments(INITIAL_DOCUMENTS);
+    localStorage.setItem('ngo_system_version', SYSTEM_VERSION);
+    setBeneficiaries([]);
+    setDonors([]);
+    setDonations([]);
+    setProjects([]);
+    setInventory([]);
+    setTransactions([]);
+    setVolunteers([]);
+    setNotifications([]);
+    setDocuments([]);
     setAuditLogs(INITIAL_AUDIT_LOGS);
-    setAnnouncements(INITIAL_ANNOUNCEMENTS);
-    setReminders(INITIAL_REMINDERS);
-    logAction('گەڕانەوە بۆ داتای سەرەتایی', 'تەواوی داتاکان گەڕێنرانەوە بۆ نموونەی بنەڕەتی', 'update');
+    setAnnouncements([]);
+    setReminders([]);
+    logAction('دەستپێکردنی سیستەم لە سفرەوە', 'سەرجەم داتاکان خاوێنکرانەوە بۆ دەستپێکی نوێ لە سفرەوە', 'update');
   };
 
   const clearToEmptyDatabase = () => {
+    localStorage.clear();
+    localStorage.setItem('ngo_system_version', SYSTEM_VERSION);
     setBeneficiaries([]);
     setDonors([]);
     setDonations([]);
@@ -705,7 +719,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setVolunteers([]);
     setDocuments([]);
     setNotifications([]);
-    logAction('پاککردنەوەی تەواوی داتابەیس', 'داتابەیسەکە بە سەرکەوتوویی پاککرایەوە و بە شێوەیەکی فەرمی ئامادەکرا بۆ تۆماری ڕاستەقینە', 'delete');
+    setAnnouncements([]);
+    setReminders([]);
+    setAuditLogs(INITIAL_AUDIT_LOGS);
+    logAction('پاککردنەوەی تەواوی داتابەیس', 'داتابەیسەکە بە سەرکەوتوویی پاککرایەوە بۆ سفر تۆمار بۆ دەستپێکی فەرمی', 'delete');
   };
 
   return (

@@ -141,8 +141,15 @@ export const InventoryView: React.FC = () => {
       </div>
 
       {/* Inventory Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredInventory.map(item => {
+      {inventory.length === 0 ? (
+        <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-16 border border-slate-200/90 text-center shadow-sm">
+          <PackageSearch className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-bold text-slate-700">هیچ کاڵایەک لە کۆگادا تۆمار نەکراوە (سفر تۆمار)</p>
+          <p className="text-xs text-slate-400 mt-1">بۆ دەستپێکردنی تۆمارکردنی کاڵا و کۆمەک، کلیک لە دوگمەی «زیادکردنی کاڵای نوێ بۆ کۆگا» بکە لە سەرەوە</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredInventory.map(item => {
           const isLow = item.quantity <= item.minAlertThreshold;
           return (
             <div
@@ -243,6 +250,7 @@ export const InventoryView: React.FC = () => {
           );
         })}
       </div>
+    )}
 
       {/* Direct Distribution Modal */}
       {isDistributeModalOpen && selectedItemForDistribution && (
