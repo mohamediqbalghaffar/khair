@@ -63,10 +63,10 @@
 
 ```bash
 # کلۆنکردنی پڕۆژەکە
-git clone https://github.com/mohamediqbalghaffar/ngo-charity-database.git
+git clone https://github.com/mohamediqbalghaffar/khair.git
 
 # چوونە ناو فۆڵدەر
-cd ngo-charity-database
+cd khair
 
 # دابەزاندنی پاکێجەکان
 npm install
