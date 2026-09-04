@@ -272,44 +272,17 @@ export const BeneficiariesView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-          {/* Quick Download Template Button */}
-          <button
-            onClick={downloadBeneficiaryExcelTemplate}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm font-bold shadow-sm hover:shadow transition-all"
-            title="داگرتنی تێمپلەیتی خاوێنی ئێکسڵ بە زمانی کوردی"
-          >
-            <Download className="w-4 h-4 text-emerald-600" />
-            <span>داگرتنی تێمپلەیتی ئێکسڵ</span>
-          </button>
-
-          {/* Quick Bulk Import Trigger */}
-          <button
-            onClick={() => {
-              setEntryMode('bulk');
-              setBulkImportSuccess(null);
-              setParsedData(null);
-              setIsAddModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs sm:text-sm font-bold shadow-sm hover:shadow transition-all"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>هاوردەکردن بە ئێکسڵ</span>
-          </button>
-
-          {/* Single Register Button */}
-          <button
-            onClick={() => {
-              setEntryMode('single');
-              resetSingleForm();
-              setIsAddModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl liquid-button-primary text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>تۆمارکردنی سوودمەندی نوێ</span>
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setEntryMode('single');
+            resetSingleForm();
+            setIsAddModalOpen(true);
+          }}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl liquid-button-primary text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          <span>تۆمارکردنی سوودمەندی نوێ</span>
+        </button>
       </div>
 
       {/* Filter and Search Pill Bar */}
