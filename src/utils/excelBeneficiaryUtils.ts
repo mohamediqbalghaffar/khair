@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Beneficiary, NeedCategory, OtherProvider } from '../types';
 
 export const EXCEL_COLUMNS = {
@@ -9,10 +10,10 @@ export const EXCEL_COLUMNS = {
   phone: 'ژمارەی مۆبایل',
   governorate: 'پارێزگا',
   address: 'ناونیشانی ورد',
-  isFamilyHead: 'ئایا سەرۆکی خێزانە؟ (بەڵێ / نەخێر)',
-  isProvider: 'ئایا بژێوی خێزان دابین دەکات؟ (بەڵێ / نەخێر)',
+  isFamilyHead: 'ئایا سەرۆکی خێزانە؟',
+  isProvider: 'ئایا بژێوی خێزان دابین دەکات؟',
   providerName: 'ناوی دابینکەر ئەگەر نا',
-  isOnlyProvider: 'تەنها دابینکەرە؟ (بەڵێ / نەخێر)',
+  isOnlyProvider: 'تەنها دابینکەرە؟',
   otherProviders: 'دابینکەرانی تر لە هەمان خێزاندا',
   familyMembers: 'ئەندامانی خێزان',
   monthlyIncomeIQD: 'داهاتی مانگانە (دینار)',
@@ -20,92 +21,300 @@ export const EXCEL_COLUMNS = {
   notes: 'تێبینی و بارودۆخی تایبەت'
 } as const;
 
-export const downloadBeneficiaryExcelTemplate = () => {
-  const headers = [
-    EXCEL_COLUMNS.fullName,
-    EXCEL_COLUMNS.nationalId,
-    EXCEL_COLUMNS.gender,
-    EXCEL_COLUMNS.age,
-    EXCEL_COLUMNS.phone,
-    EXCEL_COLUMNS.governorate,
-    EXCEL_COLUMNS.address,
-    EXCEL_COLUMNS.isFamilyHead,
-    EXCEL_COLUMNS.isProvider,
-    EXCEL_COLUMNS.providerName,
-    EXCEL_COLUMNS.isOnlyProvider,
-    EXCEL_COLUMNS.otherProviders,
-    EXCEL_COLUMNS.familyMembers,
-    EXCEL_COLUMNS.monthlyIncomeIQD,
-    EXCEL_COLUMNS.needCategory,
-    EXCEL_COLUMNS.notes
+// Pre-set allowed option lists
+export const PRESET_OPTIONS = {
+  gender: ['نێر', 'مێ'],
+  governorate: ['هەولێر', 'سلێمانی', 'دهۆک', 'هەڵەبجە', 'کەرکووک', 'گەرمیان', 'زاخۆ'],
+  isFamilyHead: ['بەڵێ', 'نەخێر'],
+  isProvider: ['بەڵێ', 'نەخێر'],
+  isOnlyProvider: ['بەڵێ', 'نەخێر', '-'],
+  needCategory: [
+    'هەژار و کەمدەرامەت',
+    'بێباوک و هەتیو',
+    'نەخۆشی درێژخایەن',
+    'خاوەن پێداویستی تایبەت',
+    'خوێندکاری هەژار'
+  ]
+};
+
+export const downloadBeneficiaryExcelTemplate = async () => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'ڕێکخراوی بۆتان بامۆکی';
+  workbook.created = new Date();
+
+  // 1. Create Lookup sheet for strict validation dropdowns (hidden from clutter)
+  const lookupSheet = workbook.addWorksheet('_LookupData');
+  lookupSheet.state = 'veryHidden'; // completely hide lookup sheet so Excel user only sees the main table
+
+  // Write option columns in _LookupData
+  // Col A: Gender
+  PRESET_OPTIONS.gender.forEach((val, i) => {
+    lookupSheet.getCell(i + 1, 1).value = val;
+  });
+  // Col B: Governorate
+  PRESET_OPTIONS.governorate.forEach((val, i) => {
+    lookupSheet.getCell(i + 1, 2).value = val;
+  });
+  // Col C: isFamilyHead
+  PRESET_OPTIONS.isFamilyHead.forEach((val, i) => {
+    lookupSheet.getCell(i + 1, 3).value = val;
+  });
+  // Col D: isProvider
+  PRESET_OPTIONS.isProvider.forEach((val, i) => {
+    lookupSheet.getCell(i + 1, 4).value = val;
+  });
+  // Col E: isOnlyProvider
+  PRESET_OPTIONS.isOnlyProvider.forEach((val, i) => {
+    lookupSheet.getCell(i + 1, 5).value = val;
+  });
+  // Col F: needCategory
+  PRESET_OPTIONS.needCategory.forEach((val, i) => {
+    lookupSheet.getCell(i + 1, 6).value = val;
+  });
+
+  // 2. Create Main Sheet with NATIVE RIGHT-TO-LEFT LAYOUT
+  const worksheet = workbook.addWorksheet('تێمپلەیتی سوودمەندان', {
+    views: [
+      {
+        state: 'normal',
+        rightToLeft: true, // Native Right-To-Left view in Microsoft Excel!
+        activeCell: 'A2'
+      }
+    ]
+  });
+
+  // Define Columns with headers and optimal widths
+  worksheet.columns = [
+    { header: EXCEL_COLUMNS.fullName, key: 'fullName', width: 26 },
+    { header: EXCEL_COLUMNS.nationalId, key: 'nationalId', width: 20 },
+    { header: EXCEL_COLUMNS.gender, key: 'gender', width: 15 },
+    { header: EXCEL_COLUMNS.age, key: 'age', width: 12 },
+    { header: EXCEL_COLUMNS.phone, key: 'phone', width: 18 },
+    { header: EXCEL_COLUMNS.governorate, key: 'governorate', width: 16 },
+    { header: EXCEL_COLUMNS.address, key: 'address', width: 32 },
+    { header: EXCEL_COLUMNS.isFamilyHead, key: 'isFamilyHead', width: 22 },
+    { header: EXCEL_COLUMNS.isProvider, key: 'isProvider', width: 24 },
+    { header: EXCEL_COLUMNS.providerName, key: 'providerName', width: 24 },
+    { header: EXCEL_COLUMNS.isOnlyProvider, key: 'isOnlyProvider', width: 20 },
+    { header: EXCEL_COLUMNS.otherProviders, key: 'otherProviders', width: 30 },
+    { header: EXCEL_COLUMNS.familyMembers, key: 'familyMembers', width: 16 },
+    { header: EXCEL_COLUMNS.monthlyIncomeIQD, key: 'monthlyIncomeIQD', width: 22 },
+    { header: EXCEL_COLUMNS.needCategory, key: 'needCategory', width: 24 },
+    { header: EXCEL_COLUMNS.notes, key: 'notes', width: 36 }
   ];
 
-  // Sample guidance rows to demonstrate the format
-  const sampleData = [
+  // Modern Table Styling: Style Header Row (Row 1)
+  const headerRow = worksheet.getRow(1);
+  headerRow.height = 36;
+  headerRow.eachCell((cell) => {
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF0891B2' } // Elegant Cyan / Teal header
+    };
+    cell.font = {
+      name: 'Segoe UI',
+      size: 11,
+      bold: true,
+      color: { argb: 'FFFFFFFF' }
+    };
+    cell.alignment = {
+      vertical: 'middle',
+      horizontal: 'center',
+      wrapText: true
+    };
+    cell.border = {
+      top: { style: 'medium', color: { argb: 'FF0E7490' } },
+      bottom: { style: 'medium', color: { argb: 'FF0E7490' } },
+      left: { style: 'thin', color: { argb: 'FF0E7490' } },
+      right: { style: 'thin', color: { argb: 'FF0E7490' } }
+    };
+  });
+
+  // Two guide sample rows
+  const sampleRows = [
     {
-      [EXCEL_COLUMNS.fullName]: 'ئازاد کامەران ئەحمەد',
-      [EXCEL_COLUMNS.nationalId]: '19850123456',
-      [EXCEL_COLUMNS.gender]: 'نێر',
-      [EXCEL_COLUMNS.age]: 42,
-      [EXCEL_COLUMNS.phone]: '07501234567',
-      [EXCEL_COLUMNS.governorate]: 'هەولێر',
-      [EXCEL_COLUMNS.address]: 'کەرکووک رۆد، گەڕەکی ڕاستی',
-      [EXCEL_COLUMNS.isFamilyHead]: 'بەڵێ',
-      [EXCEL_COLUMNS.isProvider]: 'بەڵێ',
-      [EXCEL_COLUMNS.providerName]: '-',
-      [EXCEL_COLUMNS.isOnlyProvider]: 'نەخێر',
-      [EXCEL_COLUMNS.otherProviders]: 'کاروان (کوڕ - 200000)',
-      [EXCEL_COLUMNS.familyMembers]: 5,
-      [EXCEL_COLUMNS.monthlyIncomeIQD]: 350000,
-      [EXCEL_COLUMNS.needCategory]: 'هەژار',
-      [EXCEL_COLUMNS.notes]: 'کرێچییە و پێویستی بە هاوکاری مانگانەیە'
+      fullName: 'ئازاد کامەران ئەحمەد',
+      nationalId: '19850123456',
+      gender: 'نێر',
+      age: 42,
+      phone: '07501234567',
+      governorate: 'هەولێر',
+      address: 'کەرکووک رۆد، گەڕەکی ڕاستی',
+      isFamilyHead: 'بەڵێ',
+      isProvider: 'بەڵێ',
+      providerName: '-',
+      isOnlyProvider: 'نەخێر',
+      otherProviders: 'کاروان (کوڕ - 200000)',
+      familyMembers: 5,
+      monthlyIncomeIQD: 350000,
+      needCategory: 'هەژار و کەمدەرامەت',
+      notes: 'کرێچییە و پێویستی بە هاوکاری مانگانەیە'
     },
     {
-      [EXCEL_COLUMNS.fullName]: 'شیلان فەرهاد عومەر',
-      [EXCEL_COLUMNS.nationalId]: '19920987654',
-      [EXCEL_COLUMNS.gender]: 'مێ',
-      [EXCEL_COLUMNS.age]: 34,
-      [EXCEL_COLUMNS.phone]: '07709876543',
-      [EXCEL_COLUMNS.governorate]: 'سلێمانی',
-      [EXCEL_COLUMNS.address]: 'ڕاپەڕین، نزیک مزگەوتی گەورە',
-      [EXCEL_COLUMNS.isFamilyHead]: 'بەڵێ',
-      [EXCEL_COLUMNS.isProvider]: 'نەخێر',
-      [EXCEL_COLUMNS.providerName]: 'باوکی کۆچکردوو / خێرخوازان',
-      [EXCEL_COLUMNS.isOnlyProvider]: '-',
-      [EXCEL_COLUMNS.otherProviders]: '-',
-      [EXCEL_COLUMNS.familyMembers]: 3,
-      [EXCEL_COLUMNS.monthlyIncomeIQD]: 0,
-      [EXCEL_COLUMNS.needCategory]: 'بێباوک',
-      [EXCEL_COLUMNS.notes]: 'بێ سەرپەرشت و کەم دەرامەت'
+      fullName: 'شیلان فەرهاد عومەر',
+      nationalId: '19920987654',
+      gender: 'مێ',
+      age: 34,
+      phone: '07709876543',
+      governorate: 'سلێمانی',
+      address: 'ڕاپەڕین، نزیک مزگەوتی گەورە',
+      isFamilyHead: 'بەڵێ',
+      isProvider: 'نەخێر',
+      providerName: 'باوکی کۆچکردوو / خێرخوازان',
+      isOnlyProvider: '-',
+      otherProviders: '-',
+      familyMembers: 3,
+      monthlyIncomeIQD: 0,
+      needCategory: 'بێباوک و هەتیو',
+      notes: 'بێ سەرپەرشت و کەم دەرامەت'
     }
   ];
 
-  const worksheet = XLSX.utils.json_to_sheet(sampleData, { header: headers });
+  sampleRows.forEach(row => worksheet.addRow(row));
 
-  // Set column widths for readability
-  worksheet['!cols'] = [
-    { wch: 22 }, // ناوی تەواو
-    { wch: 18 }, // ناسنامە
-    { wch: 14 }, // ڕەگەز
-    { wch: 10 }, // تەمەن
-    { wch: 16 }, // مۆبایل
-    { wch: 14 }, // پارێزگا
-    { wch: 30 }, // ناونیشان
-    { wch: 24 }, // سەرۆکی خێزان
-    { wch: 26 }, // بژێوی دابین دەکات
-    { wch: 24 }, // ناوی دابینکەر
-    { wch: 22 }, // تەنها دابینکەر
-    { wch: 28 }, // دابینکەرانی تر
-    { wch: 16 }, // ئەندامانی خێزان
-    { wch: 20 }, // داهات
-    { wch: 18 }, // حاڵەت
-    { wch: 35 }  // تێبینی
-  ];
+  // Add 100 formatted empty rows ready for immediate user entry
+  for (let i = 4; i <= 100; i++) {
+    worksheet.addRow({});
+  }
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'تێمپلەیتی سوودمەندان');
+  // Define column letters / numbers for data validation
+  // Col 3 (C): Gender -> _LookupData!$A$1:$A$2
+  // Col 6 (F): Governorate -> _LookupData!$B$1:$B$7
+  // Col 8 (H): isFamilyHead -> _LookupData!$C$1:$C$2
+  // Col 9 (I): isProvider -> _LookupData!$D$1:$D$2
+  // Col 11 (K): isOnlyProvider -> _LookupData!$E$1:$E$3
+  // Col 15 (O): needCategory -> _LookupData!$F$1:$F$5
 
-  XLSX.writeFile(workbook, 'Template_Beneficiaries_Bamboki.xlsx');
+  // Apply Styling and Strict Data Validations across all data rows (Rows 2 to 100)
+  for (let r = 2; r <= 100; r++) {
+    const row = worksheet.getRow(r);
+    row.height = 26;
+    const isEven = r % 2 === 0;
+
+    for (let c = 1; c <= 16; c++) {
+      const cell = row.getCell(c);
+
+      // Alternating row background for a modern zebra table look
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' }
+      };
+
+      cell.font = {
+        name: 'Segoe UI',
+        size: 10,
+        color: { argb: 'FF1E293B' }
+      };
+
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+      };
+
+      // Alignments: Numbers and short dropdowns centered, long texts right-aligned
+      if ([2, 3, 4, 5, 6, 8, 9, 11, 13, 14, 15].includes(c)) {
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      } else {
+        cell.alignment = { vertical: 'middle', horizontal: 'right' };
+      }
+
+      // Format numeric income & family count
+      if (c === 14 && cell.value) {
+        cell.numFmt = '#,##0';
+      }
+    }
+
+    // Strict Data Validation Dropdowns (Prevents invalid manual typing)
+    // 1. Gender (Col 3 / C)
+    row.getCell(3).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae: ['_LookupData!$A$1:$A$2'],
+      showErrorMessage: true,
+      errorStyle: 'stop',
+      errorTitle: 'ڕەگەزی نادروست',
+      error: 'تکایە تەنها یەکێک لە بژاردە دیاریکراوەکانی (نێر یان مێ) لە لیستەکە هەڵبژێرە.'
+    };
+
+    // 2. Governorate (Col 6 / F)
+    row.getCell(6).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae: ['_LookupData!$B$1:$B$7'],
+      showErrorMessage: true,
+      errorStyle: 'stop',
+      errorTitle: 'پارێزگای نادروست',
+      error: 'تکایە ناوی پارێزگاکە لە لیستە دیاریکراوەکە هەڵبژێرە.'
+    };
+
+    // 3. Head of family (Col 8 / H)
+    row.getCell(8).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae: ['_LookupData!$C$1:$C$2'],
+      showErrorMessage: true,
+      errorStyle: 'stop',
+      errorTitle: 'بژاردەی نادروست',
+      error: 'تکایە تەنها (بەڵێ یان نەخێر) هەڵبژێرە.'
+    };
+
+    // 4. Is Provider (Col 9 / I)
+    row.getCell(9).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae: ['_LookupData!$D$1:$D$2'],
+      showErrorMessage: true,
+      errorStyle: 'stop',
+      errorTitle: 'بژاردەی نادروست',
+      error: 'تکایە تەنها (بەڵێ یان نەخێر) هەڵبژێرە.'
+    };
+
+    // 5. Is Only Provider (Col 11 / K)
+    row.getCell(11).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae: ['_LookupData!$E$1:$E$3'],
+      showErrorMessage: true,
+      errorStyle: 'stop',
+      errorTitle: 'بژاردەی نادروست',
+      error: 'تکایە تەنها (بەڵێ، نەخێر، یان -) لە لیستەکە هەڵبژێرە.'
+    };
+
+    // 6. Need Category (Col 15 / O)
+    row.getCell(15).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae: ['_LookupData!$F$1:$F$5'],
+      showErrorMessage: true,
+      errorStyle: 'stop',
+      errorTitle: 'حاڵەتی نادروست',
+      error: 'تکایە جۆری حاڵەت لە لیستە پەسەندکراوەکە هەڵبژێرە.'
+    };
+  }
+
+  // Enable AutoFilter on header row
+  worksheet.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 100, column: 16 }
+  };
+
+  // Generate binary and trigger modern browser download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = 'Template_Beneficiaries_Bamboki.xlsx';
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 };
 
 const normalizeGovernorate = (val: string): Beneficiary['governorate'] => {
@@ -139,7 +348,6 @@ const parseBooleanKurdish = (val: any, defaultVal = false): boolean => {
 
 const parseOtherProvidersString = (str: string): OtherProvider[] => {
   if (!str || str.trim() === '-' || str.trim() === '') return [];
-  // Expected formats like: "کاروان (کوڕ - 200000); سۆران (برا - 150000)" or comma separated
   const parts = str.split(/[;؛]/).map(p => p.trim()).filter(Boolean);
   return parts.map(part => {
     const match = part.match(/^([^(]+)(?:\(([^)-]+)(?:-\s*(\d+))?\))?/);
@@ -166,8 +374,9 @@ export const parseBeneficiaryExcelFile = async (file: File): Promise<ParseResult
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
 
-  const firstSheetName = workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[firstSheetName];
+  // Find the first data sheet (ignoring internal lookup sheet if present)
+  let sheetName = workbook.SheetNames.find(n => !n.startsWith('_')) || workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[sheetName];
   if (!worksheet) {
     return { valid: [], errors: [{ row: 1, name: 'فایل', reason: 'پەڕەی کار لەناو فایلەکەدا نەدۆزرایەوە' }] };
   }
@@ -178,7 +387,7 @@ export const parseBeneficiaryExcelFile = async (file: File): Promise<ParseResult
   const errors: Array<{ row: number; name: string; reason: string }> = [];
 
   rawRows.forEach((row, idx) => {
-    const rowNum = idx + 2; // +2 considering 1-indexed and header row
+    const rowNum = idx + 2;
 
     const fullName = String(
       row[EXCEL_COLUMNS.fullName] || row['fullName'] || row['ناو'] || row['ناوی تەواو'] || ''
