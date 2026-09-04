@@ -127,14 +127,35 @@ export interface Donation {
   status: 'completed' | 'pending';
 }
 
+export type ProjectCategory =
+  | 'خۆراک'
+  | 'پەروەردە و خوێندکاران'
+  | 'تەندروستی و پزیشکی'
+  | 'کەمپەینی زستانە و سووتەمەنی'
+  | 'جلوبەرگ و پۆشاک'
+  | 'قوربانی و گۆشت'
+  | 'نیشتەجێبوون و نۆژەنکردنەوە'
+  | 'فریاگوزاری خێرا'
+  | string;
+
+export interface ProjectMilestone {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 export interface Project {
   id: string;
   title: string;
-  category: 'خۆراک' | 'تەندروستی' | 'کەمپەینی زستانە' | 'نیشتەجێبوون' | 'پەروەردە و فێرکردن' | 'فریاگوزاری خێرا';
+  category: ProjectCategory;
   description: string;
   targetBudgetUSD: number;
+  targetBudgetIQD?: number;
+  budgetCurrency?: 'USD' | 'IQD';
   raisedBudgetUSD: number;
+  raisedBudgetIQD?: number;
   spentBudgetUSD: number;
+  spentBudgetIQD?: number;
   startDate: string;
   endDate: string;
   status: 'active' | 'completed' | 'upcoming';
@@ -142,7 +163,7 @@ export interface Project {
   beneficiariesCount: number;
   volunteersCount: number;
   image: string;
-  milestones?: { id: string; title: string; completed: boolean }[];
+  milestones?: ProjectMilestone[];
 }
 
 export interface InventoryItem {

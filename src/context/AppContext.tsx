@@ -815,21 +815,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Projects
   const addProject = (data: Omit<Project, 'id' | 'raisedBudgetUSD' | 'spentBudgetUSD' | 'beneficiariesCount' | 'volunteersCount'>) => {
+    const budgetCurrency = data.budgetCurrency || 'USD';
+    const targetBudgetUSD = budgetCurrency === 'USD'
+      ? data.targetBudgetUSD
+      : Math.round((data.targetBudgetIQD || 0) / 1500);
+    const targetBudgetIQD = budgetCurrency === 'IQD'
+      ? (data.targetBudgetIQD || 0)
+      : (data.targetBudgetUSD * 1500);
+
     const newProject: Project = {
       ...data,
       id: `proj-${Date.now()}`,
+      budgetCurrency,
+      targetBudgetUSD,
+      targetBudgetIQD,
       raisedBudgetUSD: 0,
+      raisedBudgetIQD: 0,
       spentBudgetUSD: 0,
+      spentBudgetIQD: 0,
       beneficiariesCount: 0,
       volunteersCount: 0
     };
     setProjects(prev => [newProject, ...prev]);
-    logAction('دروستکردنی پڕۆژە', `پڕۆژەی نوێ بە ناوی [${newProject.title}] دەستیپێکرد`);
+    logAction('دروستکردنی پڕۆژە', `پڕۆژەی نوێ بە ناوی [${newProject.title}] دەستیپێکرد`, 'create');
   };
 
   const updateProject = (updated: Project) => {
-    setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
-    logAction('نوێکردنەوەی پڕۆژە', `پڕۆژەی [${updated.title}] نوێکرایەوە`, 'update');
+    const budgetCurrency = updated.budgetCurrency || 'USD';
+    const targetBudgetUSD = budgetCurrency === 'USD'
+      ? updated.targetBudgetUSD
+      : Math.round((updated.targetBudgetIQD || 0) / 1500);
+    const targetBudgetIQD = budgetCurrency === 'IQD'
+      ? (updated.targetBudgetIQD || 0)
+      : (updated.targetBudgetUSD * 1500);
+
+    const projectToSave: Project = {
+      ...updated,
+      targetBudgetUSD,
+      targetBudgetIQD
+    };
+
+    setProjects(prev => prev.map(p => p.id === updated.id ? projectToSave : p));
+    logAction('نوێکردنەوەی پڕۆژە', `پڕۆژەی [${updated.title}] دەستکاری کرا`, 'update');
   };
 
   const deleteProject = (id: string) => {
