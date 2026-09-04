@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { Beneficiary, NeedCategory, BeneficiaryStatus } from '../types';
+import { Beneficiary, NeedCategory, BeneficiaryStatus, OtherProvider } from '../types';
+import {
+  downloadBeneficiaryExcelTemplate,
+  parseBeneficiaryExcelFile,
+  ParseResult
+} from '../utils/excelBeneficiaryUtils';
 import {
   Users,
   Search,
@@ -13,14 +18,21 @@ import {
   Gift,
   MapPin,
   MessageSquare,
-  Printer,
-  X
+  X,
+  FileSpreadsheet,
+  Download,
+  Upload,
+  UserCheck,
+  User,
+  ShieldAlert,
+  Info
 } from 'lucide-react';
 
 export const BeneficiariesView: React.FC = () => {
   const {
     beneficiaries,
     addBeneficiary,
+    addBeneficiariesBulk,
     deleteBeneficiary,
     addAidRecord,
     sendSMS
@@ -31,6 +43,9 @@ export const BeneficiariesView: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [governorateFilter, setGovernorateFilter] = useState<string>('all');
 
+  // Entry Mode inside modal: 'single' (one-by-one) | 'bulk' (excel)
+  const [entryMode, setEntryMode] = useState<'single' | 'bulk'>('single');
+
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiary | null>(null);
@@ -38,11 +53,18 @@ export const BeneficiariesView: React.FC = () => {
   const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
   const [duplicateAlert, setDuplicateAlert] = useState<string | null>(null);
 
-  // Form State for Add/Edit
+  // Form State for Single Add
   const [formData, setFormData] = useState({
     nationalId: '',
     fullName: '',
     phone: '',
+    gender: 'male' as 'male' | 'female',
+    age: 35,
+    isFamilyHead: true,
+    isProvider: true,
+    providerName: '',
+    isOnlyProvider: true,
+    otherProviders: [] as OtherProvider[],
     governorate: 'هەولێر' as Beneficiary['governorate'],
     address: '',
     familyMembers: 1,
@@ -51,6 +73,19 @@ export const BeneficiariesView: React.FC = () => {
     status: 'approved' as BeneficiaryStatus,
     notes: ''
   });
+
+  // State for new dynamic other provider inputs
+  const [newOtherProvider, setNewOtherProvider] = useState<OtherProvider>({
+    name: '',
+    relation: 'کوڕ',
+    monthlyIncomeIQD: 0
+  });
+
+  // Bulk Excel Import States
+  const [isUploading, setIsUploading] = useState(false);
+  const [parsedData, setParsedData] = useState<ParseResult | null>(null);
+  const [bulkImportSuccess, setBulkImportSuccess] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Give Aid Form State
   const [aidForm, setAidForm] = useState({
@@ -63,7 +98,9 @@ export const BeneficiariesView: React.FC = () => {
   });
 
   // SMS Form State
-  const [smsText, setSmsText] = useState('سڵاو بەڕێز، تکایە ئاگاداربە هاوکارییە دیاریکراوەکەت لە بنکەی سەرەکی ڕێکخراوی بۆتان بامۆکی ئامادەیە بۆ وەرگرتن.');
+  const [smsText, setSmsText] = useState(
+    'سڵاو بەڕێز، تکایە ئاگاداربە هاوکارییە دیاریکراوەکەت لە بنکەی سەرەکی ڕێکخراوی بۆتان بامۆکی ئامادەیە بۆ وەرگرتن.'
+  );
 
   // Filtering
   const filteredBeneficiaries = beneficiaries.filter(b => {
@@ -81,31 +118,109 @@ export const BeneficiariesView: React.FC = () => {
     return matchesSearch && matchesStatus && matchesCat && matchesGov;
   });
 
-  const handleSubmitBeneficiary = (e: React.FormEvent) => {
-    e.preventDefault();
-    setDuplicateAlert(null);
-
-    const res = addBeneficiary(formData);
-    if (!res.success) {
-      setDuplicateAlert(res.message || 'ئەم کەسە دووبارەیە!');
-      return;
-    }
-
-    setIsAddModalOpen(false);
+  // Reset Single Form
+  const resetSingleForm = () => {
     setFormData({
       nationalId: '',
       fullName: '',
       phone: '',
+      gender: 'male',
+      age: 35,
+      isFamilyHead: true,
+      isProvider: true,
+      providerName: '',
+      isOnlyProvider: true,
+      otherProviders: [],
       governorate: 'هەولێر',
       address: '',
-      familyMembers: 4,
-      monthlyIncomeIQD: 100000,
+      familyMembers: 1,
+      monthlyIncomeIQD: 0,
       needCategory: 'poor',
       status: 'approved',
       notes: ''
     });
+    setNewOtherProvider({ name: '', relation: 'کوڕ', monthlyIncomeIQD: 0 });
+    setDuplicateAlert(null);
   };
 
+  // Add Other Provider into formData
+  const handleAddOtherProvider = () => {
+    if (!newOtherProvider.name.trim()) return;
+    setFormData(prev => ({
+      ...prev,
+      otherProviders: [...prev.otherProviders, { ...newOtherProvider }]
+    }));
+    setNewOtherProvider({ name: '', relation: 'کوڕ', monthlyIncomeIQD: 0 });
+  };
+
+  // Remove Other Provider
+  const handleRemoveOtherProvider = (idx: number) => {
+    setFormData(prev => ({
+      ...prev,
+      otherProviders: prev.otherProviders.filter((_, i) => i !== idx)
+    }));
+  };
+
+  // Submit Single Beneficiary Form
+  const handleSubmitBeneficiary = (e: React.FormEvent) => {
+    e.preventDefault();
+    setDuplicateAlert(null);
+
+    const dataToSave = {
+      ...formData,
+      providerName: !formData.isProvider ? (formData.providerName || 'کەسی تر') : undefined,
+      isOnlyProvider: formData.isProvider ? formData.isOnlyProvider : undefined,
+      otherProviders:
+        formData.isProvider && !formData.isOnlyProvider && formData.otherProviders.length > 0
+          ? formData.otherProviders
+          : undefined
+    };
+
+    const res = addBeneficiary(dataToSave);
+    if (!res.success) {
+      setDuplicateAlert(res.message || 'ئەم کەسە دووبارەیە و ناتوانرێت دووبارە تۆماربکرێت!');
+      return;
+    }
+
+    setIsAddModalOpen(false);
+    resetSingleForm();
+  };
+
+  // Handle Excel File Selected
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setBulkImportSuccess(null);
+
+    try {
+      const result = await parseBeneficiaryExcelFile(file);
+      setParsedData(result);
+    } catch (err: any) {
+      alert('هەڵەیەک ڕوویدا لە کاتی خوێندنەوەی فایلی ئێکسڵ: ' + (err?.message || 'فایلەکە نادروستە'));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Confirm Bulk Import
+  const handleConfirmBulkImport = () => {
+    if (!parsedData || parsedData.valid.length === 0) return;
+
+    const result = addBeneficiariesBulk(parsedData.valid);
+    setBulkImportSuccess(
+      `سەرکەوتوو بوو! ژمارەی (${result.added}) سوودمەند بە سەرکەوتوویی زیادکران. ${
+        result.skippedDuplicates > 0
+          ? `(ژمارەی ${result.skippedDuplicates} دۆسیەی دووبارە ڕێگری لێکرا)`
+          : ''
+      }`
+    );
+    setParsedData(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Handle Give Aid Submit
   const handleGiveAidSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBeneficiary) return;
@@ -117,7 +232,7 @@ export const BeneficiariesView: React.FC = () => {
       itemName: aidForm.type === 'in-kind' ? aidForm.itemName : undefined,
       quantity: aidForm.type === 'in-kind' ? aidForm.quantity : undefined,
       projectTitle: aidForm.projectTitle,
-      distributedBy: 'کارمەندی مەیدانی',
+      distributedBy: 'بەڕێوەبەری سیستەم',
       notes: aidForm.notes
     });
 
@@ -126,6 +241,7 @@ export const BeneficiariesView: React.FC = () => {
     if (updated) setSelectedBeneficiary(updated);
   };
 
+  // Handle Send SMS
   const handleSendSMS = () => {
     if (!selectedBeneficiary) return;
     sendSMS(selectedBeneficiary.phone, selectedBeneficiary.fullName, smsText);
@@ -142,7 +258,7 @@ export const BeneficiariesView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-36">
+    <div className="space-y-6 pb-36 animate-in fade-in duration-300">
       
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -152,20 +268,48 @@ export const BeneficiariesView: React.FC = () => {
             بەڕێوەبردنی سوودمەندان و خێزانەکان
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            پشکنینی دۆسیەی خێزانە هەژارەکان بە سیستەمی زیرەکی ڕێگری لە هاوکاری دووبارە
+            تۆمارکردنی یەک بە یەک، هاوردەکردنی بەکۆمەڵ بە ئێکسڵ، و شەفافییەتی تەواوی کۆمەک
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setDuplicateAlert(null);
-            setIsAddModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-5 py-3 rounded-2xl liquid-button-primary text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          تۆمارکردنی سوودمەندی نوێ
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+          {/* Quick Download Template Button */}
+          <button
+            onClick={downloadBeneficiaryExcelTemplate}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm font-bold shadow-sm hover:shadow transition-all"
+            title="داگرتنی تێمپلەیتی خاوێنی ئێکسڵ بە زمانی کوردی"
+          >
+            <Download className="w-4 h-4 text-emerald-600" />
+            <span>داگرتنی تێمپلەیتی ئێکسڵ</span>
+          </button>
+
+          {/* Quick Bulk Import Trigger */}
+          <button
+            onClick={() => {
+              setEntryMode('bulk');
+              setBulkImportSuccess(null);
+              setParsedData(null);
+              setIsAddModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs sm:text-sm font-bold shadow-sm hover:shadow transition-all"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>هاوردەکردن بە ئێکسڵ</span>
+          </button>
+
+          {/* Single Register Button */}
+          <button
+            onClick={() => {
+              setEntryMode('single');
+              resetSingleForm();
+              setIsAddModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl liquid-button-primary text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>تۆمارکردنی سوودمەندی نوێ</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Pill Bar */}
@@ -223,6 +367,7 @@ export const BeneficiariesView: React.FC = () => {
             <option value="هەڵەبجە">هەڵەبجە</option>
             <option value="کەرکووک">کەرکووک</option>
             <option value="گەرمیان">گەرمیان</option>
+            <option value="زاخۆ">زاخۆ</option>
           </select>
 
         </div>
@@ -234,10 +379,11 @@ export const BeneficiariesView: React.FC = () => {
           <table className="w-full text-right text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
               <tr>
-                <th className="py-3.5 px-4">ناوی تەواو</th>
-                <th className="py-3.5 px-4">ژ. ناسنامە / مۆبایل</th>
+                <th className="py-3.5 px-4">ناوی تەواو / تەمەن و ڕەگەز</th>
+                <th className="py-3.5 px-4">ناسنامە / مۆبایل</th>
                 <th className="py-3.5 px-4">پارێزگا / ناونیشان</th>
-                <th className="py-3.5 px-4">حاڵەت / خێزان</th>
+                <th className="py-3.5 px-4">پێگەی خێزان و بژێوی</th>
+                <th className="py-3.5 px-4">حاڵەت / ئەندام</th>
                 <th className="py-3.5 px-4">داهاتی مانگانە</th>
                 <th className="py-3.5 px-4">دۆخی دۆسیە</th>
                 <th className="py-3.5 px-4 text-center">کردارەکان</th>
@@ -246,24 +392,42 @@ export const BeneficiariesView: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {beneficiaries.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center">
+                  <td colSpan={8} className="py-16 text-center">
                     <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm font-bold text-slate-700">هیچ خێزانێکی سوودمەند تۆمار نەکراوە (سفر تۆمار)</p>
-                    <p className="text-xs text-slate-400 mt-1">بۆ دەستپێکردنی تۆمارکردنی فەرمی، کلیک لە دوگمەی «تۆمارکردنی سوودمەندی نوێ» بکە لە سەرەوە</p>
+                    <p className="text-sm font-bold text-slate-700">هیچ کەسێکی سوودمەند تۆمار نەکراوە (سفر تۆمار)</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      دەتوانیت بە یەک بە یەک تۆماریان بکەیت یان فایلی ئێکسڵ بە کۆمەڵ هاوردە بکەیت
+                    </p>
                   </td>
                 </tr>
               ) : filteredBeneficiaries.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    هیچ کەسێک نەدۆزرایەوە بەپێی ئەم گەڕانە
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                    هیچ کەسێک نەدۆزرایەوە بەپێی ئەم فلتەرە
                   </td>
                 </tr>
               ) : (
                 filteredBeneficiaries.map(ben => (
                   <tr key={ben.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4">
-                      <p className="font-bold text-slate-900 text-sm">{ben.fullName}</p>
-                      <span className="text-[10px] text-slate-500">تۆمار: {ben.registeredDate}</span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs ${
+                            ben.gender === 'female'
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-cyan-100 text-cyan-700'
+                          }`}
+                          title={ben.gender === 'female' ? 'مێینە' : 'نێرینە'}
+                        >
+                          {ben.gender === 'female' ? 'مێ' : 'نێر'}
+                        </span>
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm">{ben.fullName}</p>
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            {ben.age ? `${ben.age} ساڵ` : ''} {ben.isFamilyHead ? '• سەرۆکی خێزان' : ''}
+                          </span>
+                        </div>
+                      </div>
                     </td>
                     <td className="py-3.5 px-4">
                       <p className="font-mono font-bold text-cyan-700">{ben.nationalId}</p>
@@ -276,7 +440,28 @@ export const BeneficiariesView: React.FC = () => {
                       <p className="text-[11px] text-slate-600 max-w-xs truncate">{ben.address}</p>
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="text-amber-700 font-bold block">{categoryLabels[ben.needCategory]}</span>
+                      {ben.isProvider ? (
+                        <div>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 block w-fit mb-0.5">
+                            دابینکەری سەرەکی
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            {ben.isOnlyProvider ? 'تەنها خۆیەتی' : `+${ben.otherProviders?.length || 0} کەسی تر`}
+                          </span>
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 block w-fit mb-0.5">
+                            دابینکەر نییە
+                          </span>
+                          <span className="text-[10px] text-slate-500 truncate max-w-[120px] block" title={ben.providerName}>
+                            لەلایەن: {ben.providerName || 'کەسی تر'}
+                          </span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="text-amber-800 font-bold block">{categoryLabels[ben.needCategory] || ben.needCategory}</span>
                       <span className="text-[11px] text-slate-500">{ben.familyMembers} ئەندامی خێزان</span>
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-800">
@@ -331,6 +516,593 @@ export const BeneficiariesView: React.FC = () => {
         </div>
       </div>
 
+      {/* Main Dual Registration Modal (Single vs Bulk Excel) */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+            
+            <button
+              onClick={() => setIsAddModalOpen(false)}
+              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Mode Switcher Tabs */}
+            <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl mb-6 max-w-md mx-auto">
+              <button
+                type="button"
+                onClick={() => setEntryMode('single')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  entryMode === 'single'
+                    ? 'bg-white text-cyan-800 shadow-sm border border-slate-200/70'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span>تۆمارکردنی تاکەکەسی (یەک بە یەک)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEntryMode('bulk')}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  entryMode === 'bulk'
+                    ? 'bg-white text-emerald-800 shadow-sm border border-slate-200/70'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>هاوردەکردنی بەکۆمەڵ (ئێکسڵ)</span>
+              </button>
+            </div>
+
+            {/* -------------------- MODE 1: SINGLE ONE-BY-ONE ENTRY -------------------- */}
+            {entryMode === 'single' && (
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-cyan-600" />
+                  تۆمارکردنی کەس یان خێزانی نوێ
+                </h3>
+
+                {duplicateAlert && (
+                  <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-800 text-xs mb-4 flex items-start gap-2.5 animate-bounce">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                    <div>
+                      <p className="font-bold">هۆشداریی دووبارەبوونەوە!</p>
+                      <p className="mt-0.5">{duplicateAlert}</p>
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmitBeneficiary} className="space-y-4 text-xs">
+                  
+                  {/* Basic Identifiers */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">ناوی تەواوی کەس / سەرپەرشتیار:</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.fullName}
+                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                        placeholder="ناوی چواری و نازناو"
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">ژمارەی نیشتمانی یان ناسنامە:</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.nationalId}
+                        onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
+                        placeholder="ژمارەی کارتی نیشتمانی"
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Demographics: Gender & Age */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1.5">ڕەگەز:</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, gender: 'male' })}
+                          className={`py-2 px-3 rounded-xl font-bold border transition-all text-center ${
+                            formData.gender === 'male'
+                              ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          نێر (پیاو)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, gender: 'female' })}
+                          className={`py-2 px-3 rounded-xl font-bold border transition-all text-center ${
+                            formData.gender === 'female'
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          مێ (ئافرەت)
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">تەمەن (ساڵ):</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={120}
+                        required
+                        value={formData.age}
+                        onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Head of Family & Provider Conditional Engine */}
+                  <div className="p-4 rounded-2xl bg-cyan-50/50 border border-cyan-200 space-y-3.5">
+                    
+                    {/* Head of family question */}
+                    <div>
+                      <label className="block text-slate-800 font-bold mb-1.5">
+                        ئایا ئەم کەسە سەرۆکی خێزانە؟
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
+                          <input
+                            type="radio"
+                            name="isFamilyHead"
+                            checked={formData.isFamilyHead === true}
+                            onChange={() => setFormData({ ...formData, isFamilyHead: true })}
+                            className="text-cyan-600 focus:ring-cyan-500"
+                          />
+                          <span>بەڵێ (سەرۆکی خێزانە)</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
+                          <input
+                            type="radio"
+                            name="isFamilyHead"
+                            checked={formData.isFamilyHead === false}
+                            onChange={() => setFormData({ ...formData, isFamilyHead: false })}
+                            className="text-cyan-600 focus:ring-cyan-500"
+                          />
+                          <span>نەخێر</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Is Provider question */}
+                    <div className="pt-2 border-t border-cyan-100">
+                      <label className="block text-slate-800 font-bold mb-1.5">
+                        ئایا بژێوی خێزانەکە دابین دەکات؟
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
+                          <input
+                            type="radio"
+                            name="isProvider"
+                            checked={formData.isProvider === true}
+                            onChange={() => setFormData({ ...formData, isProvider: true })}
+                            className="text-cyan-600 focus:ring-cyan-500"
+                          />
+                          <span>بەڵێ (بژێوی دابین دەکات)</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
+                          <input
+                            type="radio"
+                            name="isProvider"
+                            checked={formData.isProvider === false}
+                            onChange={() => setFormData({ ...formData, isProvider: false })}
+                            className="text-cyan-600 focus:ring-cyan-500"
+                          />
+                          <span>نەخێر (کەسی تر دابینی دەکات)</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Sub-scenario A: If NOT provider -> Ask who is provider */}
+                    {!formData.isProvider && (
+                      <div className="p-3 bg-white rounded-xl border border-amber-200 animate-in fade-in">
+                        <label className="block text-amber-900 font-bold mb-1">
+                          کێ بژێوی خێزانەکە دابین دەکات؟ (ناوی دابینکەر / پەیوەندی):
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={formData.providerName}
+                          onChange={(e) => setFormData({ ...formData, providerName: e.target.value })}
+                          placeholder="نموونە: باوک، کوڕی گەورە، خێرخوازان..."
+                          className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                        />
+                      </div>
+                    )}
+
+                    {/* Sub-scenario B: If IS provider -> Ask if ONLY provider or others exist */}
+                    {formData.isProvider && (
+                      <div className="p-3.5 bg-white rounded-xl border border-cyan-200 space-y-3 animate-in fade-in">
+                        <label className="block text-slate-800 font-bold">
+                          ئایا تەنها خۆیەتی بژێوی دابین دەکات یان کەسی تریش هەیە لە هەمان خێزاندا؟
+                        </label>
+                        <div className="flex items-center gap-4">
+                          <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
+                            <input
+                              type="radio"
+                              name="isOnlyProvider"
+                              checked={formData.isOnlyProvider === true}
+                              onChange={() => setFormData({ ...formData, isOnlyProvider: true })}
+                              className="text-cyan-600"
+                            />
+                            <span>بەڵێ، تەنها خۆیەتی دابینکەر</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
+                            <input
+                              type="radio"
+                              name="isOnlyProvider"
+                              checked={formData.isOnlyProvider === false}
+                              onChange={() => setFormData({ ...formData, isOnlyProvider: false })}
+                              className="text-cyan-600"
+                            />
+                            <span>نەخێر، دابینکەری تریش هەیە لە خێزانەکەدا</span>
+                          </label>
+                        </div>
+
+                        {/* List other providers in the same family */}
+                        {!formData.isOnlyProvider && (
+                          <div className="pt-3 border-t border-slate-100 space-y-2.5">
+                            <span className="text-xs font-bold text-slate-800 block">
+                              تۆمارکردنی دابینکەرانی تر لە هەمان خێزاندا:
+                            </span>
+
+                            {formData.otherProviders.length > 0 && (
+                              <div className="space-y-1.5 mb-2">
+                                {formData.otherProviders.map((prov, i) => (
+                                  <div
+                                    key={i}
+                                    className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-slate-800">{prov.name}</span>
+                                      <span className="text-slate-500">({prov.relation})</span>
+                                      {prov.monthlyIncomeIQD ? (
+                                        <span className="text-emerald-700 font-bold">
+                                          - {prov.monthlyIncomeIQD.toLocaleString()} د.ع
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveOtherProvider(i)}
+                                      className="text-rose-500 hover:text-rose-700 p-1"
+                                      title="سڕینەوە"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Add other provider row */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                              <input
+                                type="text"
+                                value={newOtherProvider.name}
+                                onChange={(e) => setNewOtherProvider({ ...newOtherProvider, name: e.target.value })}
+                                placeholder="ناوی دابینکەر"
+                                className="px-2.5 py-1.5 rounded-lg liquid-input text-slate-900 bg-white"
+                              />
+                              <input
+                                type="text"
+                                value={newOtherProvider.relation}
+                                onChange={(e) => setNewOtherProvider({ ...newOtherProvider, relation: e.target.value })}
+                                placeholder="پەیوەندی (کوڕ، کچ...)"
+                                className="px-2.5 py-1.5 rounded-lg liquid-input text-slate-900 bg-white"
+                              />
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="number"
+                                  value={newOtherProvider.monthlyIncomeIQD || ''}
+                                  onChange={(e) =>
+                                    setNewOtherProvider({
+                                      ...newOtherProvider,
+                                      monthlyIncomeIQD: Number(e.target.value)
+                                    })
+                                  }
+                                  placeholder="داهات (د.ع)"
+                                  className="w-full px-2.5 py-1.5 rounded-lg liquid-input text-slate-900 bg-white"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleAddOtherProvider}
+                                  className="px-3 py-1.5 bg-cyan-600 text-white rounded-lg font-bold hover:bg-cyan-700 shrink-0"
+                                >
+                                  زیادکردن
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* Phone & Governorate */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">ژمارەی مۆبایل:</label>
+                      <input
+                        type="tel"
+                        required
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        placeholder="0750XXXXXXX"
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">پارێزگا:</label>
+                      <select
+                        value={formData.governorate}
+                        onChange={(e) => setFormData({ ...formData, governorate: e.target.value as any })}
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white font-bold"
+                      >
+                        <option value="هەولێر">هەولێر</option>
+                        <option value="سلێمانی">سلێمانی</option>
+                        <option value="دهۆک">دهۆک</option>
+                        <option value="هەڵەبجە">هەڵەبجە</option>
+                        <option value="کەرکووک">کەرکووک</option>
+                        <option value="گەرمیان">گەرمیان</option>
+                        <option value="زاخۆ">زاخۆ</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Detailed Address */}
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">ناونیشانی ورد (گەڕەک، کۆڵان، نزیکترین شوێن):</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      placeholder="شار / قەزا / گەڕەک / ژمارەی کۆڵان"
+                      className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                    />
+                  </div>
+
+                  {/* Family Count, Monthly Income & Need Category */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">ئەندامانی خێزان:</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={formData.familyMembers}
+                        onChange={(e) => setFormData({ ...formData, familyMembers: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">داهاتی مانگانە (دینار):</label>
+                      <input
+                        type="number"
+                        value={formData.monthlyIncomeIQD}
+                        onChange={(e) => setFormData({ ...formData, monthlyIncomeIQD: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">حاڵەت:</label>
+                      <select
+                        value={formData.needCategory}
+                        onChange={(e) => setFormData({ ...formData, needCategory: e.target.value as any })}
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white font-bold"
+                      >
+                        <option value="poor">هەژار و کەمدەرامەت</option>
+                        <option value="orphan">بێباوک و هەتیو</option>
+                        <option value="sick">نەخۆشی درێژخایەن</option>
+                        <option value="disabled">خاوەن پێداویستی تایبەت</option>
+                        <option value="student">خوێندکاری هەژار</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">تێبینی و بارودۆخی تایبەت:</label>
+                    <textarea
+                      rows={2}
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder="هەر تێبینییەکی مەیدانی یان بارودۆخی تایبەت..."
+                      className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddModalOpen(false)}
+                      className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                    >
+                      پاشگەزبوونەوە
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 rounded-xl liquid-button-primary text-white text-xs font-bold"
+                    >
+                      تۆمارکردن لە داتابەیس
+                    </button>
+                  </div>
+
+                </form>
+              </div>
+            )}
+
+            {/* -------------------- MODE 2: BULK EXCEL ENTRY -------------------- */}
+            {entryMode === 'bulk' && (
+              <div className="space-y-5">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+                    <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                    هاوردەکردنی سوودمەندان بە کۆمەڵ بە فایلی ئێکسڵ
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    دەتوانیت سەدان خێزانی سوودمەند لە چەند چرکەیەکدا هاوردەی داتابەیس بکەیت بە بەکارهێنانی فایلی Excel (.xlsx) یان CSV
+                  </p>
+                </div>
+
+                {bulkImportSuccess && (
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <p className="font-bold">{bulkImportSuccess}</p>
+                  </div>
+                )}
+
+                {/* Step 1: Download template */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800">هەنگاوی ۱: داگرتنی تێمپلەیتی خاوێنی ئێکسڵ</h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      تێمپلەیتەکە بە زمانی کوردی ئامادەکراوە و خانە و نموونەی سەرەکی تێدایە
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={downloadBeneficiaryExcelTemplate}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 text-xs font-bold shadow-sm transition-all shrink-0"
+                  >
+                    <Download className="w-4 h-4 text-emerald-600" />
+                    <span>داگرتنی تێمپلەیت (.xlsx)</span>
+                  </button>
+                </div>
+
+                {/* Step 2: Upload File */}
+                <div className="p-6 rounded-3xl border-2 border-dashed border-slate-300 hover:border-cyan-500 transition-colors text-center bg-slate-50/50">
+                  <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+                  <p className="text-xs sm:text-sm font-bold text-slate-700 mb-1">
+                    فایلی ئێکسڵە پڕکراوەکە هەڵبژێرە یان ڕایبکێشە بۆ ئێرە
+                  </p>
+                  <p className="text-[11px] text-slate-400 mb-4">
+                    پشتیوانی فۆرماتەکانی .xlsx, .xls, .csv دەکات
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="excel-file-input"
+                  />
+                  <label
+                    htmlFor="excel-file-input"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold cursor-pointer shadow-sm transition-colors"
+                  >
+                    {isUploading ? 'خوێندنەوەی فایل...' : 'هەڵبژاردنی فایل لە کۆمپیوتەر'}
+                  </label>
+                </div>
+
+                {/* Step 3: Parsed Data Preview & Confirmation */}
+                {parsedData && (
+                  <div className="space-y-4 animate-in fade-in">
+                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs font-bold">
+                      <div className="flex items-center gap-3">
+                        <span className="text-emerald-700 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          دۆسیە دروستەکان: {parsedData.valid.length}
+                        </span>
+                        {parsedData.errors.length > 0 && (
+                          <span className="text-rose-700 flex items-center gap-1.5">
+                            <AlertTriangle className="w-4 h-4 text-rose-600" />
+                            کێشەکان: {parsedData.errors.length}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-slate-500">
+                        کۆی گشتی: {parsedData.valid.length + parsedData.errors.length}
+                      </span>
+                    </div>
+
+                    {/* Preview Table */}
+                    {parsedData.valid.length > 0 && (
+                      <div className="max-h-56 overflow-y-auto rounded-2xl border border-slate-200">
+                        <table className="w-full text-right text-[11px]">
+                          <thead className="bg-slate-100 sticky top-0 text-slate-700 font-bold">
+                            <tr>
+                              <th className="p-2">ناو</th>
+                              <th className="p-2">ناسنامە</th>
+                              <th className="p-2">ڕەگەز / تەمەن</th>
+                              <th className="p-2">بژێوی</th>
+                              <th className="p-2">پارێزگا</th>
+                              <th className="p-2">داهات</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {parsedData.valid.slice(0, 15).map((row, idx) => (
+                              <tr key={idx} className="hover:bg-slate-50">
+                                <td className="p-2 font-bold text-slate-800">{row.fullName}</td>
+                                <td className="p-2 font-mono text-cyan-700">{row.nationalId}</td>
+                                <td className="p-2">
+                                  {row.gender === 'female' ? 'مێ' : 'نێر'} • {row.age} ساڵ
+                                </td>
+                                <td className="p-2">
+                                  {row.isProvider ? 'دابینکەرە' : `لەلایەن ${row.providerName || 'کەسی تر'}`}
+                                </td>
+                                <td className="p-2">{row.governorate}</td>
+                                <td className="p-2">{row.monthlyIncomeIQD.toLocaleString()} د.ع</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {parsedData.valid.length > 15 && (
+                          <div className="p-2 text-center text-slate-400 text-[10px] bg-slate-50">
+                            پیشاندانی یەکەم ۱۵ خێزان لە کۆی {parsedData.valid.length} خێزان...
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Submit Bulk Import Button */}
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setParsedData(null);
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }}
+                        className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                      >
+                        پاشگەزبوونەوە
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmBulkImport}
+                        disabled={parsedData.valid.length === 0}
+                        className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 shadow-md transition-all disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>پەسەندکردن و تۆمارکردنی ({parsedData.valid.length}) سوودمەند لە داتابەیس</span>
+                      </button>
+                    </div>
+
+                  </div>
+                )}
+
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
       {/* Beneficiary Details Modal & Aid History Drawer */}
       {selectedBeneficiary && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
@@ -346,14 +1118,28 @@ export const BeneficiariesView: React.FC = () => {
             {/* Header */}
             <div className="flex items-start justify-between border-b border-slate-200 pb-5">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <h3 className="text-xl font-bold text-slate-900">{selectedBeneficiary.fullName}</h3>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      selectedBeneficiary.gender === 'female'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                    }`}
+                  >
+                    {selectedBeneficiary.gender === 'female' ? 'مێینە' : 'نێرینە'} ({selectedBeneficiary.age} ساڵ)
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
                     {categoryLabels[selectedBeneficiary.needCategory]}
                   </span>
+                  {selectedBeneficiary.isFamilyHead && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                      سەرۆکی خێزان
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-600 mt-1 flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-cyan-600" /> {selectedBeneficiary.address}
+                  <MapPin className="w-3.5 h-3.5 text-cyan-600" /> {selectedBeneficiary.address} ({selectedBeneficiary.governorate})
                 </p>
               </div>
             </div>
@@ -378,10 +1164,63 @@ export const BeneficiariesView: React.FC = () => {
               </div>
             </div>
 
+            {/* Provider & Family Financial Support Details Box */}
+            <div className="p-4 rounded-2xl bg-cyan-50/60 border border-cyan-200 mb-5">
+              <h4 className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-cyan-600" />
+                زانیاری بژێوی و سەرچاوەی داهاتی خێزان:
+              </h4>
+              <div className="text-xs text-slate-700 space-y-1.5">
+                <p>
+                  <span className="font-bold">ئایا ئەم کەسە بژێوی دابین دەکات:</span>{' '}
+                  {selectedBeneficiary.isProvider ? (
+                    <span className="text-emerald-700 font-bold">بەڵێ (دابینکەری سەرەکییە)</span>
+                  ) : (
+                    <span className="text-amber-800 font-bold">نەخێر</span>
+                  )}
+                </p>
+
+                {!selectedBeneficiary.isProvider && (
+                  <p>
+                    <span className="font-bold">کێ بژێوی خێزانەکە دابین دەکات:</span>{' '}
+                    <span className="font-bold text-slate-900">{selectedBeneficiary.providerName || 'کەسی تر'}</span>
+                  </p>
+                )}
+
+                {selectedBeneficiary.isProvider && (
+                  <p>
+                    <span className="font-bold">ئایا تەنها خۆیەتی بژێوی دابین دەکات:</span>{' '}
+                    <span className="font-bold text-slate-900">
+                      {selectedBeneficiary.isOnlyProvider ? 'بەڵێ (تەنها خۆیەتی)' : 'نەخێر (دابینکەری تریش هەیە)'}
+                    </span>
+                  </p>
+                )}
+
+                {selectedBeneficiary.otherProviders && selectedBeneficiary.otherProviders.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-cyan-200">
+                    <span className="font-bold block mb-1">دابینکەرانی تر لە هەمان خێزاندا:</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {selectedBeneficiary.otherProviders.map((op, i) => (
+                        <div key={i} className="p-2 rounded-xl bg-white border border-cyan-100 flex items-center justify-between text-xs">
+                          <div>
+                            <p className="font-bold text-slate-900">{op.name}</p>
+                            <span className="text-[10px] text-slate-500">پەیوەندی: {op.relation}</span>
+                          </div>
+                          {op.monthlyIncomeIQD ? (
+                            <span className="font-bold text-emerald-700">{op.monthlyIncomeIQD.toLocaleString()} د.ع</span>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Notes */}
             {selectedBeneficiary.notes && (
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 mb-5">
-                <span className="text-xs font-bold text-slate-800 block mb-1">تێبینی و ڕاپۆرتی لێکۆڵینەوە:</span>
+                <span className="text-xs font-bold text-slate-800 block mb-1">تێبینی و ڕاپۆرتی مەیدانی:</span>
                 <p className="text-xs text-slate-700 leading-relaxed">{selectedBeneficiary.notes}</p>
               </div>
             )}
@@ -398,50 +1237,48 @@ export const BeneficiariesView: React.FC = () => {
                   className="px-3.5 py-1.5 rounded-xl liquid-button-primary text-white text-xs font-bold flex items-center gap-1 shadow-sm"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  پێدانی هاوکاری نوێ
+                  هاوکاریکردنی ئەم دۆسیەیە
                 </button>
               </div>
 
-              <div className="space-y-2.5">
-                {selectedBeneficiary.aidHistory.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-4">تاکو ئێستا هیچ هاوکارییەکی پێ نەگەیشتووە</p>
-                ) : (
-                  selectedBeneficiary.aidHistory.map(aid => (
+              {selectedBeneficiary.aidHistory.length === 0 ? (
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center text-slate-400 text-xs">
+                  تا ئێستا هیچ کۆمەک و هاوکارییەک بۆ ئەم خێزانە تۆمار نەکراوە
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {selectedBeneficiary.aidHistory.map(aid => (
                     <div
                       key={aid.id}
                       className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs"
                     >
                       <div>
-                        <span className="font-bold text-slate-900 block">
-                          {aid.type === 'monetary' ? `${aid.amountIQD?.toLocaleString()} دیناری عێراقی` : `${aid.quantity} ${aid.itemName}`}
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          {aid.projectTitle} • لەلایەن: {aid.distributedBy}
-                        </span>
+                        <p className="font-bold text-slate-900">{aid.projectTitle}</p>
+                        <span className="text-[10px] text-slate-500">بەروار: {aid.date}</span>
                       </div>
-                      <span className="text-[10px] text-slate-500 font-mono">{aid.date}</span>
+                      <div className="text-left font-bold">
+                        {aid.type === 'monetary' ? (
+                          <span className="text-emerald-700">{aid.amountIQD?.toLocaleString()} د.ع</span>
+                        ) : (
+                          <span className="text-cyan-700">
+                            {aid.quantity} {aid.itemName}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Actions: Send SMS, Print Card */}
-            <div className="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
+            {/* SMS Trigger */}
+            <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setIsSMSModalOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-cyan-50 hover:text-cyan-700 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors border border-slate-200"
               >
-                <MessageSquare className="w-4 h-4 text-cyan-600" />
-                ناردنی نامەی SMS
-              </button>
-
-              <button
-                onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
-              >
-                <Printer className="w-4 h-4 text-emerald-600" />
-                چاپکردنی کارتی خێزان
+                <MessageSquare className="w-4 h-4" />
+                ناردنی کورتەنامە (SMS) بۆ خێزان
               </button>
             </div>
 
@@ -453,38 +1290,43 @@ export const BeneficiariesView: React.FC = () => {
       {isGiveAidModalOpen && selectedBeneficiary && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
           <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-900 mb-4">
-              تۆمارکردنی هاوکاری بۆ ({selectedBeneficiary.fullName})
+            <h3 className="text-base font-bold text-slate-900 mb-2 flex items-center gap-2">
+              <Gift className="w-5 h-5 text-emerald-600" />
+              تۆمارکردنی هاوکاری بۆ: {selectedBeneficiary.fullName}
             </h3>
 
-            <form onSubmit={handleGiveAidSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleGiveAidSubmit} className="space-y-4 text-xs mt-4">
               <div>
                 <label className="block text-slate-700 font-bold mb-1">جۆری هاوکاری:</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setAidForm({ ...aidForm, type: 'monetary' })}
-                    className={`py-2 rounded-xl font-bold border transition-all ${
-                      aidForm.type === 'monetary' ? 'bg-cyan-50 text-cyan-800 border-cyan-300' : 'bg-slate-50 text-slate-600 border-slate-200'
+                    className={`py-2 px-3 rounded-xl font-bold border transition-all text-center ${
+                      aidForm.type === 'monetary'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200'
                     }`}
                   >
-                    پارەی نەختینەیی (د.ع)
+                    نەختینەیی (دینار)
                   </button>
                   <button
                     type="button"
                     onClick={() => setAidForm({ ...aidForm, type: 'in-kind' })}
-                    className={`py-2 rounded-xl font-bold border transition-all ${
-                      aidForm.type === 'in-kind' ? 'bg-cyan-50 text-cyan-800 border-cyan-300' : 'bg-slate-50 text-slate-600 border-slate-200'
+                    className={`py-2 px-3 rounded-xl font-bold border transition-all text-center ${
+                      aidForm.type === 'in-kind'
+                        ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200'
                     }`}
                   >
-                    کاڵا و پێداویستی خۆراک
+                    ماددی (خۆراک/کەلوپەل)
                   </button>
                 </div>
               </div>
 
               {aidForm.type === 'monetary' ? (
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">بڕی پارە بە دینار:</label>
+                  <label className="block text-slate-700 font-bold mb-1">بڕی پارە (دینار):</label>
                   <input
                     type="number"
                     value={aidForm.amountIQD}
@@ -495,7 +1337,7 @@ export const BeneficiariesView: React.FC = () => {
               ) : (
                 <>
                   <div>
-                    <label className="block text-slate-700 font-bold mb-1">ناوی کاڵا:</label>
+                    <label className="block text-slate-700 font-bold mb-1">ناوی کەلوپەل:</label>
                     <input
                       type="text"
                       value={aidForm.itemName}
@@ -531,7 +1373,7 @@ export const BeneficiariesView: React.FC = () => {
                   onClick={() => setIsGiveAidModalOpen(false)}
                   className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
                 >
-                  پەشیمانبوونەوە
+                  پاشگەزبوونەوە
                 </button>
                 <button
                   type="submit"
@@ -580,165 +1422,6 @@ export const BeneficiariesView: React.FC = () => {
                 ناردنی ئێستا
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Beneficiary Modal with Duplicate Detector Warning */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            
-            <button
-              onClick={() => setIsAddModalOpen(false)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-cyan-600" />
-              تۆمارکردنی سوودمەندی نوێ
-            </h3>
-
-            {duplicateAlert && (
-              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-800 text-xs mb-4 flex items-start gap-2.5 animate-bounce">
-                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-                <div>
-                  <p className="font-bold">هۆشداریی ساختەکاری و دووبارەبوونەوە!</p>
-                  <p className="mt-0.5">{duplicateAlert}</p>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmitBeneficiary} className="space-y-4 text-xs">
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">ناوی تەواوی کەس / سەرپەرشتیار:</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">ژمارەی نیشتمانی یان ناسنامە:</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.nationalId}
-                    onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">ژمارەی مۆبایل:</label>
-                  <input
-                    type="tel"
-                    required
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">پارێزگا:</label>
-                  <select
-                    value={formData.governorate}
-                    onChange={(e) => setFormData({ ...formData, governorate: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
-                  >
-                    <option value="هەولێر">هەولێر</option>
-                    <option value="سلێمانی">سلێمانی</option>
-                    <option value="دهۆک">دهۆک</option>
-                    <option value="هەڵەبجە">هەڵەبجە</option>
-                    <option value="کەرکووک">کەرکووک</option>
-                    <option value="گەرمیان">گەرمیان</option>
-                    <option value="زاخۆ">زاخۆ</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">ناونیشانی ورد (گەڕەک، کۆڵان، نزیکترین شوێن):</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">ئەندامانی خێزان:</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={formData.familyMembers}
-                    onChange={(e) => setFormData({ ...formData, familyMembers: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">داهاتی مانگانە (دینار):</label>
-                  <input
-                    type="number"
-                    value={formData.monthlyIncomeIQD}
-                    onChange={(e) => setFormData({ ...formData, monthlyIncomeIQD: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">حاڵەت:</label>
-                  <select
-                    value={formData.needCategory}
-                    onChange={(e) => setFormData({ ...formData, needCategory: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
-                  >
-                    <option value="poor">هەژار و کەمدەرامەت</option>
-                    <option value="orphan">بێباوک و هەتیو</option>
-                    <option value="sick">نەخۆشی درێژخایەن</option>
-                    <option value="disabled">خاوەن پێداویستی تایبەت</option>
-                    <option value="student">خوێندکاری هەژار</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">تێبینی و بارودۆخی تایبەت:</label>
-                <textarea
-                  rows={3}
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
-                >
-                  پاشگەزبوونەوە
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white text-xs font-bold"
-                >
-                  تۆمارکردن لە داتابەیس
-                </button>
-              </div>
-
-            </form>
           </div>
         </div>
       )}

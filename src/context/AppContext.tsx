@@ -54,6 +54,7 @@ interface AppContextType {
   // Beneficiaries
   beneficiaries: Beneficiary[];
   addBeneficiary: (ben: Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>) => { success: boolean; duplicate?: Beneficiary; message?: string };
+  addBeneficiariesBulk: (bens: Array<Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>>) => { added: number; skippedDuplicates: number; total: number };
   updateBeneficiary: (ben: Beneficiary) => void;
   deleteBeneficiary: (id: string) => void;
   checkDuplicate: (nationalId: string, phone: string, excludeId?: string) => Beneficiary | undefined;
@@ -318,6 +319,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBeneficiaries(prev => [newBen, ...prev]);
     logAction('تۆمارکردنی سوودمەند', `سوودمەند [${newBen.fullName}] تۆمارکرا`);
     return { success: true };
+  };
+
+  const addBeneficiariesBulk = (items: Array<Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>>) => {
+    let addedCount = 0;
+    let skippedCount = 0;
+    const newItems: Beneficiary[] = [];
+
+    const existingNationalIds = new Set(beneficiaries.map(b => b.nationalId.trim()));
+    const existingPhones = new Set(beneficiaries.map(b => b.phone.trim()));
+
+    items.forEach((data, index) => {
+      const cleanNationalId = (data.nationalId || '').toString().trim();
+      const cleanPhone = (data.phone || '').toString().trim();
+
+      if (!cleanNationalId || existingNationalIds.has(cleanNationalId) || (cleanPhone && existingPhones.has(cleanPhone))) {
+        skippedCount++;
+        return;
+      }
+
+      existingNationalIds.add(cleanNationalId);
+      if (cleanPhone) existingPhones.add(cleanPhone);
+
+      const newBen: Beneficiary = {
+        ...data,
+        id: `ben-${Date.now()}-${index}`,
+        registeredDate: new Date().toISOString().split('T')[0],
+        aidHistory: []
+      };
+      newItems.push(newBen);
+      addedCount++;
+    });
+
+    if (newItems.length > 0) {
+      setBeneficiaries(prev => [...newItems, ...prev]);
+      logAction('هاوردەکردنی بەکۆمەڵ', `ژمارەی (${addedCount}) سوودمەند بە فایلی ئێکسڵ هاوردەکران بۆ سیستەم`, 'create');
+    }
+
+    return { added: addedCount, skippedDuplicates: skippedCount, total: items.length };
   };
 
   const updateBeneficiary = (updated: Beneficiary) => {
@@ -765,6 +804,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser: ROLE_PROFILES[currentRole],
         beneficiaries,
         addBeneficiary,
+        addBeneficiariesBulk,
         updateBeneficiary,
         deleteBeneficiary,
         checkDuplicate,

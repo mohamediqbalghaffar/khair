@@ -23,11 +23,24 @@ export interface AidRecord {
   notes?: string;
 }
 
+export interface OtherProvider {
+  name: string;
+  relation: string; // e.g. کوڕ، کچ، برای گەورە، هاوسەر
+  monthlyIncomeIQD?: number;
+}
+
 export interface Beneficiary {
   id: string;
   nationalId: string; // بۆ پشکنینی دووبارەبوونەوە
   fullName: string;
   phone: string;
+  gender: 'male' | 'female'; // ڕەگەز: نێر / مێ
+  age: number; // تەمەن
+  isFamilyHead: boolean; // ئایا سەرۆکی خێزانە؟
+  isProvider: boolean; // ئایا بژێوی خێزانەکە دابین دەکات؟
+  providerName?: string; // ئەگەر نەخێر، کێ بژێوی دابین دەکات؟
+  isOnlyProvider?: boolean; // ئەگەر بەڵێ، ئایا تەنها خۆیەتی؟
+  otherProviders?: OtherProvider[]; // ئەگەر تەنها خۆی نییە، دابینکەرانی تر لە هەمان خێزان
   governorate: 'هەولێر' | 'سلێمانی' | 'دهۆک' | 'هەڵەبجە' | 'کەرکووک' | 'گەرمیان' | 'زاخۆ';
   address: string;
   familyMembers: number;
