@@ -25,7 +25,6 @@ import {
   ArrowRight,
   Download
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 
 type ActiveModalType = 'donations' | 'beneficiaries' | 'projects' | 'volunteers' | null;
 
@@ -126,14 +125,6 @@ export const DashboardView: React.FC = () => {
   const activeProjectsCount = filteredProjects.filter(p => p.status === 'active').length;
   const totalVolunteerHours = filteredVolunteers.reduce((sum, v) => sum + v.hoursLogged, 0);
 
-  // Trigger celebratory confetti
-  const celebrateImpact = () => {
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-  };
 
   // Recent aid activities across filtered beneficiaries
   const recentAids = filteredBeneficiaries
@@ -214,13 +205,6 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
-            <button
-              onClick={celebrateImpact}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl liquid-button-primary text-white text-xs font-bold shadow-md"
-            >
-              <HeartHandshake className="w-4 h-4" />
-              ئاهەنگی کاریگەری هاوکاری
-            </button>
             <button
               onClick={exportImpactReport}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-white/90 hover:bg-white border border-slate-200 text-slate-800 text-xs font-bold transition-all shadow-sm"
