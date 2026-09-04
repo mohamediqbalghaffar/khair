@@ -20,7 +20,10 @@ export const FinanceView: React.FC = () => {
   const {
     transactions,
     addTransaction,
-    donations
+    donations,
+    projects,
+    currencyView,
+    setActiveTab
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,6 +53,74 @@ export const FinanceView: React.FC = () => {
   const incomeUSD = transactions.filter(t => t.type === 'income' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0);
   const expenseUSD = transactions.filter(t => t.type === 'expense' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0);
   const balanceUSD = incomeUSD - expenseUSD;
+
+  // Dynamic Budget Planning & Forecasting metrics (connected to projects & transactions, 0 when empty)
+  const totalPlannedBudgetUSD = projects.reduce((sum, p) => sum + (p.targetBudgetUSD || 0), 0);
+  const totalPlannedBudgetIQD = totalPlannedBudgetUSD * 1500;
+
+  const totalSpentUSD = expenseUSD + Math.round(expenseIQD / 1500);
+  const totalSpentIQD = expenseIQD + (expenseUSD * 1500);
+
+  const overallBudgetUSD = totalPlannedBudgetUSD;
+  const overallBudgetIQD = totalPlannedBudgetIQD;
+  const overallBudgetPercent = (currencyView === 'IQD' ? overallBudgetIQD : overallBudgetUSD) > 0
+    ? Math.min(100, Math.round(((currencyView === 'IQD' ? totalSpentIQD : totalSpentUSD) / (currencyView === 'IQD' ? overallBudgetIQD : overallBudgetUSD)) * 100))
+    : 0;
+
+  const remainingBudgetUSD = Math.max(0, totalPlannedBudgetUSD - totalSpentUSD);
+  const remainingBudgetIQD = Math.max(0, totalPlannedBudgetIQD - totalSpentIQD);
+
+  // Dynamic Category Breakdown linked directly to projects and transactions
+  const categoryTemplates = [
+    {
+      title: 'کڕینی خۆراک و سەبەتە',
+      categoryKey: 'خۆراک',
+      color: 'from-emerald-500 to-teal-600'
+    },
+    {
+      title: 'دەرمان و چارەسەری نەخۆش',
+      categoryKey: 'تەندروستی',
+      color: 'from-cyan-500 to-blue-600'
+    },
+    {
+      title: 'سندووقی بێباوک و پەروەردە',
+      categoryKey: 'پەروەردە و فێرکردن',
+      color: 'from-purple-500 to-indigo-600'
+    },
+    {
+      title: 'تێچووی گواستنەوە و فریاگوزاری',
+      categoryKey: 'فریاگوزاری خێرا',
+      color: 'from-amber-500 to-orange-600'
+    }
+  ];
+
+  const budgetCategories = categoryTemplates.map(cat => {
+    const matchingProjects = projects.filter(p => p.category === cat.categoryKey || p.title.includes(cat.categoryKey));
+    const catBudgetUSD = matchingProjects.reduce((sum, p) => sum + (p.targetBudgetUSD || 0), 0);
+    const catBudgetIQD = catBudgetUSD * 1500;
+
+    const spentFromTxIQD = transactions
+      .filter(t => t.type === 'expense' && (t.category.includes(cat.categoryKey) || matchingProjects.some(p => p.id === t.relatedProjectId)))
+      .reduce((sum, t) => sum + (t.currency === 'IQD' ? t.amount : t.amount * 1500), 0);
+    const spentFromProjectsIQD = matchingProjects.reduce((sum, p) => sum + ((p.spentBudgetUSD || 0) * 1500), 0);
+    const catSpentIQD = Math.max(spentFromTxIQD, spentFromProjectsIQD);
+    const catSpentUSD = Math.round(catSpentIQD / 1500);
+
+    const percent = (currencyView === 'IQD' ? catBudgetIQD : catBudgetUSD) > 0
+      ? Math.min(100, Math.round(((currencyView === 'IQD' ? catSpentIQD : catSpentUSD) / (currencyView === 'IQD' ? catBudgetIQD : catBudgetUSD)) * 100))
+      : 0;
+
+    return {
+      title: cat.title,
+      budgetIQD: catBudgetIQD,
+      budgetUSD: catBudgetUSD,
+      spentIQD: catSpentIQD,
+      spentUSD: catSpentUSD,
+      percent,
+      color: cat.color,
+      projectsCount: matchingProjects.length
+    };
+  });
 
   // Filtered transactions
   const filteredTransactions = transactions.filter(t => {
@@ -187,46 +258,112 @@ export const FinanceView: React.FC = () => {
 
       </div>
 
-      {/* Budget Planning & Forecasting Widget (Feature 6) */}
+      {/* Budget Planning & Forecasting Widget (Feature 6 - Dynamic Live Synchronization) */}
       <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Target className="w-5 h-5 text-indigo-600" />
             <div>
               <h3 className="text-sm font-bold text-slate-900">پلاندانانی بودجە و پێشبینی خەرجییەکان (Budget Planning & Forecast)</h3>
-              <p className="text-[11px] text-slate-500">بەراوردی بودجەی تەرخانکراو بەرامبەر خەرجی ڕاستەقینە بەپێی بەشەکان</p>
+              <p className="text-[11px] text-slate-500">بەراوردی بودجەی تەرخانکراو بەرامبەر خەرجی ڕاستەقینە بەپێی بەش و پڕۆژەکان</p>
             </div>
           </div>
-          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
-            ساڵی ٢٠٢٦
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
+              ساڵی ٢٠٢٦
+            </span>
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+              ڕێژەی بەکارهێنان: {overallBudgetPercent}٪
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
-          {[
-            { title: 'کڕینی خۆراک و سەبەتە', budget: 15000000, spent: 6800000, color: 'from-emerald-500 to-teal-600' },
-            { title: 'دەرمان و چارەسەری نەخۆش', budget: 8000000, spent: 4200000, color: 'from-cyan-500 to-blue-600' },
-            { title: 'سندووقی بێباوک و هەتیوان', budget: 10000000, spent: 5500000, color: 'from-purple-500 to-indigo-600' },
-            { title: 'تێچووی گواستنەوە و مەیدانی', budget: 3000000, spent: 1100000, color: 'from-amber-500 to-orange-600' },
-          ].map((cat, i) => {
-            const percent = Math.min(100, Math.round((cat.spent / cat.budget) * 100));
-            return (
-              <div key={i} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-800">{cat.title}</span>
-                  <span className="font-mono font-bold text-slate-900">{percent}٪</span>
-                </div>
-                <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                  <div className={`h-full rounded-full bg-gradient-to-r ${cat.color}`} style={{ width: `${percent}%` }} />
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                  <span>خەرجکراو: {(cat.spent / 1000000).toFixed(1)}م د.ع</span>
-                  <span>بودجە: {(cat.budget / 1000000).toFixed(1)}م د.ع</span>
-                </div>
-              </div>
-            );
-          })}
+        {/* Live Forecast Summary Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-slate-50 via-indigo-50/40 to-slate-50 border border-indigo-100/80">
+          <div>
+            <span className="text-[10px] text-slate-500 font-bold block">کۆی بودجەی پلان بۆ داڕێژراو:</span>
+            <span className="text-sm font-black text-slate-900 font-mono">
+              {currencyView === 'IQD' ? `${totalPlannedBudgetIQD.toLocaleString()} د.ع` : `$${totalPlannedBudgetUSD.toLocaleString()}`}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-rose-600 font-bold block">کۆی خەرجکراوی ڕاستەقینە:</span>
+            <span className="text-sm font-black text-rose-700 font-mono">
+              {currencyView === 'IQD' ? `${totalSpentIQD.toLocaleString()} د.ع` : `$${totalSpentUSD.toLocaleString()}`}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-emerald-600 font-bold block">پێشبینی بودجەی ماوە:</span>
+            <span className="text-sm font-black text-emerald-700 font-mono">
+              {currencyView === 'IQD' ? `${remainingBudgetIQD.toLocaleString()} د.ع` : `$${remainingBudgetUSD.toLocaleString()}`}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-indigo-600 font-bold block">پڕۆژە بەستراوەکان:</span>
+            <span className="text-sm font-black text-indigo-900 font-mono">
+              {projects.length} پڕۆژەی چالاک
+            </span>
+          </div>
         </div>
+
+        {/* Category Budget Breakdown Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+          {budgetCategories.map((cat, i) => (
+            <div key={i} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800">{cat.title}</span>
+                <span className="font-mono font-bold text-slate-900">{cat.percent}٪</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div className={`h-full rounded-full bg-gradient-to-r ${cat.color}`} style={{ width: `${cat.percent}%` }} />
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                <span>خەرجکراو: {currencyView === 'IQD' ? `${cat.spentIQD.toLocaleString()} د.ع` : `$${cat.spentUSD.toLocaleString()}`}</span>
+                <span>بودجە: {currencyView === 'IQD' ? `${cat.budgetIQD.toLocaleString()} د.ع` : `$${cat.budgetUSD.toLocaleString()}`}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Zero-data indicator or active projects status */}
+        {projects.length === 0 && transactions.length === 0 ? (
+          <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-center text-amber-900 text-xs flex flex-col sm:flex-row items-center justify-center gap-2">
+            <span className="font-bold">سفر داتای بودجە تۆمارکراوە (سیستەم لە سفرەوە دەستپێدەکات).</span>
+            <span className="text-[11px] text-amber-700">بە دروستکردنی هەر پڕۆژەیەک لە بەشی پڕۆژەکان یان تۆمارکردنی خەرجی، ژمارە و پێشبینییەکان ئۆتۆماتیکی نوێ دەبنەوە.</span>
+          </div>
+        ) : projects.length > 0 && (
+          <div className="pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="font-bold text-slate-700">بەدواداچوونی بودجەی پڕۆژە چالاکەکان ({projects.length})</span>
+              <button
+                onClick={() => setActiveTab('projects')}
+                className="text-indigo-600 hover:text-indigo-800 font-bold"
+              >
+                بەڕێوەبردنی پڕۆژەکان ←
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {projects.map(p => {
+                const pPercent = p.targetBudgetUSD > 0 ? Math.min(100, Math.round((p.spentBudgetUSD / p.targetBudgetUSD) * 100)) : 0;
+                return (
+                  <div key={p.id} className="p-2.5 rounded-xl bg-white border border-slate-200 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 truncate max-w-[150px]">{p.title}</span>
+                      <span className="font-mono font-bold text-slate-700">{pPercent}٪</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-indigo-500" style={{ width: `${pPercent}%` }} />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                      <span>خەرج: ${p.spentBudgetUSD.toLocaleString()}</span>
+                      <span>بودجە: ${p.targetBudgetUSD.toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filter and Search Bar */}
@@ -418,6 +555,7 @@ export const FinanceView: React.FC = () => {
                     value={txForm.category}
                     onChange={(e) => setTxForm({ ...txForm, category: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                    placeholder="نموونە: خۆراک، تەندروستی..."
                   />
                 </div>
                 <div>
@@ -426,6 +564,40 @@ export const FinanceView: React.FC = () => {
                     type="date"
                     value={txForm.date}
                     onChange={(e) => setTxForm({ ...txForm, date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">پڕۆژەی پەیوەندیدار (ئارەزوومەندانە):</label>
+                  <select
+                    value={txForm.relatedProjectId}
+                    onChange={(e) => {
+                      const pId = e.target.value;
+                      const selectedProj = projects.find(p => p.id === pId);
+                      setTxForm({
+                        ...txForm,
+                        relatedProjectId: pId,
+                        category: selectedProj ? selectedProj.category : txForm.category
+                      });
+                    }}
+                    className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white"
+                  >
+                    <option value="">گشتی (بێ پڕۆژە)</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.title} ({p.category})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">ژمارەی پسوولە (ئارەزوومەندانە):</label>
+                  <input
+                    type="text"
+                    value={txForm.receiptNumber}
+                    onChange={(e) => setTxForm({ ...txForm, receiptNumber: e.target.value })}
+                    placeholder="نموونە: REC-001"
                     className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                   />
                 </div>

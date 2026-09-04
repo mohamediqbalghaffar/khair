@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GOVERNORATE_STATS } from '../data/initialData';
 import { GovernorateStats } from '../types';
+import { useApp } from '../context/AppContext';
 import {
   MapPin,
   Users,
@@ -11,21 +12,42 @@ import {
 } from 'lucide-react';
 
 export const GeoMapView: React.FC = () => {
-  const governorateStats: GovernorateStats[] = GOVERNORATE_STATS;
+  const { beneficiaries, projects, volunteers } = useApp();
   const [selectedGov, setSelectedGov] = useState<string>('هەولێر');
+
+  // Dynamically calculate governorate stats from actual system data
+  const governorateStats: GovernorateStats[] = GOVERNORATE_STATS.map(gov => {
+    const govBeneficiaries = beneficiaries.filter(b => b.governorate === gov.name);
+    const totalAid = govBeneficiaries
+      .flatMap(b => b.aidHistory)
+      .reduce((sum, a) => sum + (a.amountIQD || 0), 0);
+    const activeProjects = projects.filter(p => p.governorates.includes(gov.name) && p.status === 'active').length;
+    const volCount = volunteers.filter(v => v.governorate === gov.name).length;
+
+    return {
+      ...gov,
+      beneficiariesCount: govBeneficiaries.length,
+      totalAidDistributedIQD: totalAid,
+      activeProjectsCount: activeProjects,
+      volunteersCount: volCount
+    };
+  });
 
   const activeStat = governorateStats.find(g => g.name === selectedGov) || governorateStats[0];
 
-  // Coordinates on map canvas for Kurdistan governorates
+  // Coordinates on map canvas for Kurdistan governorates with live dynamic beneficiary counts
   const mapNodes = [
-    { name: 'دهۆک', x: 26, y: 22, count: 280 },
-    { name: 'زاخۆ', x: 18, y: 15, count: 140 },
-    { name: 'هەولێر', x: 48, y: 38, count: 420 },
-    { name: 'سلێمانی', x: 74, y: 55, count: 390 },
-    { name: 'کەرکووک', x: 44, y: 62, count: 210 },
-    { name: 'هەڵەبجە', x: 86, y: 68, count: 160 },
-    { name: 'گەرمیان', x: 78, y: 82, count: 175 },
-  ];
+    { name: 'دهۆک', x: 26, y: 22 },
+    { name: 'زاخۆ', x: 18, y: 15 },
+    { name: 'هەولێر', x: 48, y: 38 },
+    { name: 'سلێمانی', x: 74, y: 55 },
+    { name: 'کەرکووک', x: 44, y: 62 },
+    { name: 'هەڵەبجە', x: 86, y: 68 },
+    { name: 'گەرمیان', x: 78, y: 82 },
+  ].map(node => ({
+    ...node,
+    count: beneficiaries.filter(b => b.governorate === node.name).length
+  }));
 
   const totalDistributedIQD = governorateStats.reduce((sum, g) => sum + g.totalAidDistributedIQD, 0);
 

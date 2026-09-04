@@ -383,6 +383,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     const ben = beneficiaries.find(b => b.id === beneficiaryId);
+
+    // Synchronize with Project
+    let matchedProjectId: string | undefined = undefined;
+    if (record.projectTitle) {
+      setProjects(prev => prev.map(p => {
+        if (p.title === record.projectTitle) {
+          matchedProjectId = p.id;
+          const spentAddUSD = (record.type === 'monetary' && record.amountIQD) ? Math.round(record.amountIQD / 1500) : 0;
+          return {
+            ...p,
+            beneficiariesCount: p.beneficiariesCount + 1,
+            spentBudgetUSD: p.spentBudgetUSD + spentAddUSD
+          };
+        }
+        return p;
+      }));
+    }
+
+    // Auto-record financial expense transaction if monetary aid
+    if (record.type === 'monetary' && record.amountIQD && record.amountIQD > 0) {
+      const aidTx: FinancialTransaction = {
+        id: `tx-aid-${Date.now()}`,
+        type: 'expense',
+        amount: record.amountIQD,
+        currency: 'IQD',
+        category: 'هاوکاری نەختینەیی سوودمەند',
+        date: record.date || new Date().toISOString().split('T')[0],
+        description: `هاوکاری نەختینەیی بۆ [${ben?.fullName || 'سوودمەند'}] - ${record.projectTitle}`,
+        recordedBy: record.distributedBy || ROLE_PROFILES[currentRole].name,
+        relatedProjectId: matchedProjectId
+      };
+      setTransactions(prev => [aidTx, ...prev]);
+    }
+
     logAction('دابەشکردنی هاوکاری', `هاوکاری لە پڕۆژەی [${record.projectTitle}] بەخشرا بە [${ben?.fullName}]`);
   };
 
@@ -439,6 +473,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       receiptNumber
     };
     setTransactions(prev => [newTx, ...prev]);
+
+    // Synchronize with Project raised budget
+    if (data.projectId) {
+      setProjects(prev => prev.map(p => {
+        if (p.id === data.projectId) {
+          const addedUSD = data.currency === 'USD' ? data.amount : Math.round(data.amount / 1500);
+          return {
+            ...p,
+            raisedBudgetUSD: p.raisedBudgetUSD + addedUSD
+          };
+        }
+        return p;
+      }));
+    }
 
     logAction('تۆمارکردنی بەخشین', `بڕی ${data.amount.toLocaleString()} ${data.currency} لەلایەن [${data.donorName}] بەخشرا`);
     return newDonation;
@@ -546,6 +594,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `tx-${Date.now()}`
     };
     setTransactions(prev => [newTx, ...prev]);
+
+    // Synchronize with related project
+    if (data.relatedProjectId) {
+      setProjects(prev => prev.map(p => {
+        if (p.id === data.relatedProjectId) {
+          const amountUSD = data.currency === 'USD' ? data.amount : Math.round(data.amount / 1500);
+          if (data.type === 'expense') {
+            return { ...p, spentBudgetUSD: p.spentBudgetUSD + amountUSD };
+          } else if (data.type === 'income') {
+            return { ...p, raisedBudgetUSD: p.raisedBudgetUSD + amountUSD };
+          }
+        }
+        return p;
+      }));
+    }
+
     logAction('تۆماری ژمێریاری', `${data.type === 'income' ? 'داهات' : 'خەرجی'}: ${data.amount.toLocaleString()} ${data.currency} - ${data.description}`);
   };
 

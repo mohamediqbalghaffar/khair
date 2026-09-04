@@ -46,11 +46,11 @@ export const ProjectsView: React.FC = () => {
       title: '',
       category: 'خۆراک',
       description: '',
-      targetBudgetUSD: 20000,
+      targetBudgetUSD: 0,
       startDate: new Date().toISOString().split('T')[0],
-      endDate: '2026-06-30',
+      endDate: '',
       status: 'active',
-      governorates: ['هەولێر', 'سلێمانی'],
+      governorates: ['هەولێر'],
       image: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=600&auto=format&fit=crop&q=80'
     });
   };
