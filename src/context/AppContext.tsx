@@ -3,6 +3,7 @@ import {
   UserRole,
   UserProfile,
   Beneficiary,
+  BeneficiaryDocument,
   Donor,
   Donation,
   Project,
@@ -59,6 +60,9 @@ interface AppContextType {
   deleteBeneficiary: (id: string) => void;
   checkDuplicate: (nationalId: string, phone: string, excludeId?: string) => Beneficiary | undefined;
   addAidRecord: (beneficiaryId: string, record: Omit<AidRecord, 'id'>) => void;
+  addBeneficiaryDocument: (beneficiaryId: string, doc: Omit<BeneficiaryDocument, 'id' | 'uploadDate'>) => void;
+  updateBeneficiaryDocument: (beneficiaryId: string, doc: BeneficiaryDocument) => void;
+  deleteBeneficiaryDocument: (beneficiaryId: string, docId: string) => void;
 
   // Donors & Donations
   donors: Donor[];
@@ -363,12 +367,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newBen: Beneficiary = {
       ...data,
       id: `ben-${Date.now()}`,
+      status: data.status || 'pending',
+      documents: data.documents || [],
       registeredDate: new Date().toISOString().split('T')[0],
       aidHistory: []
     };
 
     setBeneficiaries(prev => [newBen, ...prev]);
-    logAction('تۆمارکردنی سوودمەند', `سوودمەند [${newBen.fullName}] تۆمارکرا`);
+    logAction('تۆمارکردنی سوودمەند', `سوودمەند [${newBen.fullName}] بە دۆخی [${newBen.status === 'pending' ? 'لەژێر لێکۆڵینەوە' : 'پەسەندکراوە'}] تۆمارکرا`);
     return { success: true };
   };
 
@@ -395,6 +401,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const newBen: Beneficiary = {
         ...data,
         id: `ben-${Date.now()}-${index}`,
+        status: data.status || 'pending',
+        documents: data.documents || [],
         registeredDate: new Date().toISOString().split('T')[0],
         aidHistory: []
       };
@@ -411,14 +419,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateBeneficiary = (updated: Beneficiary) => {
-    setBeneficiaries(prev => prev.map(b => b.id === updated.id ? updated : b));
-    logAction('نوێکردنەوەی سوودمەند', `زانیارییەکانی [${updated.fullName}] دەستکاری کرا`, 'update');
+    setBeneficiaries(prev => prev.map(b => b.id === updated.id ? { ...updated, documents: updated.documents || [] } : b));
+    logAction('نوێکردنەوەی سوودمەند', `زانیارییەکانی [${updated.fullName}] و دۆسیەکەی دەستکاری کرا`, 'update');
   };
 
   const deleteBeneficiary = (id: string) => {
     const target = beneficiaries.find(b => b.id === id);
     setBeneficiaries(prev => prev.filter(b => b.id !== id));
     logAction('سڕینەوەی سوودمەند', `دۆسیەی [${target?.fullName || id}] سڕایەوە`, 'delete');
+  };
+
+  const addBeneficiaryDocument = (beneficiaryId: string, doc: Omit<BeneficiaryDocument, 'id' | 'uploadDate'>) => {
+    const newDoc: BeneficiaryDocument = {
+      ...doc,
+      id: `bdoc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      uploadDate: new Date().toISOString().split('T')[0]
+    };
+
+    setBeneficiaries(prev => prev.map(b => {
+      if (b.id === beneficiaryId) {
+        const currentDocs = b.documents || [];
+        return { ...b, documents: [newDoc, ...currentDocs] };
+      }
+      return b;
+    }));
+
+    const targetBen = beneficiaries.find(b => b.id === beneficiaryId);
+    // Mirror in global documents list
+    addDocument({
+      title: `${newDoc.title} (${targetBen?.fullName || 'سوودمەند'})`,
+      category: newDoc.category === 'ڕاپۆرتی پزیشکی' ? 'ڕاپۆرتی پزیشکی' : 'ناسنامە',
+      fileType: newDoc.fileType || 'بەڵگەنامە',
+      fileSize: newDoc.fileSize || '1 MB',
+      relatedEntity: targetBen?.fullName || 'سوودمەند'
+    });
+
+    logAction('بارکردنی بەڵگەنامەی سوودمەند', `بەڵگەنامەی [${newDoc.title}] بۆ دۆسیەی [${targetBen?.fullName || beneficiaryId}] زیادکرا`, 'create');
+  };
+
+  const updateBeneficiaryDocument = (beneficiaryId: string, doc: BeneficiaryDocument) => {
+    setBeneficiaries(prev => prev.map(b => {
+      if (b.id === beneficiaryId) {
+        const updatedDocs = (b.documents || []).map(d => d.id === doc.id ? doc : d);
+        return { ...b, documents: updatedDocs };
+      }
+      return b;
+    }));
+    logAction('دەستکاریکردنی بەڵگەنامە', `زانیاری بەڵگەنامەی [${doc.title}] دەستکاری کرا`, 'update');
+  };
+
+  const deleteBeneficiaryDocument = (beneficiaryId: string, docId: string) => {
+    setBeneficiaries(prev => prev.map(b => {
+      if (b.id === beneficiaryId) {
+        const filteredDocs = (b.documents || []).filter(d => d.id !== docId);
+        return { ...b, documents: filteredDocs };
+      }
+      return b;
+    }));
+    logAction('سڕینەوەی بەڵگەنامە', `بەڵگەنامە لە دۆسیەی سوودمەند سڕایەوە`, 'delete');
   };
 
   const addAidRecord = (beneficiaryId: string, record: Omit<AidRecord, 'id'>) => {
@@ -1063,6 +1121,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteBeneficiary,
         checkDuplicate,
         addAidRecord,
+        addBeneficiaryDocument,
+        updateBeneficiaryDocument,
+        deleteBeneficiaryDocument,
         donors,
         donations,
         addDonor,

@@ -461,7 +461,7 @@ export const parseBeneficiaryExcelFile = async (file: File): Promise<ParseResult
       familyMembers,
       monthlyIncomeIQD,
       needCategory,
-      status: 'approved',
+      status: 'pending',
       notes
     });
   });

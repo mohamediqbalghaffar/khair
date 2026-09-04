@@ -31,6 +31,26 @@ export interface OtherProvider {
   monthlyIncomeIQD?: number;
 }
 
+export type BeneficiaryDocCategory =
+  | 'ناسنامە'
+  | 'کارتی نیشتمانی'
+  | 'کۆبۆنی خۆراک'
+  | 'ڕاپۆرتی پزیشکی'
+  | 'بەڵگەنامەی نیشتەجێبوون'
+  | 'وێنەی مەیدانی'
+  | 'تر';
+
+export interface BeneficiaryDocument {
+  id: string;
+  title: string;
+  category: BeneficiaryDocCategory;
+  fileName: string;
+  fileSize?: string;
+  fileType?: string;
+  fileData?: string; // base64 / data URL for preview and download
+  uploadDate: string;
+}
+
 export interface Beneficiary {
   id: string;
   nationalId: string; // بۆ پشکنینی دووبارەبوونەوە
@@ -52,6 +72,7 @@ export interface Beneficiary {
   notes: string;
   registeredDate: string;
   aidHistory: AidRecord[];
+  documents?: BeneficiaryDocument[];
 }
 
 export type DonorType = 'individual' | 'corporate' | 'organization';
