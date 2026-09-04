@@ -183,93 +183,93 @@ export const DashboardView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-36">
       
-      {/* Welcome Hero Banner with Liquid Specular Glass on White */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sky-50 via-cyan-50/60 to-blue-50/80 p-6 sm:p-8 border border-sky-200/80 shadow-sm">
+      {/* Welcome Hero Banner with Balanced Responsive Proportions */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sky-50 via-cyan-50/70 to-blue-50/80 p-6 sm:p-8 lg:p-10 border border-sky-200/90 shadow-sm">
         <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-400/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-100 text-cyan-800 border border-cyan-200 flex items-center gap-1.5 shadow-sm">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-700" />
+        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="max-w-3xl">
+            <div className="flex items-center gap-2 mb-2.5">
+              <span className="px-3.5 py-1 rounded-full text-xs sm:text-sm font-bold bg-cyan-100/90 text-cyan-800 border border-cyan-200 flex items-center gap-1.5 shadow-sm">
+                <Sparkles className="w-4 h-4 text-cyan-700" />
                 داشبۆردی شیكاری و چاودێری ڕاستەوخۆ
               </span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight leading-tight">
               بەخێربێن بۆ سیستەمی بەڕێوەبردنی خێرخوازی
             </h2>
-            <p className="text-sm text-slate-600 mt-1 max-w-2xl leading-relaxed font-normal">
+            <p className="text-sm sm:text-base text-slate-600 mt-2 leading-relaxed font-normal">
               تۆمارکردن، دابەشکردنی کۆمەک و شەفافییەتی تەواوی دارایی لەسەر ئاستی سەرجەم شار و ناوچەکانی کوردستان.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
+          <div className="flex items-center gap-3 w-full lg:w-auto flex-wrap sm:flex-nowrap shrink-0">
             <button
               onClick={exportImpactReport}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-white/90 hover:bg-white border border-slate-200 text-slate-800 text-xs font-bold transition-all shadow-sm"
+              className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/95 hover:bg-white border border-slate-200/90 text-slate-800 text-xs sm:text-sm font-bold transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
               title="داگرتنی پوختەی ئاماری فلتەرکراو"
             >
               <Download className="w-4 h-4 text-emerald-600" />
-              هەناردەکردنی ڕاپۆرت
+              <span>هەناردەکردنی ڕاپۆرت</span>
             </button>
             <button
               onClick={() => setActiveTab('beneficiaries')}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-white/90 hover:bg-white border border-slate-200 text-slate-800 text-xs font-bold transition-all shadow-sm"
+              className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl liquid-button-primary text-white text-xs sm:text-sm font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
             >
-              <PlusCircle className="w-4 h-4 text-cyan-600" />
-              تۆمارکردنی سوودمەند
+              <PlusCircle className="w-4 h-4" />
+              <span>تۆمارکردنی سوودمەند</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Dynamic Dashboard Filter Bar (Requirement 3: Filters for Time Period, Gov, Category, Search) */}
-      <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-3">
-        <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
+      {/* Dynamic Dashboard Filter Bar with Balanced 4-Column Responsive Grid */}
+      <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-cyan-600" />
-            <h3 className="text-xs font-bold text-slate-900">فلتەرکردنی زانیاری و ئامارەکانی داشبۆرد</h3>
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900">فلتەرکردنی زانیاری و ئامارەکانی داشبۆرد</h3>
           </div>
           {isAnyFilterActive && (
             <button
               onClick={resetFilters}
-              className="flex items-center gap-1 text-[11px] text-rose-600 hover:text-rose-700 font-bold px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-bold px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors"
             >
-              <RotateCcw className="w-3 h-3" />
-              سڕینەوەی فلتەرەکان
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>سڕینەوەی فلتەرەکان</span>
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           
-          {/* 1. Time Period Filter: Exact From & To Dates of Years */}
-          <div className="sm:col-span-2 lg:col-span-2">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-bold text-slate-700">ماوەی کات (لە - بۆ بەروار):</label>
-              <span className="text-[10px] text-cyan-800 font-mono bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-200">
+          {/* 1. Time Period Filter: Exact From & To Dates */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs sm:text-sm font-bold text-slate-700">ماوەی کات (لە - بۆ):</label>
+              <span className="text-xs text-cyan-800 font-mono font-bold bg-cyan-50 px-2 py-0.5 rounded-lg border border-cyan-200">
                 {fromDate} ⬅ {toDate}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="relative">
-                <span className="text-[10px] text-slate-400 absolute right-2.5 top-2 pointer-events-none font-bold">لە:</span>
+                <span className="text-xs text-slate-400 absolute right-2.5 top-2.5 pointer-events-none font-bold">لە:</span>
                 <input
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="w-full pr-7 pl-2 py-1.5 text-xs rounded-xl liquid-input text-slate-900 font-mono bg-white"
+                  className="w-full h-11 pr-7 pl-2 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 font-mono bg-white font-bold"
                   title="لە بەرواری (From Date)"
                 />
               </div>
               <div className="relative">
-                <span className="text-[10px] text-slate-400 absolute right-2.5 top-2 pointer-events-none font-bold">بۆ:</span>
+                <span className="text-xs text-slate-400 absolute right-2.5 top-2.5 pointer-events-none font-bold">بۆ:</span>
                 <input
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="w-full pr-7 pl-2 py-1.5 text-xs rounded-xl liquid-input text-slate-900 font-mono bg-white"
+                  className="w-full h-11 pr-7 pl-2 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 font-mono bg-white font-bold"
                   title="بۆ بەرواری (To Date)"
                 />
               </div>
@@ -278,11 +278,11 @@ export const DashboardView: React.FC = () => {
 
           {/* 2. Governorate Filter */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">پارێزگا و ناوچە:</label>
+            <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-1.5">پارێزگا و ناوچە:</label>
             <select
               value={governorateFilter}
               onChange={(e) => setGovernorateFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white"
+              className="w-full h-11 px-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
             >
               <option value="all">هەموو پارێزگاکان</option>
               <option value="هەولێر">هەولێر</option>
@@ -295,13 +295,13 @@ export const DashboardView: React.FC = () => {
             </select>
           </div>
 
-          {/* 3. Category Filter: Renamed strictly to حاڵەت */}
+          {/* 3. Category Filter */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">حاڵەت:</label>
+            <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-1.5">حاڵەتی سوودمەند:</label>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white"
+              className="w-full h-11 px-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
             >
               <option value="all">هەموو حاڵەتەکان</option>
               <option value="poor">هەژار و کەمدەرامەت</option>
@@ -314,15 +314,15 @@ export const DashboardView: React.FC = () => {
 
           {/* 4. Search Query */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-700 mb-1">گەڕانی دەقی لە داشبۆرد:</label>
+            <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-1.5">گەڕانی دەقی لە داشبۆرد:</label>
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+              <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="گەڕان بەپێی ناو یان ناونیشان..."
-                className="w-full pr-8 pl-3 py-2 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400"
+                className="w-full h-11 pr-10 pl-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 placeholder-slate-400 font-bold"
               />
             </div>
           </div>
@@ -330,29 +330,29 @@ export const DashboardView: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards Grid (Requirement 2: Clickable with Full Details Modal + Requirement 1: Erased duplicate detection footer) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+      {/* KPI Cards Grid with Elevated Kurdish Typography and Proportions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
         
         {/* KPI 1: Donations (Clickable) */}
         <div
           onClick={() => setActiveModal('donations')}
-          className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-lg hover:border-cyan-400 hover:scale-[1.02] active:scale-[0.99] transition-all cursor-pointer group flex flex-col justify-between"
+          className="rounded-3xl bg-gradient-to-b from-sky-50/60 to-white backdrop-blur-2xl p-6 sm:p-7 border border-slate-200/90 hover:border-cyan-400 shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-[0.99] transition-all cursor-pointer group flex flex-col justify-between min-h-[175px]"
           title="کلیک بکە بۆ بینینی تەواوی وردەکاری بەخشینەکان"
         >
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 group-hover:text-cyan-700 transition-colors">کۆی بەخشینەکان</span>
-              <div className="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white transition-all shadow-sm">
-                <TrendingUp className="w-5 h-5" />
+              <span className="text-xs sm:text-sm font-bold text-slate-600 group-hover:text-cyan-800 transition-colors">کۆی بەخشینەکان</span>
+              <div className="w-12 h-12 rounded-2xl bg-cyan-100/70 border border-cyan-200/80 flex items-center justify-center text-cyan-700 group-hover:bg-cyan-600 group-hover:text-white transition-all shadow-sm">
+                <TrendingUp className="w-6 h-6" />
               </div>
             </div>
             <div className="mt-4">
-              <div className="text-2xl font-black text-slate-900">
+              <div className="text-3xl sm:text-4xl font-black text-slate-900 font-mono tracking-tight">
                 {currencyView === 'IQD'
                   ? `${totalDonationsIQD.toLocaleString()} د.ع`
                   : `$${totalDonationsUSD.toLocaleString()}`}
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-xs sm:text-sm font-bold text-slate-500 mt-1.5 font-mono">
                 {currencyView === 'IQD'
                   ? `هاوتای $${totalDonationsUSD.toLocaleString()} دۆلار`
                   : `هاوتای ${totalDonationsIQD.toLocaleString()} دینار`}
@@ -360,104 +360,104 @@ export const DashboardView: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-cyan-700 font-bold flex items-center gap-1 group-hover:translate-x-[-2px] transition-transform">
-              <Eye className="w-3.5 h-3.5" /> بینینی تەواوی وردەکاری
+          <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs sm:text-sm">
+            <span className="text-cyan-700 font-bold flex items-center gap-1.5 group-hover:translate-x-[-3px] transition-transform">
+              <Eye className="w-4 h-4" /> بینینی تەواوی وردەکاری
             </span>
-            <span className="text-slate-500 font-bold">{filteredDonations.length} بەخشین</span>
+            <span className="px-2.5 py-0.5 rounded-full bg-slate-100 font-bold text-slate-600 text-xs">{filteredDonations.length} بەخشین</span>
           </div>
         </div>
 
-        {/* KPI 2: Beneficiaries (Clickable, and ERASED the fraud detection section!) */}
+        {/* KPI 2: Beneficiaries (Clickable) */}
         <div
           onClick={() => setActiveModal('beneficiaries')}
-          className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-lg hover:border-emerald-400 hover:scale-[1.02] active:scale-[0.99] transition-all cursor-pointer group flex flex-col justify-between"
+          className="rounded-3xl bg-gradient-to-b from-emerald-50/60 to-white backdrop-blur-2xl p-6 sm:p-7 border border-slate-200/90 hover:border-emerald-400 shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-[0.99] transition-all cursor-pointer group flex flex-col justify-between min-h-[175px]"
           title="کلیک بکە بۆ بینینی تەواوی وردەکاری خێزانەکان"
         >
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 group-hover:text-emerald-700 transition-colors">خێزانە سوودمەندەکان</span>
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-sm">
-                <Users className="w-5 h-5" />
+              <span className="text-xs sm:text-sm font-bold text-slate-600 group-hover:text-emerald-800 transition-colors">خێزانە سوودمەندەکان</span>
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100/70 border border-emerald-200/80 flex items-center justify-center text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-sm">
+                <Users className="w-6 h-6" />
               </div>
             </div>
             <div className="mt-4">
-              <div className="text-2xl font-black text-slate-900">
-                {totalBeneficiaries} <span className="text-sm font-normal text-slate-500">خێزان</span>
+              <div className="text-3xl sm:text-4xl font-black text-slate-900 font-mono tracking-tight">
+                {totalBeneficiaries} <span className="text-base sm:text-lg font-normal text-slate-500 font-sans">خێزان</span>
               </div>
-              <p className="text-[11px] text-emerald-700 mt-1 font-bold">
+              <p className="text-xs sm:text-sm text-emerald-700 mt-1.5 font-bold">
                 {aidedBeneficiaries} خێزان هاوکاری وەرگرتووە ({totalBeneficiaries > 0 ? Math.round((aidedBeneficiaries / totalBeneficiaries) * 100) : 0}٪)
               </p>
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-emerald-700 font-bold flex items-center gap-1 group-hover:translate-x-[-2px] transition-transform">
-              <Eye className="w-3.5 h-3.5" /> بینینی دۆسیەی خێزانەکان
+          <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs sm:text-sm">
+            <span className="text-emerald-700 font-bold flex items-center gap-1.5 group-hover:translate-x-[-3px] transition-transform">
+              <Eye className="w-4 h-4" /> بینینی دۆسیەی خێزانەکان
             </span>
-            <span className="text-slate-500 font-bold">{totalBeneficiaries - aidedBeneficiaries} چاوەڕوان</span>
+            <span className="px-2.5 py-0.5 rounded-full bg-slate-100 font-bold text-slate-600 text-xs">{totalBeneficiaries - aidedBeneficiaries} چاوەڕوان</span>
           </div>
         </div>
 
         {/* KPI 3: Projects (Clickable) */}
         <div
           onClick={() => setActiveModal('projects')}
-          className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-lg hover:border-purple-400 hover:scale-[1.02] active:scale-[0.99] transition-all cursor-pointer group flex flex-col justify-between"
+          className="rounded-3xl bg-gradient-to-b from-purple-50/60 to-white backdrop-blur-2xl p-6 sm:p-7 border border-slate-200/90 hover:border-purple-400 shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-[0.99] transition-all cursor-pointer group flex flex-col justify-between min-h-[175px]"
           title="کلیک بکە بۆ بینینی تەواوی وردەکاری پڕۆژەکان"
         >
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 group-hover:text-purple-700 transition-colors">پڕۆژە چالاکەکان</span>
-              <div className="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 group-hover:bg-purple-600 group-hover:text-white transition-all shadow-sm">
-                <FolderKanban className="w-5 h-5" />
+              <span className="text-xs sm:text-sm font-bold text-slate-600 group-hover:text-purple-800 transition-colors">پڕۆژە چالاکەکان</span>
+              <div className="w-12 h-12 rounded-2xl bg-purple-100/70 border border-purple-200/80 flex items-center justify-center text-purple-700 group-hover:bg-purple-600 group-hover:text-white transition-all shadow-sm">
+                <FolderKanban className="w-6 h-6" />
               </div>
             </div>
             <div className="mt-4">
-              <div className="text-2xl font-black text-slate-900">
-                {activeProjectsCount} <span className="text-sm font-normal text-slate-500">پڕۆژەی بەردەوام</span>
+              <div className="text-3xl sm:text-4xl font-black text-slate-900 font-mono tracking-tight">
+                {activeProjectsCount} <span className="text-base sm:text-lg font-normal text-slate-500 font-sans">پڕۆژەی بەردەوام</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-xs sm:text-sm text-slate-500 mt-1.5 font-bold">
                 لە کۆی {filteredProjects.length} پڕۆژەی پلان بۆ داڕێژراو
               </p>
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-purple-700 font-bold flex items-center gap-1 group-hover:translate-x-[-2px] transition-transform">
-              <Eye className="w-3.5 h-3.5" /> بینینی پێشکەوتنی کەمپەینەکان
+          <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs sm:text-sm">
+            <span className="text-purple-700 font-bold flex items-center gap-1.5 group-hover:translate-x-[-3px] transition-transform">
+              <Eye className="w-4 h-4" /> بینینی پێشکەوتنی کەمپەینەکان
             </span>
-            <span className="text-slate-500 font-bold">{filteredProjects.length} پڕۆژە</span>
+            <span className="px-2.5 py-0.5 rounded-full bg-slate-100 font-bold text-slate-600 text-xs">{filteredProjects.length} پڕۆژە</span>
           </div>
         </div>
 
         {/* KPI 4: Volunteer Service (Clickable) */}
         <div
           onClick={() => setActiveModal('volunteers')}
-          className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 border border-slate-200/90 shadow-sm hover:shadow-lg hover:border-amber-400 hover:scale-[1.02] active:scale-[0.99] transition-all cursor-pointer group flex flex-col justify-between"
+          className="rounded-3xl bg-gradient-to-b from-amber-50/60 to-white backdrop-blur-2xl p-6 sm:p-7 border border-slate-200/90 hover:border-amber-400 shadow-sm hover:shadow-xl hover:-translate-y-1 active:scale-[0.99] transition-all cursor-pointer group flex flex-col justify-between min-h-[175px]"
           title="کلیک بکە بۆ بینینی تەواوی وردەکاری تیمی خۆبەخشان"
         >
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 group-hover:text-amber-700 transition-colors">خزمەتی خۆبەخشان</span>
-              <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 group-hover:bg-amber-600 group-hover:text-white transition-all shadow-sm">
-                <UserCheck className="w-5 h-5" />
+              <span className="text-xs sm:text-sm font-bold text-slate-600 group-hover:text-amber-800 transition-colors">خزمەتی خۆبەخشان</span>
+              <div className="w-12 h-12 rounded-2xl bg-amber-100/70 border border-amber-200/80 flex items-center justify-center text-amber-700 group-hover:bg-amber-600 group-hover:text-white transition-all shadow-sm">
+                <UserCheck className="w-6 h-6" />
               </div>
             </div>
             <div className="mt-4">
-              <div className="text-2xl font-black text-slate-900">
-                {totalVolunteerHours} <span className="text-sm font-normal text-slate-500">کاتژمێر</span>
+              <div className="text-3xl sm:text-4xl font-black text-slate-900 font-mono tracking-tight">
+                {totalVolunteerHours} <span className="text-base sm:text-lg font-normal text-slate-500 font-sans">کاتژمێر</span>
               </div>
-              <p className="text-[11px] text-amber-700 mt-1 font-bold">
+              <p className="text-xs sm:text-sm text-amber-800 mt-1.5 font-bold">
                 {filteredVolunteers.length} خۆبەخش لە مەیداندا
               </p>
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-            <span className="text-amber-700 font-bold flex items-center gap-1 group-hover:translate-x-[-2px] transition-transform">
-              <Eye className="w-3.5 h-3.5" /> بینینی تیمی خۆبەخشان
+          <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs sm:text-sm">
+            <span className="text-amber-700 font-bold flex items-center gap-1.5 group-hover:translate-x-[-3px] transition-transform">
+              <Eye className="w-4 h-4" /> بینینی تیمی خۆبەخشان
             </span>
-            <span className="text-slate-500 font-bold">{filteredVolunteers.length} کەس</span>
+            <span className="px-2.5 py-0.5 rounded-full bg-slate-100 font-bold text-slate-600 text-xs">{filteredVolunteers.length} کەس</span>
           </div>
         </div>
 
@@ -516,9 +516,9 @@ export const DashboardView: React.FC = () => {
 
           <div className="space-y-3">
             {recentAids.length === 0 ? (
-              <div className="py-8 text-center space-y-1 rounded-2xl bg-slate-50/50 border border-dashed border-slate-200">
-                <p className="text-xs text-slate-600 font-bold">هیچ هاوکارییەک تۆمار نەکراوە (سفر تۆمار)</p>
-                <p className="text-[10px] text-slate-400">بە تۆمارکردنی سوودمەندان و دابەشکردنی کۆمەک، چالاکییەکان لێرەدا دەردەکەون</p>
+              <div className="py-8 text-center space-y-1.5 rounded-2xl bg-slate-50/50 border border-dashed border-slate-200">
+                <p className="text-sm text-slate-600 font-bold">هیچ هاوکارییەک تۆمار نەکراوە (سفر تۆمار)</p>
+                <p className="text-xs text-slate-400">بە تۆمارکردنی سوودمەندان و دابەشکردنی کۆمەک، چالاکییەکان لێرەدا دەردەکەون</p>
               </div>
             ) : (
               recentAids.map((aid) => (
@@ -531,20 +531,20 @@ export const DashboardView: React.FC = () => {
                       {aid.type === 'monetary' ? 'د.ع' : <Package className="w-5 h-5" />}
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900">{aid.beneficiaryName}</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <h4 className="text-sm font-bold text-slate-900">{aid.beneficiaryName}</h4>
+                      <p className="text-xs text-slate-500 mt-0.5 font-medium">
                         {aid.projectTitle} • پارێزگای {aid.beneficiaryGov}
                       </p>
                     </div>
                   </div>
 
                   <div className="text-left">
-                    <span className="text-xs font-bold text-cyan-800 block">
+                    <span className="text-sm font-black text-cyan-800 block">
                       {aid.type === 'monetary'
                         ? `${aid.amountIQD?.toLocaleString()} دینار`
                         : `${aid.quantity} ${aid.itemName}`}
                     </span>
-                    <span className="text-[10px] text-slate-400">{aid.date}</span>
+                    <span className="text-xs text-slate-400 font-medium font-mono">{aid.date}</span>
                   </div>
                 </div>
               ))
@@ -555,42 +555,42 @@ export const DashboardView: React.FC = () => {
       </div>
 
       {/* Quick Launchpad Buttons */}
-      <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 border border-slate-200/90 shadow-sm">
-        <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+      <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-6 border border-slate-200/90 shadow-sm">
+        <h3 className="text-sm sm:text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-cyan-600" />
           دەستپێشخەری و کرداری خێرا
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <button
             onClick={() => setActiveTab('beneficiaries')}
-            className="p-3 rounded-2xl bg-slate-50 hover:bg-cyan-50 border border-slate-200/80 hover:border-cyan-200 text-center transition-all group"
+            className="p-4 sm:p-5 rounded-2xl bg-slate-50 hover:bg-cyan-50 border border-slate-200/80 hover:border-cyan-200 text-center transition-all group shadow-sm hover:shadow"
           >
-            <Users className="w-6 h-6 text-cyan-600 mx-auto mb-1.5 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-bold text-slate-800">تۆماری خێزانی هەژار</span>
+            <Users className="w-7 h-7 text-cyan-600 mx-auto mb-2 transition-transform group-hover:scale-110" />
+            <span className="text-xs sm:text-sm font-bold text-slate-800">تۆماری خێزانی هەژار</span>
           </button>
           
           <button
             onClick={() => setActiveTab('donors')}
-            className="p-3 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-200/80 hover:border-emerald-200 text-center transition-all group"
+            className="p-4 sm:p-5 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-200/80 hover:border-emerald-200 text-center transition-all group shadow-sm hover:shadow"
           >
-            <HeartHandshake className="w-6 h-6 text-emerald-600 mx-auto mb-1.5 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-bold text-slate-800">تۆمار و پسوولەی بەخشین</span>
+            <HeartHandshake className="w-7 h-7 text-emerald-600 mx-auto mb-2 transition-transform group-hover:scale-110" />
+            <span className="text-xs sm:text-sm font-bold text-slate-800">تۆمار و پسوولەی بەخشین</span>
           </button>
 
           <button
             onClick={() => setActiveTab('inventory')}
-            className="p-3 rounded-2xl bg-slate-50 hover:bg-amber-50 border border-slate-200/80 hover:border-amber-200 text-center transition-all group"
+            className="p-4 sm:p-5 rounded-2xl bg-slate-50 hover:bg-amber-50 border border-slate-200/80 hover:border-amber-200 text-center transition-all group shadow-sm hover:shadow"
           >
-            <Package className="w-6 h-6 text-amber-600 mx-auto mb-1.5 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-bold text-slate-800">دابەشکردنی کاڵای کۆگا</span>
+            <Package className="w-7 h-7 text-amber-600 mx-auto mb-2 transition-transform group-hover:scale-110" />
+            <span className="text-xs sm:text-sm font-bold text-slate-800">دابەشکردنی کاڵای کۆگا</span>
           </button>
 
           <button
             onClick={() => setActiveTab('geo')}
-            className="p-3 rounded-2xl bg-slate-50 hover:bg-purple-50 border border-slate-200/80 hover:border-purple-200 text-center transition-all group"
+            className="p-4 sm:p-5 rounded-2xl bg-slate-50 hover:bg-purple-50 border border-slate-200/80 hover:border-purple-200 text-center transition-all group shadow-sm hover:shadow"
           >
-            <FolderKanban className="w-6 h-6 text-purple-600 mx-auto mb-1.5 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-bold text-slate-800">نەخشەی هاوکاری شارەکان</span>
+            <FolderKanban className="w-7 h-7 text-purple-600 mx-auto mb-2 transition-transform group-hover:scale-110" />
+            <span className="text-xs sm:text-sm font-bold text-slate-800">نەخشەی هاوکاری شارەکان</span>
           </button>
         </div>
       </div>
@@ -616,48 +616,48 @@ export const DashboardView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-lg font-black text-slate-900">تەواوی وردەکاری و لیستی بەخشینەکان</h3>
-                <p className="text-xs text-slate-500">بەدواداچوونی سەرجەم داهاتە نەختینەییەکان و پسوولەکان</p>
+                <p className="text-xs sm:text-sm text-slate-500">بەدواداچوونی سەرجەم داهاتە نەختینەییەکان و پسوولەکان</p>
               </div>
             </div>
 
             {/* Quick Summary Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
               <div className="p-3.5 rounded-2xl bg-cyan-50 border border-cyan-200">
-                <span className="text-[11px] text-cyan-800 font-bold block">کۆی بەخشین (دینار):</span>
+                <span className="text-xs font-bold text-cyan-800 block">کۆی بەخشین (دینار):</span>
                 <span className="text-lg font-black text-cyan-900">{totalDonationsIQD.toLocaleString()} د.ع</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200">
-                <span className="text-[11px] text-emerald-800 font-bold block">کۆی بەخشین (دۆلار):</span>
+                <span className="text-xs font-bold text-emerald-800 block">کۆی بەخشین (دۆلار):</span>
                 <span className="text-lg font-black text-emerald-900">${totalDonationsUSD.toLocaleString()}</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 col-span-2 sm:col-span-1">
-                <span className="text-[11px] text-purple-800 font-bold block">ژمارەی بەخشینەکان:</span>
+                <span className="text-xs font-bold text-purple-800 block">ژمارەی بەخشینەکان:</span>
                 <span className="text-lg font-black text-purple-900">{filteredDonations.length} پسوولە</span>
               </div>
             </div>
 
             {/* Donations Table */}
             <div className="rounded-2xl border border-slate-200 overflow-hidden mb-5">
-              <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 text-xs font-bold text-slate-700">
+              <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
                 لیستی بەخشینە تۆمارکراوەکان ({filteredDonations.length})
               </div>
               <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
                 {filteredDonations.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-slate-400 font-bold">
+                  <div className="p-8 text-center text-xs sm:text-sm text-slate-400 font-bold">
                     هیچ بەخشینێک تۆمار نەکراوە (سفر پسوولە)
                   </div>
                 ) : (
                   filteredDonations.map(d => (
-                    <div key={d.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
+                    <div key={d.id} className="p-3.5 flex items-center justify-between text-xs sm:text-sm hover:bg-slate-50 transition-colors">
                       <div>
                         <p className="font-bold text-slate-900">{d.donorName}</p>
-                        <p className="text-[11px] text-slate-500 font-mono">{d.receiptNumber} • {d.method} • {d.date}</p>
+                        <p className="text-xs text-slate-500 font-mono mt-0.5">{d.receiptNumber} • {d.method} • {d.date}</p>
                       </div>
                       <div className="text-left">
                         <span className="font-black text-emerald-700 text-sm">
                           {d.amount.toLocaleString()} {d.currency === 'IQD' ? 'د.ع' : '$'}
                         </span>
-                        <p className="text-[10px] text-slate-500">{d.projectName || 'سندووقی گشتی'}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{d.projectName || 'سندووقی گشتی'}</p>
                       </div>
                     </div>
                   ))
@@ -705,54 +705,54 @@ export const DashboardView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-lg font-black text-slate-900">تەواوی وردەکاری خێزانە سوودمەندەکان</h3>
-                <p className="text-xs text-slate-500">دۆسیەی تەواوی خێزانە پەسەندکراوەکان و چاوەڕوانکراوەکان</p>
+                <p className="text-xs sm:text-sm text-slate-500">دۆسیەی تەواوی خێزانە پەسەندکراوەکان و چاوەڕوانکراوەکان</p>
               </div>
             </div>
 
             {/* Quick Summary Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
-                <span className="text-[10px] text-slate-500 block font-bold">کۆی خێزانەکان:</span>
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-center">
+                <span className="text-xs text-slate-500 block font-bold">کۆی خێزانەکان:</span>
                 <span className="text-lg font-black text-slate-900">{totalBeneficiaries} خێزان</span>
               </div>
-              <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-center">
-                <span className="text-[10px] text-emerald-800 block font-bold">هاوکاریکراو:</span>
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center">
+                <span className="text-xs text-emerald-800 block font-bold">هاوکاریکراو:</span>
                 <span className="text-lg font-black text-emerald-900">{aidedBeneficiaries}</span>
               </div>
-              <div className="p-3 rounded-2xl bg-cyan-50 border border-cyan-200 text-center">
-                <span className="text-[10px] text-cyan-800 block font-bold">پەسەندکراو:</span>
+              <div className="p-3.5 rounded-2xl bg-cyan-50 border border-cyan-200 text-center">
+                <span className="text-xs text-cyan-800 block font-bold">پەسەندکراو:</span>
                 <span className="text-lg font-black text-cyan-900">{filteredBeneficiaries.filter(b => b.status === 'approved').length}</span>
               </div>
-              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-center">
-                <span className="text-[10px] text-amber-800 block font-bold">لەژێر پشکنین:</span>
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-center">
+                <span className="text-xs text-amber-800 block font-bold">لەژێر پشکنین:</span>
                 <span className="text-lg font-black text-amber-900">{filteredBeneficiaries.filter(b => b.status === 'pending').length}</span>
               </div>
             </div>
 
             {/* Beneficiaries List */}
             <div className="rounded-2xl border border-slate-200 overflow-hidden mb-5">
-              <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 text-xs font-bold text-slate-700">
+              <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
                 لیستی خێزانەکان ({filteredBeneficiaries.length})
               </div>
               <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
                 {filteredBeneficiaries.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-slate-400 font-bold">
+                  <div className="p-8 text-center text-xs sm:text-sm text-slate-400 font-bold">
                     هیچ خێزانێکی سوودمەند تۆمار نەکراوە (سفر خێزان)
                   </div>
                 ) : (
                   filteredBeneficiaries.map(b => (
-                    <div key={b.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
+                    <div key={b.id} className="p-3.5 flex items-center justify-between text-xs sm:text-sm hover:bg-slate-50 transition-colors">
                       <div>
                         <p className="font-bold text-slate-900 text-sm">{b.fullName}</p>
-                        <p className="text-[11px] text-slate-500">{b.governorate} • {b.address} • {b.familyMembers} کەس</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{b.governorate} • {b.address} • {b.familyMembers} کەس</p>
                       </div>
                       <div className="text-left">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                           b.status === 'aided' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
                         }`}>
                           {b.status === 'aided' ? `هاوکاریکراو (${b.aidHistory.length})` : 'پەسەندکراوە'}
                         </span>
-                        <p className="text-[11px] font-bold text-slate-700 mt-1">{b.monthlyIncomeIQD.toLocaleString()} د.ع</p>
+                        <p className="text-xs font-bold text-slate-700 mt-1 font-mono">{b.monthlyIncomeIQD.toLocaleString()} د.ع</p>
                       </div>
                     </div>
                   ))
@@ -773,7 +773,7 @@ export const DashboardView: React.FC = () => {
                   setActiveModal(null);
                   setActiveTab('beneficiaries');
                 }}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md"
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl liquid-button-primary text-white text-xs sm:text-sm font-bold shadow-md"
               >
                 <span>چوون بۆ پەڕەی بەڕێوەبردنی سوودمەندان</span>
                 <ChevronLeft className="w-4 h-4" />
@@ -800,14 +800,14 @@ export const DashboardView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-lg font-black text-slate-900">تەواوی وردەکاری پڕۆژە و کەمپەینەکان</h3>
-                <p className="text-xs text-slate-500">بەراوردی بودجە و پێشکەوتنی جێبەجێکردن لە مەیداندا</p>
+                <p className="text-xs sm:text-sm text-slate-500">بەراوردی بودجە و پێشکەوتنی جێبەجێکردن لە مەیداندا</p>
               </div>
             </div>
 
             {/* Projects List with Progress */}
             <div className="space-y-3.5 mb-5 max-h-72 overflow-y-auto pr-1">
               {filteredProjects.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-400 font-bold">
+                <div className="p-8 text-center text-xs sm:text-sm text-slate-400 font-bold">
                   هیچ پڕۆژەیەک تۆمار نەکراوە (سفر پڕۆژە)
                 </div>
               ) : (
@@ -819,10 +819,10 @@ export const DashboardView: React.FC = () => {
                     <div key={p.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <h4 className="text-xs font-bold text-slate-900">{p.title}</h4>
-                          <span className="text-[10px] text-purple-700 font-bold">{p.category} • {p.governorates.join(', ')}</span>
+                          <h4 className="text-sm font-bold text-slate-900">{p.title}</h4>
+                          <span className="text-xs text-purple-700 font-bold">{p.category} • {p.governorates.join(', ')}</span>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                           p.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'
                         }`}>
                           {p.status === 'completed' ? 'تەواوکراو' : 'بەردەوامە'}
@@ -830,7 +830,7 @@ export const DashboardView: React.FC = () => {
                       </div>
 
                       {/* Progress meters */}
-                      <div className="space-y-1.5 text-[11px]">
+                      <div className="space-y-1.5 text-xs sm:text-sm">
                         <div className="flex items-center justify-between text-slate-600">
                           <span>کۆکراوە: ${p.raisedBudgetUSD.toLocaleString()} / ${p.targetBudgetUSD.toLocaleString()}</span>
                           <span className="font-bold text-emerald-700 font-mono">{raisedPercent}٪</span>
@@ -840,7 +840,7 @@ export const DashboardView: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-200/80">
+                      <div className="flex items-center justify-between text-xs text-slate-500 pt-1.5 border-t border-slate-200/80">
                         <span>{p.beneficiariesCount} سوودمەند • {p.volunteersCount} خۆبەخش</span>
                         <span className="font-mono">{p.startDate} تا {p.endDate}</span>
                       </div>
@@ -863,7 +863,7 @@ export const DashboardView: React.FC = () => {
                   setActiveModal(null);
                   setActiveTab('projects');
                 }}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md"
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl liquid-button-primary text-white text-xs sm:text-sm font-bold shadow-md"
               >
                 <span>چوون بۆ پەڕەی تەواوی پڕۆژەکان</span>
                 <ChevronLeft className="w-4 h-4" />
@@ -890,22 +890,22 @@ export const DashboardView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-lg font-black text-slate-900">تەواوی وردەکاری تیمی خۆبەخشان</h3>
-                <p className="text-xs text-slate-500">تۆماری کاتژمێرەکان، لێهاتووییەکان و ئەندامانی تیم</p>
+                <p className="text-xs sm:text-sm text-slate-500">تۆماری کاتژمێرەکان، لێهاتووییەکان و ئەندامانی تیم</p>
               </div>
             </div>
 
             {/* Quick Summary Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
               <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200">
-                <span className="text-[11px] text-amber-800 font-bold block">کۆی کاتژمێری خزمەت:</span>
+                <span className="text-xs font-bold text-amber-800 block">کۆی کاتژمێری خزمەت:</span>
                 <span className="text-lg font-black text-amber-900">{totalVolunteerHours} کاتژمێر</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200">
-                <span className="text-[11px] text-blue-800 font-bold block">ئەندامانی خۆبەخش:</span>
+                <span className="text-xs font-bold text-blue-800 block">ئەندامانی خۆبەخش:</span>
                 <span className="text-lg font-black text-blue-900">{filteredVolunteers.length} کەس</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 col-span-2 sm:col-span-1">
-                <span className="text-[11px] text-slate-700 font-bold block">تێکڕای خزمەت:</span>
+                <span className="text-xs font-bold text-slate-700 block">تێکڕای خزمەت:</span>
                 <span className="text-lg font-black text-slate-900">
                   {Math.round(totalVolunteerHours / (filteredVolunteers.length || 1))} کاتژمێر
                 </span>
@@ -914,31 +914,31 @@ export const DashboardView: React.FC = () => {
 
             {/* Volunteers List */}
             <div className="rounded-2xl border border-slate-200 overflow-hidden mb-5">
-              <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 text-xs font-bold text-slate-700">
+              <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 text-xs sm:text-sm font-bold text-slate-700">
                 لیستی ئەندامانی تیمی مەیدانی ({filteredVolunteers.length})
               </div>
               <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
                 {filteredVolunteers.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-slate-400 font-bold">
+                  <div className="p-8 text-center text-xs sm:text-sm text-slate-400 font-bold">
                     هیچ خۆبەخشێک تۆمار نەکراوە (سفر ئەندام)
                   </div>
                 ) : (
                   filteredVolunteers.map(v => (
-                    <div key={v.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-xs">
+                    <div key={v.id} className="p-3.5 flex items-center justify-between text-xs sm:text-sm hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
                           {v.fullName.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-bold text-slate-900">{v.fullName}</p>
-                          <p className="text-[10px] text-slate-500 font-mono">{v.badgeNumber} • {v.governorate} • خوێن: {v.bloodType}</p>
+                          <p className="font-bold text-slate-900 text-sm">{v.fullName}</p>
+                          <p className="text-xs text-slate-500 font-mono mt-0.5">{v.badgeNumber} • {v.governorate} • خوێن: {v.bloodType}</p>
                         </div>
                       </div>
                       <div className="text-left">
-                        <span className="font-black text-amber-700 text-xs block">
+                        <span className="font-black text-amber-700 text-sm block">
                           {v.hoursLogged} کاتژمێر
                         </span>
-                        <span className="text-[10px] text-slate-500">{v.availability}</span>
+                        <span className="text-xs text-slate-500">{v.availability}</span>
                       </div>
                     </div>
                   ))
@@ -959,7 +959,7 @@ export const DashboardView: React.FC = () => {
                   setActiveModal(null);
                   setActiveTab('volunteers');
                 }}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md"
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl liquid-button-primary text-white text-xs sm:text-sm font-bold shadow-md"
               >
                 <span>چوون بۆ پەڕەی تەواوی خۆبەخشان</span>
                 <ChevronLeft className="w-4 h-4" />

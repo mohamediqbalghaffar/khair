@@ -142,16 +142,16 @@ export const BeneficiariesView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-36">
       
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-            <Users className="w-6 h-6 text-cyan-600" />
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-2">
+            <Users className="w-7 h-7 text-cyan-600" />
             بەڕێوەبردنی سوودمەندان و خێزانەکان
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             پشکنینی دۆسیەی خێزانە هەژارەکان بە سیستەمی زیرەکی ڕێگری لە هاوکاری دووبارە
           </p>
         </div>
@@ -161,7 +161,7 @@ export const BeneficiariesView: React.FC = () => {
             setDuplicateAlert(null);
             setIsAddModalOpen(true);
           }}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl liquid-button-primary text-white text-xs font-bold shadow-md"
+          className="flex items-center gap-2 px-5 py-3 rounded-2xl liquid-button-primary text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
         >
           <Plus className="w-4 h-4" />
           تۆمارکردنی سوودمەندی نوێ
@@ -169,18 +169,18 @@ export const BeneficiariesView: React.FC = () => {
       </div>
 
       {/* Filter and Search Pill Bar */}
-      <div className="rounded-3xl liquid-glass p-4 border border-slate-200/90 shadow-sm space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
           {/* Search Input */}
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="گەڕان بەپێی ناو، مۆبایل، ژمارەی نیشتمانی..."
-              className="w-full pr-10 pl-3 py-2 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400"
+              className="w-full h-11 pr-10 pl-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 placeholder-slate-400 font-bold"
             />
           </div>
 
@@ -188,7 +188,7 @@ export const BeneficiariesView: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-3 py-2 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white"
+            className="w-full h-11 px-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
           >
             <option value="all">هەموو دۆخەکان</option>
             <option value="approved">پەسەندکراو بۆ هاوکاری</option>
@@ -200,7 +200,7 @@ export const BeneficiariesView: React.FC = () => {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full px-3 py-2 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white"
+            className="w-full h-11 px-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
           >
             <option value="all">هەموو حاڵەتەکان</option>
             <option value="poor">هەژار و دەستکورت</option>
@@ -214,7 +214,7 @@ export const BeneficiariesView: React.FC = () => {
           <select
             value={governorateFilter}
             onChange={(e) => setGovernorateFilter(e.target.value)}
-            className="w-full px-3 py-2 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white"
+            className="w-full h-11 px-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
           >
             <option value="all">هەموو پارێزگاکان</option>
             <option value="هەولێر">هەولێر</option>

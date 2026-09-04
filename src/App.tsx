@@ -56,8 +56,8 @@ const MainContent: React.FC = () => {
       {/* Persistent iOS 26 Liquid Topbar */}
       <Topbar />
 
-      {/* Main Content Area */}
-      <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-6 animate-in fade-in duration-300">
+      {/* Main Content Area with Adaptive Layout & Floating Dock Clearance */}
+      <main className="relative z-10 flex-1 max-w-[1536px] w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-36 animate-in fade-in duration-300">
         {renderActiveView()}
       </main>
 
