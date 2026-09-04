@@ -20,6 +20,8 @@ export interface AidRecord {
   quantity?: number;
   projectTitle: string;
   distributedBy: string;
+  receiptNumber?: string;
+  donorName?: string;
   notes?: string;
 }
 
@@ -125,12 +127,19 @@ export interface Project {
 export interface InventoryItem {
   id: string;
   name: string;
-  category: 'خۆراک' | 'پۆشاک' | 'پێداویستی پزیشکی' | 'گەرمکەرەوە و سووتەمەنی' | 'کەلوپەلی ناوماڵ';
+  category: 'خۆراک' | 'پۆشاک' | 'پێداویستی پزیشکی' | 'گەرمکەرەوە و سووتەمەنی' | 'کەلوپەلی ناوماڵ' | string;
   quantity: number;
-  unit: 'سەبەتە' | 'دانە' | 'کارتۆن' | 'سێت' | 'لیتر' | 'تەن';
+  unit: 'سەبەتە' | 'دانە' | 'کارتۆن' | 'سێت' | 'لیتر' | 'تەن' | string;
   minAlertThreshold: number;
   location: string;
   lastUpdated: string;
+  sourceReceiptNumber?: string;
+  sourceDonorName?: string;
+  sourceDonationId?: string;
+  donorId?: string;
+  estimatedMarketValue?: number;
+  contentsDescription?: string;
+  notes?: string;
 }
 
 export interface FinancialTransaction {

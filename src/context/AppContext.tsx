@@ -242,6 +242,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('ngo_inventory', JSON.stringify(inventory));
   }, [inventory]);
 
+  // Synchronize any in-kind donations into inventory records if not already present
+  useEffect(() => {
+    if (donations.length === 0) return;
+    setInventory(prevInv => {
+      const existingReceipts = new Set(prevInv.map(i => i.sourceReceiptNumber).filter(Boolean));
+      const missingItems: InventoryItem[] = [];
+
+      donations.forEach(don => {
+        if (don.category && don.category !== 'cash' && !existingReceipts.has(don.receiptNumber)) {
+          const invCategory =
+            don.category === 'food_basket' ? 'خۆراک' :
+            don.category === 'clothes' ? 'پۆشاک' :
+            don.category === 'medical' ? 'پێداویستی پزیشکی' :
+            don.category === 'heating_appliances' ? 'گەرمکەرەوە و سووتەمەنی' :
+            don.category === 'student_supplies' ? 'پەروەردە و خوێندکاران' :
+            don.category === 'qurbani_meat' ? 'قوربانی و گۆشت' : 'کەرەستە و کاڵا';
+
+          const warehouseLocation = don.projectName && don.projectName.includes('کۆگا')
+            ? don.projectName
+            : 'هەولێر - کۆگای سەرەکی ڕێکخراو';
+
+          missingItems.push({
+            id: `inv-don-${don.id}`,
+            name: don.categoryLabel || 'کۆمەکی بەخشراو',
+            category: invCategory,
+            quantity: don.itemDetails?.quantity || 1,
+            unit: don.itemDetails?.unit || 'دانە',
+            minAlertThreshold: 5,
+            location: warehouseLocation,
+            lastUpdated: don.date,
+            sourceReceiptNumber: don.receiptNumber,
+            sourceDonorName: don.donorName,
+            sourceDonationId: don.id,
+            donorId: don.donorId,
+            estimatedMarketValue: don.itemDetails?.estimatedMarketValue || don.amount,
+            contentsDescription: don.itemDetails?.contentsDescription,
+            notes: don.notes
+          });
+        }
+      });
+
+      if (missingItems.length > 0) {
+        return [...missingItems, ...prevInv];
+      }
+      return prevInv;
+    });
+  }, [donations]);
+
   useEffect(() => {
     localStorage.setItem('ngo_transactions', JSON.stringify(transactions));
   }, [transactions]);
@@ -493,6 +541,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
     }
 
+    // Auto-create inventory item for in-kind donations
+    if (data.category && data.category !== 'cash') {
+      const invCategory =
+        data.category === 'food_basket' ? 'خۆراک' :
+        data.category === 'clothes' ? 'پۆشاک' :
+        data.category === 'medical' ? 'پێداویستی پزیشکی' :
+        data.category === 'heating_appliances' ? 'گەرمکەرەوە و سووتەمەنی' :
+        data.category === 'student_supplies' ? 'پەروەردە و خوێندکاران' :
+        data.category === 'qurbani_meat' ? 'قوربانی و گۆشت' : 'کەرەستە و کاڵا';
+
+      const warehouseLocation = data.projectName && data.projectName.includes('کۆگا')
+        ? data.projectName
+        : 'هەولێر - کۆگای سەرەکی ڕێکخراو';
+
+      const newInvItem: InventoryItem = {
+        id: `inv-don-${Date.now()}`,
+        name: data.categoryLabel || 'کۆمەکی بەخشراو',
+        category: invCategory,
+        quantity: data.itemDetails?.quantity || 1,
+        unit: data.itemDetails?.unit || 'دانە',
+        minAlertThreshold: 5,
+        location: warehouseLocation,
+        lastUpdated: data.date,
+        sourceReceiptNumber: receiptNumber,
+        sourceDonorName: data.donorName,
+        sourceDonationId: newDonation.id,
+        donorId: data.donorId,
+        estimatedMarketValue: data.itemDetails?.estimatedMarketValue || data.amount,
+        contentsDescription: data.itemDetails?.contentsDescription,
+        notes: data.notes
+      };
+
+      setInventory(prev => [newInvItem, ...prev]);
+      logAction('تۆمار لە کۆگا', `کەرەستەی بەخشراو [${newInvItem.name}] بە بڕی (${newInvItem.quantity} ${newInvItem.unit}) لە پسوولەی ${receiptNumber} خرایە کۆگاوە`, 'create');
+    }
+
     logAction('تۆمارکردنی بەخشین', `بڕی ${data.amount.toLocaleString()} ${data.currency} لەلایەن [${data.donorName}] بەخشرا`);
     return newDonation;
   };
@@ -585,7 +669,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       quantity,
       projectTitle,
       distributedBy: ROLE_PROFILES[currentRole].name,
-      notes: `دابەشکردن لە کۆگای ${item.location}`
+      receiptNumber: item.sourceReceiptNumber,
+      donorName: item.sourceDonorName,
+      notes: `دابەشکردن لە کۆگای ${item.location}${item.sourceReceiptNumber ? ` (پسوولەی ${item.sourceReceiptNumber}${item.sourceDonorName ? ` - ${item.sourceDonorName}` : ''})` : ''}`
     });
 
     logAction('دابەشکردنی کۆگا', `${quantity} ${item.unit} لە [${item.name}] درا بە [${beneficiary.fullName}]`);

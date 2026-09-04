@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { InventoryItem } from '../types';
+import { InventoryItem, Donation } from '../types';
+import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 import {
   PackageSearch,
   Search,
@@ -9,30 +10,42 @@ import {
   Warehouse,
   Plus,
   Trash2,
-  X
+  X,
+  Receipt,
+  HeartHandshake,
+  History,
+  Eye,
+  Boxes,
+  CheckCircle2,
+  DollarSign
 } from 'lucide-react';
 
 export const InventoryView: React.FC = () => {
   const {
     inventory,
     beneficiaries,
+    donations,
     addInventoryItem,
     deleteInventoryItem,
     updateInventoryQuantity,
-    distributeAidFromInventory
+    distributeAidFromInventory,
+    setActiveTab
   } = useApp();
 
+  const [activeSubTab, setActiveSubTab] = useState<'stock' | 'receipts' | 'distributions'>('stock');
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedItemForDistribution, setSelectedItemForDistribution] = useState<InventoryItem | null>(null);
   const [isDistributeModalOpen, setIsDistributeModalOpen] = useState(false);
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+  const [activeReceipt, setActiveReceipt] = useState<Donation | null>(null);
 
   // New Item Form
   const [newItemForm, setNewItemForm] = useState({
     name: '',
-    category: 'خۆراک' as InventoryItem['category'],
+    category: 'خۆراک',
     quantity: 0,
-    unit: 'دانە' as InventoryItem['unit'],
+    unit: 'دانە',
     location: 'هەولێر - کۆگای سەرەکی بەحرکە',
     minAlertThreshold: 10
   });
@@ -42,12 +55,64 @@ export const InventoryView: React.FC = () => {
   const [distributeQty, setDistributeQty] = useState(1);
   const [selectedProjectTitle, setSelectedProjectTitle] = useState('دابەشکردنی خۆراکی خێزانی');
 
-  const filteredInventory = inventory.filter(i => {
+  // Aggregated distributions from all beneficiaries
+  const allDistributions = beneficiaries.flatMap(b =>
+    (b.aidHistory || []).map(record => ({
+      ...record,
+      beneficiaryId: b.id,
+      beneficiaryName: b.fullName,
+      beneficiaryPhone: b.phone,
+      beneficiaryGovernorate: b.governorate,
+      beneficiaryNeed: b.needCategory
+    }))
+  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Stock filtering
+  const filteredInventory = inventory.filter(item => {
     const q = searchQuery.toLowerCase();
-    return i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q) || i.location.toLowerCase().includes(q);
+    const matchesSearch =
+      item.name.toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q) ||
+      item.location.toLowerCase().includes(q) ||
+      (item.sourceDonorName && item.sourceDonorName.toLowerCase().includes(q)) ||
+      (item.sourceReceiptNumber && item.sourceReceiptNumber.toLowerCase().includes(q)) ||
+      (item.contentsDescription && item.contentsDescription.toLowerCase().includes(q));
+
+    const matchesCategory =
+      categoryFilter === 'all' || item.category === categoryFilter;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  // Receipts filtering (all donations from بەخشەران -> پسوولەکانی بەخشین)
+  const filteredDonations = donations.filter(d => {
+    const q = searchQuery.toLowerCase();
+    return (
+      d.donorName.toLowerCase().includes(q) ||
+      d.receiptNumber.toLowerCase().includes(q) ||
+      (d.categoryLabel && d.categoryLabel.toLowerCase().includes(q)) ||
+      (d.projectName && d.projectName.toLowerCase().includes(q)) ||
+      (d.itemDetails?.contentsDescription && d.itemDetails.contentsDescription.toLowerCase().includes(q)) ||
+      (d.notes && d.notes.toLowerCase().includes(q))
+    );
+  });
+
+  // Distributions filtering
+  const filteredDistributions = allDistributions.filter(dist => {
+    const q = searchQuery.toLowerCase();
+    return (
+      dist.beneficiaryName.toLowerCase().includes(q) ||
+      dist.beneficiaryPhone.includes(q) ||
+      dist.beneficiaryGovernorate.toLowerCase().includes(q) ||
+      (dist.itemName && dist.itemName.toLowerCase().includes(q)) ||
+      (dist.projectTitle && dist.projectTitle.toLowerCase().includes(q)) ||
+      (dist.receiptNumber && dist.receiptNumber.toLowerCase().includes(q)) ||
+      (dist.donorName && dist.donorName.toLowerCase().includes(q))
+    );
   });
 
   const lowStockItems = inventory.filter(i => i.quantity <= i.minAlertThreshold);
+  const totalStockQty = inventory.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
   const handleAddItemSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,174 +148,637 @@ export const InventoryView: React.FC = () => {
     }
   };
 
+  // Helper to open distribution modal directly for an in-kind donation
+  const handleQuickDistributeFromDonation = (donation: Donation) => {
+    const matched = inventory.find(
+      i => i.sourceReceiptNumber === donation.receiptNumber || i.sourceDonationId === donation.id
+    );
+
+    if (matched) {
+      setSelectedItemForDistribution(matched);
+      if (beneficiaries.length > 0 && !targetBeneficiaryId) {
+        setTargetBeneficiaryId(beneficiaries[0].id);
+      }
+      setDistributeQty(1);
+      setSelectedProjectTitle(donation.projectName || 'دابەشکردنی کۆمەکی بەخشراو');
+      setIsDistributeModalOpen(true);
+    } else {
+      alert('ئەم کاڵایە لە کۆگادا بەردەست نییە یان دابەشکراوە.');
+    }
+  };
+
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-24 animate-in fade-in duration-300">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
             <PackageSearch className="w-6 h-6 text-amber-600" />
-            کۆگا و دابەشکردنی کەلوپەل و کۆمەک
+            کۆگا و دابەشکردنی کەلوپەل و بەخشینەکان
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            بەدواداچوونی سەبەتەی خۆراک، جلوبەرگ، زۆپا، و دابەشکردنی ڕاستەوخۆ بۆ خێزانەکان
+            سەرجەم بەخشینە تۆمارکراوەکانی بەشی «پسوولەکانی بەخشین» دەخرێنە سەر ئەم تۆمارە بۆ پاشەکەوت و دابەشکردن
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddItemModalOpen(true)}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          زیادکردنی کاڵای نوێ بۆ کۆگا
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setActiveTab('donors')}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold transition-all shadow-sm"
+          >
+            <Receipt className="w-4 h-4 text-emerald-600" />
+            تۆماری بەخشەران و پسوولە
+          </button>
+          
+          <button
+            onClick={() => setIsAddItemModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            تۆمارکردنی کاڵای نوێ بۆ کۆگا
+          </button>
+        </div>
       </div>
 
-      {/* Low Stock Warning Banner */}
-      {lowStockItems.length > 0 && (
-        <div className="rounded-3xl bg-amber-50 border border-amber-200 p-4 sm:p-5 flex items-start gap-3 shadow-sm">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 animate-bounce" />
-          <div className="flex-1">
-            <h4 className="text-sm font-bold text-amber-900">ئاگاداری کەمبوونەوەی کۆگا (Low Stock Alert):</h4>
-            <div className="flex items-center gap-2 flex-wrap mt-2">
-              {lowStockItems.map(item => (
-                <span
-                  key={item.id}
-                  className="px-2.5 py-1 rounded-xl bg-white border border-amber-300 text-amber-800 text-xs font-bold flex items-center gap-1.5 shadow-sm"
-                >
-                  <span>{item.name}:</span>
-                  <span className="text-amber-900 font-mono font-black">{item.quantity} {item.unit} ماوە</span>
-                </span>
-              ))}
-            </div>
+      {/* KPI Stats Overview */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="p-4 rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-sm">
+          <div className="flex items-center justify-between text-slate-500 mb-1.5 text-xs font-bold">
+            <span>کاڵاکانی کۆگا</span>
+            <Boxes className="w-4 h-4 text-cyan-600" />
           </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-black text-slate-900">{inventory.length}</span>
+            <span className="text-[11px] text-slate-400 font-bold">جۆری کاڵا</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-sm">
+          <div className="flex items-center justify-between text-slate-500 mb-1.5 text-xs font-bold">
+            <span>کۆی بڕی بەردەست</span>
+            <Warehouse className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-black text-amber-700">{totalStockQty}</span>
+            <span className="text-[11px] text-slate-400 font-bold">دانە / یەکە</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-sm">
+          <div className="flex items-center justify-between text-slate-500 mb-1.5 text-xs font-bold">
+            <span>پسوولە هاتووەکان</span>
+            <Receipt className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-black text-emerald-700">{donations.length}</span>
+            <span className="text-[11px] text-slate-400 font-bold">پسوولەی بەخشین</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-sm">
+          <div className="flex items-center justify-between text-slate-500 mb-1.5 text-xs font-bold">
+            <span>دابەشکراو بۆ خێزانەکان</span>
+            <HeartHandshake className="w-4 h-4 text-purple-600" />
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-black text-purple-700">{allDistributions.length}</span>
+            <span className="text-[11px] text-slate-400 font-bold">دۆسیەی هاوکاری</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Sub-Navigation Tabs & Search */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center p-1 rounded-2xl bg-slate-100 border border-slate-200 shadow-sm w-full sm:w-auto">
+          <button
+            onClick={() => setActiveSubTab('stock')}
+            className={`flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              activeSubTab === 'stock'
+                ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Boxes className="w-3.5 h-3.5 text-amber-600" />
+            کاڵا و کۆگاکان ({inventory.length})
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('receipts')}
+            className={`flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              activeSubTab === 'receipts'
+                ? 'bg-white text-emerald-800 shadow-sm border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+            تۆماری پسوولەکانی بەخشین لە کۆگادا ({donations.length})
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('distributions')}
+            className={`flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              activeSubTab === 'distributions'
+                ? 'bg-white text-purple-800 shadow-sm border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <History className="w-3.5 h-3.5 text-purple-600" />
+            مێژووی دابەشکردنەکان ({allDistributions.length})
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="relative w-full sm:w-80">
+          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="گەڕان بەپێی کاڵا، بەخشەر، ژمارەی پسوولە، شوێن..."
+            className="w-full pr-10 pl-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+          />
+        </div>
+      </div>
+
+      {/* ========================================================
+          TAB 1: INVENTORY STOCK (مەخزەن و کاڵاکان)
+      ======================================================== */}
+      {activeSubTab === 'stock' && (
+        <div className="space-y-5">
+          
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+            <button
+              onClick={() => setCategoryFilter('all')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                categoryFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              هەموو جۆرەکان ({inventory.length})
+            </button>
+            {['خۆراک', 'پۆشاک', 'پێداویستی پزیشکی', 'گەرمکەرەوە و سووتەمەنی', 'پەروەردە و خوێندکاران', 'کەلوپەلی ناوماڵ'].map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap ${
+                  categoryFilter === cat
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Low Stock Warning Banner */}
+          {lowStockItems.length > 0 && (
+            <div className="rounded-3xl bg-amber-50 border border-amber-200 p-4 sm:p-5 flex items-start gap-3 shadow-sm">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 animate-bounce" />
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-amber-900">ئاگاداری کەمبوونەوەی کۆگا (Low Stock Alert):</h4>
+                <div className="flex items-center gap-2 flex-wrap mt-2">
+                  {lowStockItems.map(item => (
+                    <span
+                      key={item.id}
+                      className="px-2.5 py-1 rounded-xl bg-white border border-amber-300 text-amber-800 text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span>{item.name}:</span>
+                      <span className="text-amber-900 font-mono font-black">{item.quantity} {item.unit} ماوە</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cards Grid */}
+          {inventory.length === 0 ? (
+            <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-16 border border-slate-200/90 text-center shadow-sm">
+              <PackageSearch className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-bold text-slate-700">هیچ کاڵایەک لە کۆگادا تۆمار نەکراوە (سفر تۆمار)</p>
+              <p className="text-xs text-slate-400 mt-1">
+                کاتێک پسوولەی بەخشین لە بەشی «بەخشەران» تۆمار دەکەیت یان کلیک لە «تۆمارکردنی کاڵای نوێ» دەکەیت، ڕاستەوخۆ دەخرێتە ئێرە
+              </p>
+            </div>
+          ) : filteredInventory.length === 0 ? (
+            <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-12 border border-slate-200/90 text-center shadow-sm">
+              <p className="text-sm font-bold text-slate-700">هیچ کاڵایەک بەپێی فلتەر یان گەڕانەکەت نەدۆزرایەوە</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredInventory.map(item => {
+                const isLow = item.quantity <= item.minAlertThreshold;
+                const matchingDonation = item.sourceReceiptNumber
+                  ? donations.find(d => d.receiptNumber === item.sourceReceiptNumber)
+                  : null;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`rounded-3xl bg-white/90 backdrop-blur-2xl p-5 border transition-all flex flex-col justify-between shadow-sm hover:shadow-md ${
+                      isLow ? 'border-amber-300 hover:border-amber-400' : 'border-slate-200/90 hover:border-cyan-400'
+                    }`}
+                  >
+                    <div>
+                      {/* Top Badges */}
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                          {item.category}
+                        </span>
+                        {isLow ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-rose-600" /> کەمە لە کۆگا
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            بەردەستە
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="text-base font-bold text-slate-900 mb-2 leading-snug">{item.name}</h3>
+
+                      {/* Sourced from Donation Receipt Badge */}
+                      {item.sourceReceiptNumber && (
+                        <div className="p-2.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 text-xs mb-3 space-y-1">
+                          <div className="flex items-center justify-between text-emerald-900 font-bold">
+                            <span className="flex items-center gap-1">
+                              <HeartHandshake className="w-3.5 h-3.5 text-emerald-600" />
+                              لە بەخشینی: {item.sourceDonorName || 'بەخشەر'}
+                            </span>
+                            <span className="font-mono text-[11px] bg-white px-2 py-0.5 rounded-md border border-emerald-300 text-emerald-800">
+                              {item.sourceReceiptNumber}
+                            </span>
+                          </div>
+                          {item.contentsDescription && (
+                            <p className="text-[11px] text-emerald-800/90 leading-tight">
+                              ناوەڕۆک: {item.contentsDescription}
+                            </p>
+                          )}
+                          {matchingDonation && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveReceipt(matchingDonation)}
+                              className="text-[10px] font-bold text-emerald-700 hover:text-emerald-950 flex items-center gap-1 mt-1 underline"
+                            >
+                              <Eye className="w-3 h-3" />
+                              بینینی پسوولەی فەرمی ({matchingDonation.receiptNumber})
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Quantity */}
+                      <div className="flex items-baseline gap-2 mb-3">
+                        <span className={`text-3xl font-black ${isLow ? 'text-amber-600' : 'text-slate-900'}`}>
+                          {item.quantity}
+                        </span>
+                        <span className="text-xs text-slate-500 font-bold">{item.unit}</span>
+                      </div>
+
+                      {/* Location & Details */}
+                      <div className="space-y-1.5 py-3 border-t border-slate-100 text-xs">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span className="flex items-center gap-1 text-slate-500">
+                            <Warehouse className="w-3.5 h-3.5" /> شوێنی کۆگا:
+                          </span>
+                          <span className="text-slate-900 font-bold">{item.location}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span className="text-slate-500">ئاستی کەمبوونەوە:</span>
+                          <span className="text-slate-800 font-bold">{item.minAlertThreshold} {item.unit}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-500 text-[11px]">
+                          <span>دواین دەستکاری:</span>
+                          <span className="font-mono text-slate-500">{item.lastUpdated}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Actions: Adjust stock & Direct Distribute */}
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => updateInventoryQuantity(item.id, -1)}
+                          className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm border border-slate-200"
+                          title="کەمکردنەوەی ١ دانە"
+                        >
+                          -
+                        </button>
+                        <button
+                          onClick={() => updateInventoryQuantity(item.id, 1)}
+                          className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm border border-slate-200"
+                          title="زیادکردنی ١ دانە"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`دڵنیایت لە سڕینەوەی کاڵای [${item.name}] لە کۆگا؟`)) {
+                              deleteInventoryItem(item.id);
+                            }
+                          }}
+                          className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center border border-rose-200"
+                          title="سڕینەوەی کاڵا"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setSelectedItemForDistribution(item);
+                          if (beneficiaries.length > 0 && !targetBeneficiaryId) {
+                            setTargetBeneficiaryId(beneficiaries[0].id);
+                          }
+                          setDistributeQty(1);
+                          setIsDistributeModalOpen(true);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        دابەشکردن بۆ خێزانێک
+                      </button>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="relative max-w-md">
-        <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="گەڕان بەپێی ناوی کاڵا، جۆر، یان شوێنی کۆگا..."
-          className="w-full pr-10 pl-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
-        />
-      </div>
-
-      {/* Inventory Cards Grid */}
-      {inventory.length === 0 ? (
-        <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-16 border border-slate-200/90 text-center shadow-sm">
-          <PackageSearch className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm font-bold text-slate-700">هیچ کاڵایەک لە کۆگادا تۆمار نەکراوە (سفر تۆمار)</p>
-          <p className="text-xs text-slate-400 mt-1">بۆ دەستپێکردنی تۆمارکردنی کاڵا و کۆمەک، کلیک لە دوگمەی «زیادکردنی کاڵای نوێ بۆ کۆگا» بکە لە سەرەوە</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredInventory.map(item => {
-          const isLow = item.quantity <= item.minAlertThreshold;
-          return (
-            <div
-              key={item.id}
-              className={`rounded-3xl bg-white/90 backdrop-blur-2xl p-5 border transition-all flex flex-col justify-between shadow-sm hover:shadow-md ${
-                isLow ? 'border-amber-300 hover:border-amber-400' : 'border-slate-200/90 hover:border-cyan-400'
-              }`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                    {item.category}
-                  </span>
-                  {isLow ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3 text-rose-600" /> کەمە لە کۆگا
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      بەردەستە
-                    </span>
-                  )}
-                </div>
-
-                <h3 className="text-base font-bold text-slate-900 mb-2 leading-snug">{item.name}</h3>
-
-                <div className="flex items-baseline gap-2 mb-3">
-                  <span className={`text-3xl font-black ${isLow ? 'text-amber-600' : 'text-slate-900'}`}>
-                    {item.quantity}
-                  </span>
-                  <span className="text-xs text-slate-500 font-bold">{item.unit}</span>
-                </div>
-
-                <div className="space-y-1.5 py-3 border-t border-slate-100 text-xs">
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="flex items-center gap-1 text-slate-500">
-                      <Warehouse className="w-3.5 h-3.5" /> شوێنی کۆگا:
-                    </span>
-                    <span className="text-slate-900 font-bold">{item.location}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-600">
-                    <span className="text-slate-500">ئاستی کەمبوونەوە:</span>
-                    <span className="text-slate-800 font-bold">{item.minAlertThreshold} {item.unit}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-slate-500 text-[11px]">
-                    <span>دواین دەستکاری:</span>
-                    <span className="font-mono text-slate-500">{item.lastUpdated}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions: Adjust stock & Direct Distribute */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => updateInventoryQuantity(item.id, -1)}
-                    className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm border border-slate-200"
-                    title="کەمکردنەوەی ١ دانە"
-                  >
-                    -
-                  </button>
-                  <button
-                    onClick={() => updateInventoryQuantity(item.id, 1)}
-                    className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm border border-slate-200"
-                    title="زیادکردنی ١ دانە"
-                  >
-                    +
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm(`دڵنیایت لە سڕینەوەی کاڵای [${item.name}] لە کۆگا؟`)) {
-                        deleteInventoryItem(item.id);
-                      }
-                    }}
-                    className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center border border-rose-200"
-                    title="سڕینەوەی کاڵا"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setSelectedItemForDistribution(item);
-                    if (beneficiaries.length > 0 && !targetBeneficiaryId) {
-                      setTargetBeneficiaryId(beneficiaries[0].id);
-                    }
-                    setIsDistributeModalOpen(true);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  دابەشکردن بۆ خێزانێک
-                </button>
-              </div>
-
+      {/* ========================================================
+          TAB 2: DONATION RECEIPTS IN WAREHOUSE (تۆماری سەرجەم پسوولەکانی بەخشین لە کۆگا)
+      ======================================================== */}
+      {activeSubTab === 'receipts' && (
+        <div className="space-y-5">
+          
+          {/* Synchronized Notice Banner */}
+          <div className="p-4 rounded-3xl bg-emerald-50 border border-emerald-200/80 flex items-start gap-3 text-xs text-emerald-900 shadow-sm">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-bold text-emerald-950 mb-0.5">تۆماری ڕاستەوخۆی بەخشینەکان لە کۆگا:</h4>
+              <p className="text-emerald-800 leading-relaxed">
+                سەرجەم پسوولەکانی بەخشین (نەختینەیی و عەینی) کە لە بەشی «بەخشەران» تۆمار دەکرێن، هاوکات لێرەدا پاشەکەوت دەبن بۆ چاودێری کۆگا و دابەشکردنی خێرا بۆ سەر خێزانە هەژارەکان.
+              </p>
             </div>
-          );
-        })}
-      </div>
-    )}
+          </div>
+
+          {donations.length === 0 ? (
+            <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-16 border border-slate-200/90 text-center shadow-sm">
+              <Receipt className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-bold text-slate-700">هیچ پسوولەیەکی بەخشین تۆمار نەکراوە (سفر تۆمار)</p>
+              <p className="text-xs text-slate-400 mt-1">
+                بۆ تۆمارکردنی پسوولەی بەخشینی نوێ، بچۆ سەر بەشی «بەڕێوەبردنی بەخشەران» و پسوولەی بەخشین دروست بکە
+              </p>
+            </div>
+          ) : filteredDonations.length === 0 ? (
+            <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-12 border border-slate-200/90 text-center shadow-sm">
+              <p className="text-sm font-bold text-slate-700">هیچ پسوولەیەک بەپێی وشەی گەڕانەکەت نەدۆزرایەوە</p>
+            </div>
+          ) : (
+            <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                    <tr>
+                      <th className="p-3.5">ژمارەی پسوولە</th>
+                      <th className="p-3.5">بەخشەر</th>
+                      <th className="p-3.5">جۆری بەخشین</th>
+                      <th className="p-3.5">بڕ / کەرەستە</th>
+                      <th className="p-3.5">مەبەست و شوێن</th>
+                      <th className="p-3.5">بەروار</th>
+                      <th className="p-3.5">دۆخ لە کۆگا</th>
+                      <th className="p-3.5 text-center">کرداری فەرمی</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredDonations.map(don => {
+                      const isInKind = don.category && don.category !== 'cash';
+                      const matchingInv = isInKind
+                        ? inventory.find(i => i.sourceReceiptNumber === don.receiptNumber || i.sourceDonationId === don.id)
+                        : null;
+
+                      return (
+                        <tr key={don.id} className="hover:bg-slate-50/60 transition-all">
+                          {/* Receipt Number */}
+                          <td className="p-3.5 font-mono font-bold text-cyan-800">
+                            <div className="flex items-center gap-1.5">
+                              <Receipt className="w-3.5 h-3.5 text-cyan-600" />
+                              {don.receiptNumber}
+                            </div>
+                          </td>
+
+                          {/* Donor Name */}
+                          <td className="p-3.5 font-bold text-slate-900">
+                            {don.donorName}
+                          </td>
+
+                          {/* Category */}
+                          <td className="p-3.5">
+                            <span className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-slate-100 text-slate-800 border border-slate-200 inline-block">
+                              {don.categoryLabel || 'بەخشین'}
+                            </span>
+                          </td>
+
+                          {/* Amount / Items */}
+                          <td className="p-3.5">
+                            {isInKind && don.itemDetails ? (
+                              <div>
+                                <span className="font-bold text-slate-900 text-sm">
+                                  {don.itemDetails.quantity} {don.itemDetails.unit}
+                                </span>
+                                {don.itemDetails.weightKgPerUnit ? (
+                                  <span className="text-[10px] text-slate-500 block">
+                                    (کێش: {don.itemDetails.weightKgPerUnit} کگم هەر یەکە)
+                                  </span>
+                                ) : null}
+                                {don.itemDetails.contentsDescription && (
+                                  <span className="text-[10px] text-slate-500 block max-w-xs truncate" title={don.itemDetails.contentsDescription}>
+                                    {don.itemDetails.contentsDescription}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="font-mono font-black text-slate-900 text-sm">
+                                  {don.amount.toLocaleString()} {don.currency}
+                                </span>
+                                <span className="text-[10px] text-slate-500 block">{don.method}</span>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Destination */}
+                          <td className="p-3.5 text-slate-700 font-medium">
+                            {don.projectName || 'کۆگای سەرەکی ڕێکخراو'}
+                          </td>
+
+                          {/* Date */}
+                          <td className="p-3.5 font-mono text-slate-500 text-[11px]">
+                            {don.date}
+                          </td>
+
+                          {/* Warehouse Status */}
+                          <td className="p-3.5">
+                            {isInKind ? (
+                              matchingInv && matchingInv.quantity > 0 ? (
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
+                                  <Warehouse className="w-3 h-3 text-emerald-600" />
+                                  لە کۆگا بەردەستە ({matchingInv.quantity} {matchingInv.unit})
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1 w-fit">
+                                  دابەشکراوە یان سفرە
+                                </span>
+                              )
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200 flex items-center gap-1 w-fit">
+                                <DollarSign className="w-3 h-3 text-cyan-600" />
+                                سندووقی نەختینەیی
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="p-3.5 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              {/* Official Receipt Button */}
+                              <button
+                                onClick={() => setActiveReceipt(don)}
+                                className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold flex items-center gap-1 border border-slate-200"
+                                title="بینینی پسوولەی فەرمی بۆ چاپکردن"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-cyan-700" />
+                                پسوولە
+                              </button>
+
+                              {/* Quick Distribute Button for in-kind items */}
+                              {isInKind && matchingInv && matchingInv.quantity > 0 && (
+                                <button
+                                  onClick={() => handleQuickDistributeFromDonation(don)}
+                                  className="px-3 py-1.5 rounded-xl liquid-button-primary text-white text-[11px] font-bold flex items-center gap-1 shadow-sm"
+                                  title="دابەشکردنی ڕاستەوخۆ بۆ خێزانێک"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                  دابەشکردن
+                                </button>
+                              )}
+                            </div>
+                          </td>
+
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* ========================================================
+          TAB 3: DISTRIBUTIONS HISTORY (مێژووی دابەشکردنەکان)
+      ======================================================== */}
+      {activeSubTab === 'distributions' && (
+        <div className="space-y-5">
+          {allDistributions.length === 0 ? (
+            <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-16 border border-slate-200/90 text-center shadow-sm">
+              <History className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-bold text-slate-700">هیچ دابەشکردنێک بۆ خێزانەکان تۆمار نەکراوە (سفر تۆمار)</p>
+              <p className="text-xs text-slate-400 mt-1">
+                کاتێک کاڵایەک لە کۆگاوە دەبەخشیتە خێزانێک، مێژووی دابەشکردنەکەی لێرەدا تۆمار دەبێت
+              </p>
+            </div>
+          ) : filteredDistributions.length === 0 ? (
+            <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-12 border border-slate-200/90 text-center shadow-sm">
+              <p className="text-sm font-bold text-slate-700">هیچ تۆمارێکی دابەشکردن بەپێی گەڕانەکەت نەدۆزرایەوە</p>
+            </div>
+          ) : (
+            <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
+                    <tr>
+                      <th className="p-3.5">ناوی سوودمەند / خێزان</th>
+                      <th className="p-3.5">پارێزگا / تەلەفۆن</th>
+                      <th className="p-3.5">کاڵای پێدراو</th>
+                      <th className="p-3.5">بڕ</th>
+                      <th className="p-3.5">پڕۆژە / کەمپەین</th>
+                      <th className="p-3.5">سەرچاوەی بەخشین</th>
+                      <th className="p-3.5">بەروار</th>
+                      <th className="p-3.5">دابەشکراوە لەلایەن</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredDistributions.map((dist, idx) => (
+                      <tr key={`${dist.id}-${idx}`} className="hover:bg-slate-50/60 transition-all">
+                        {/* Beneficiary Name */}
+                        <td className="p-3.5 font-bold text-slate-900">
+                          {dist.beneficiaryName}
+                        </td>
+
+                        {/* Governorate & Phone */}
+                        <td className="p-3.5 text-slate-600">
+                          <span>{dist.beneficiaryGovernorate}</span>
+                          <span className="text-[11px] text-slate-400 block font-mono">{dist.beneficiaryPhone}</span>
+                        </td>
+
+                        {/* Item Name */}
+                        <td className="p-3.5 font-bold text-slate-800">
+                          {dist.itemName || (dist.type === 'monetary' ? `${dist.amountIQD?.toLocaleString()} د.ع` : 'هاوکاری')}
+                        </td>
+
+                        {/* Quantity */}
+                        <td className="p-3.5 font-black text-amber-700 font-mono">
+                          {dist.quantity ? `${dist.quantity} دانە` : '-'}
+                        </td>
+
+                        {/* Project */}
+                        <td className="p-3.5 text-slate-700">
+                          {dist.projectTitle}
+                        </td>
+
+                        {/* Sourced from Receipt / Donor */}
+                        <td className="p-3.5">
+                          {dist.receiptNumber ? (
+                            <span className="px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-[10px] font-bold inline-block">
+                              {dist.receiptNumber} {dist.donorName ? `(${dist.donorName})` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">-</span>
+                          )}
+                        </td>
+
+                        {/* Date */}
+                        <td className="p-3.5 font-mono text-slate-500 text-[11px]">
+                          {dist.date}
+                        </td>
+
+                        {/* Distributed By */}
+                        <td className="p-3.5 text-slate-600 text-[11px]">
+                          {dist.distributedBy || 'ڕێکخراو'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
 
       {/* Direct Distribution Modal */}
       {isDistributeModalOpen && selectedItemForDistribution && (
@@ -267,9 +795,16 @@ export const InventoryView: React.FC = () => {
               <PackageSearch className="w-5 h-5 text-amber-600" />
               دابەشکردنی کۆمەک لە کۆگاوە
             </h3>
-            <p className="text-xs text-cyan-800 mb-4 font-bold">
+            <p className="text-xs text-cyan-800 mb-2 font-bold">
               کاڵا: {selectedItemForDistribution.name} ({selectedItemForDistribution.quantity} {selectedItemForDistribution.unit} بەردەستە)
             </p>
+
+            {selectedItemForDistribution.sourceReceiptNumber && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 mb-4 font-medium flex items-center justify-between">
+                <span>لە بەخشینی: {selectedItemForDistribution.sourceDonorName || 'بەخشەر'}</span>
+                <span className="font-mono font-bold">{selectedItemForDistribution.sourceReceiptNumber}</span>
+              </div>
+            )}
 
             <form onSubmit={handleDistributeSubmit} className="space-y-4 text-xs">
               <div>
@@ -453,6 +988,14 @@ export const InventoryView: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Official Receipt Modal Viewer */}
+      {activeReceipt && (
+        <OfficialReceiptModal
+          donation={activeReceipt}
+          onClose={() => setActiveReceipt(null)}
+        />
       )}
 
     </div>
