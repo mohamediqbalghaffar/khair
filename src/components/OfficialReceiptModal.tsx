@@ -1,6 +1,6 @@
 import React from 'react';
 import { Donation } from '../types';
-import { Printer, X, ShieldCheck, QrCode } from 'lucide-react';
+import { Printer, X, ShieldCheck, QrCode, Package, HeartHandshake } from 'lucide-react';
 
 interface OfficialReceiptModalProps {
   donation: Donation | null;
@@ -13,6 +13,8 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
   const handlePrint = () => {
     window.print();
   };
+
+  const isInKind = donation.category && donation.category !== 'cash';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
@@ -56,7 +58,7 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
               <span className="font-bold text-slate-900 font-mono">{donation.date}</span>
             </div>
             <div>
-              <span className="text-slate-500 block">شێوازی پارەدان:</span>
+              <span className="text-slate-500 block">شێوازی ڕادەستکردن:</span>
               <span className="font-bold text-emerald-700">{donation.method}</span>
             </div>
           </div>
@@ -68,17 +70,76 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
               <span className="text-base font-bold text-slate-900">{donation.donorName}</span>
             </div>
 
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-cyan-50 border border-cyan-200">
-              <span className="text-sm text-slate-700 font-bold">بڕی بەخشراو:</span>
-              <span className="text-2xl font-black text-cyan-800 tracking-wide">
-                {donation.amount.toLocaleString()} {donation.currency === 'IQD' ? 'دیناری عێراقی' : 'دۆلاری ئەمریکی ($)'}
-              </span>
-            </div>
+            {/* In-Kind Details Card */}
+            {isInKind && donation.itemDetails ? (
+              <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                    <Package className="w-4 h-4 text-emerald-600" />
+                    پۆلێنی بەخشین:
+                  </span>
+                  <span className="text-sm font-black text-emerald-900 px-3 py-1 rounded-xl bg-white border border-emerald-200">
+                    {donation.categoryLabel || 'بەخشینی عەینی'}
+                  </span>
+                </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-2 border-t border-emerald-200/80">
+                  <div className="p-2.5 bg-white rounded-xl border border-emerald-100">
+                    <span className="text-slate-500 block">بڕ و ژمارەی بەخشراو:</span>
+                    <span className="text-sm font-black text-slate-900">
+                      {donation.itemDetails.quantity} {donation.itemDetails.unit || 'دانە'}
+                    </span>
+                  </div>
+
+                  {donation.itemDetails.weightKgPerUnit && (
+                    <div className="p-2.5 bg-white rounded-xl border border-emerald-100">
+                      <span className="text-slate-500 block">کێشی هەر کارتۆنێک:</span>
+                      <span className="text-sm font-black text-slate-900">
+                        {donation.itemDetails.weightKgPerUnit} کیلۆگرام
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {donation.itemDetails.contentsDescription && (
+                  <div className="p-2.5 bg-white rounded-xl border border-emerald-100 text-xs">
+                    <span className="text-slate-500 block mb-1 font-bold">پێکهاتە و کەلوپەلەکان:</span>
+                    <p className="text-slate-800 leading-relaxed font-medium">
+                      {donation.itemDetails.contentsDescription}
+                    </p>
+                  </div>
+                )}
+
+                {donation.amount > 0 && (
+                  <div className="flex items-center justify-between pt-2 text-xs">
+                    <span className="text-slate-600 font-bold">بەهای خەمڵێنراوی تەواوی بەخشینەکە:</span>
+                    <span className="font-bold text-emerald-800">
+                      {donation.amount.toLocaleString()} {donation.currency === 'IQD' ? 'د.ع' : '$'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Cash Donation Card */
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-cyan-50 border border-cyan-200">
+                <div>
+                  <span className="text-xs text-slate-500 block">جۆری بەخشین:</span>
+                  <span className="text-sm text-slate-700 font-bold">کۆمەکی نەختینەیی (پارە)</span>
+                </div>
+                <div className="text-left">
+                  <span className="text-xs text-slate-500 block">بڕی پارەی بەخشراو:</span>
+                  <span className="text-2xl font-black text-cyan-800 tracking-wide font-mono">
+                    {donation.amount.toLocaleString()} {donation.currency === 'IQD' ? 'دیناری عێراقی' : 'دۆلاری ئەمریکی ($)'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Destination / Purpose */}
             {donation.projectName && (
               <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                <span className="text-sm text-slate-500">پڕۆژەی خێرخوازی:</span>
-                <span className="text-sm font-bold text-slate-900">{donation.projectName}</span>
+                <span className="text-sm text-slate-500">ئاراستە و مەبەستی بەخشین:</span>
+                <span className="text-sm font-bold text-cyan-900">{donation.projectName}</span>
               </div>
             )}
 

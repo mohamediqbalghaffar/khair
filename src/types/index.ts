@@ -68,14 +68,35 @@ export interface Donor {
   joinedDate: string;
 }
 
+export type DonationCategory =
+  | 'cash'
+  | 'food_basket'
+  | 'student_supplies'
+  | 'clothes'
+  | 'medical'
+  | 'heating_appliances'
+  | 'qurbani_meat'
+  | 'other_in_kind';
+
+export interface DonationItemDetails {
+  quantity?: number;
+  unit?: string;
+  weightKgPerUnit?: number;
+  contentsDescription?: string;
+  estimatedMarketValue?: number;
+}
+
 export interface Donation {
   id: string;
   receiptNumber: string; // پسوولەی فەرمی
   donorId: string;
   donorName: string;
+  category?: DonationCategory;
+  categoryLabel?: string;
+  itemDetails?: DonationItemDetails;
   amount: number;
   currency: 'IQD' | 'USD';
-  method: 'کاش' | 'FastPay' | 'FIB' | 'ZainCash' | 'حەواڵەی بانکی' | 'کەرەستە و کاڵا';
+  method: 'کاش' | 'FastPay' | 'FIB' | 'ZainCash' | 'حەواڵەی بانکی' | 'کەرەستە و کاڵا' | 'ڕادەستکردنی مەیدانی';
   date: string;
   projectId?: string;
   projectName?: string;
