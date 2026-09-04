@@ -21,6 +21,10 @@
     border-color: rgba(226, 232, 240, 0.8);
   }
 
+  html {
+    zoom: 0.9;
+  }
+
   html, body {
     font-family: 'Speda', system-ui, -apple-system, sans-serif !important;
     background-color: #ffffff;
