@@ -10,7 +10,8 @@ import {
   UserCheck,
   MapPin,
   Files,
-  History
+  History,
+  Settings
 } from 'lucide-react';
 
 interface NavItem {
@@ -38,6 +39,7 @@ export const NavigationDock: React.FC = () => {
     { id: 'geo', label: 'نەخشەی هاوکاری', icon: MapPin },
     { id: 'documents', label: 'بەڵگەنامەکان', icon: Files },
     { id: 'audit', label: 'مێژووی چاودێری', icon: History },
+    { id: 'settings', label: 'ڕێکخستنەکان', icon: Settings },
   ];
 
   return (

@@ -67,12 +67,7 @@ export const Topbar: React.FC = () => {
   const pendingRemindersCount = reminders.filter(r => !r.completed).length;
 
   const rolesList: { role: UserRole; title: string; desc: string; icon: string }[] = [
-    { role: 'admin', title: 'بەڕێوەبەری گشتی', desc: 'دەسەڵاتی تەواوی سیستەم', icon: '👑' },
-    { role: 'manager', title: 'بەرپرسی پڕۆژەکان', desc: 'بەڕێوەبردنی کەمپەین و تیم', icon: '📋' },
-    { role: 'staff', title: 'کارمەندی تۆمار', desc: 'تۆماری سوودمەندان و کۆگا', icon: '✍️' },
-    { role: 'volunteer', title: 'خۆبەخش', desc: 'ئەرکەکان و کاتژمێری خزمەت', icon: '🤝' },
-    { role: 'donor', title: 'بەخشەر', desc: 'مێژووی بەخشین و پسوولەکان', icon: '🎁' },
-    { role: 'auditor', title: 'چاودێری دارایی', desc: 'ڕاپۆرتی شەفافییەت و ژمێریاری', icon: '🔍' },
+    { role: 'admin', title: 'بەڕێوەبەری گشتی', desc: 'دەسەڵاتی تەواوی سیستەم', icon: '👑' }
   ];
 
   // Close dropdowns on outside click
@@ -179,32 +174,11 @@ export const Topbar: React.FC = () => {
               </button>
             </div>
 
-            {/* Developer API Console Button (Feature 15) */}
-            <button
-              onClick={() => setIsApiModalOpen(true)}
-              className="p-2 sm:p-2.5 rounded-2xl bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 text-slate-600 hover:text-indigo-700 transition-colors shadow-sm"
-              title="کۆنسۆڵی API بۆ پەرەپێدەران"
-            >
-              <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+            
 
-            {/* Security & Backup Center Button (Feature 14) */}
-            <button
-              onClick={() => setIsSecurityModalOpen(true)}
-              className="p-2 sm:p-2.5 rounded-2xl bg-slate-100 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 text-slate-600 hover:text-emerald-700 transition-colors shadow-sm"
-              title="سەنتەری ئاسایش و یەدەگی داتابەیس"
-            >
-              <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+            
 
-            {/* Accessibility & Multilingual Button (Feature 13) */}
-            <button
-              onClick={() => setIsAccessModalOpen(true)}
-              className="p-2 sm:p-2.5 rounded-2xl bg-slate-100 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-slate-600 hover:text-amber-700 transition-colors shadow-sm"
-              title="دەستپێگەیشتن و فرەزمانی"
-            >
-              <Languages className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+            
 
             {/* Notification & Communication Hub (Feature 9) */}
             <div className="relative" ref={notifRef}>
@@ -509,13 +483,8 @@ export const Topbar: React.FC = () => {
       </header>
 
       {/* Feature 15: Developer API Console Modal */}
-      <DeveloperApiModal isOpen={isApiModalOpen} onClose={() => setIsApiModalOpen(false)} />
-
       {/* Feature 14: Security, 2FA and Backup/Restore Center Modal */}
-      <SecurityModal isOpen={isSecurityModalOpen} onClose={() => setIsSecurityModalOpen(false)} />
-
       {/* Feature 13: Accessibility & Multilingual Modal */}
-      <AccessibilityModal isOpen={isAccessModalOpen} onClose={() => setIsAccessModalOpen(false)} />
-    </>
+      </>
   );
 };

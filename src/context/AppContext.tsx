@@ -41,7 +41,8 @@ export type NavTab =
   | 'volunteers'
   | 'geo'
   | 'documents'
-  | 'audit';
+  | 'audit'
+  | 'settings';
 
 interface AppContextType {
   activeTab: NavTab;
@@ -133,44 +134,9 @@ const SYSTEM_VERSION = 'v5_clean_zero_production';
 const ROLE_PROFILES: Record<UserRole, UserProfile> = {
   admin: {
     id: 'user-admin',
-    name: 'بەڕێوەبەری سیستەم',
+    name: 'ئەحمەد محمد قادر',
     role: 'admin',
     roleTitleKurdish: 'بەڕێوەبەری گشتی (Admin)',
-    avatar: ''
-  },
-  manager: {
-    id: 'user-manager',
-    name: 'بەرپرسی پڕۆژەکان',
-    role: 'manager',
-    roleTitleKurdish: 'بەرپرسی پڕۆژەکان (Manager)',
-    avatar: ''
-  },
-  staff: {
-    id: 'user-staff',
-    name: 'کارمەندی تۆمار',
-    role: 'staff',
-    roleTitleKurdish: 'کارمەندی تۆمار (Staff)',
-    avatar: ''
-  },
-  volunteer: {
-    id: 'user-volunteer',
-    name: 'خۆبەخشی مەیدانی',
-    role: 'volunteer',
-    roleTitleKurdish: 'خۆبەخش (Volunteer)',
-    avatar: ''
-  },
-  donor: {
-    id: 'user-donor',
-    name: 'بەخشەری خێرخواز',
-    role: 'donor',
-    roleTitleKurdish: 'بەخشەر (Donor)',
-    avatar: ''
-  },
-  auditor: {
-    id: 'user-auditor',
-    name: 'چاودێری دارایی',
-    role: 'auditor',
-    roleTitleKurdish: 'چاودێری دارایی (Auditor)',
     avatar: ''
   }
 };

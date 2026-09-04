@@ -17,6 +17,7 @@ import { VolunteersView } from './views/VolunteersView';
 import { GeoMapView } from './views/GeoMapView';
 import { DocumentsView } from './views/DocumentsView';
 import { AuditView } from './views/AuditView';
+import { SettingsView } from './views/SettingsView';
 
 const MainContent: React.FC = () => {
   const { activeTab } = useApp();
@@ -43,6 +44,9 @@ const MainContent: React.FC = () => {
         return <DocumentsView />;
       case 'audit':
         return <AuditView />;
+      case 'settings':
+        return <SettingsView />;
+
       default:
         return <DashboardView />;
     }
