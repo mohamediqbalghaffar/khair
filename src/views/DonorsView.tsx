@@ -20,7 +20,8 @@ import {
   Warehouse,
   Truck,
   CheckCircle2,
-  Info
+  Info,
+  Edit3
 } from 'lucide-react';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 
@@ -30,8 +31,11 @@ export const DonorsView: React.FC = () => {
     donations,
     projects,
     addDonor,
+    updateDonor,
     deleteDonor,
     addDonation,
+    updateDonation,
+    deleteDonation,
     sendSMS
   } = useApp();
 
@@ -72,6 +76,40 @@ export const DonorsView: React.FC = () => {
     date: new Date().toISOString().split('T')[0],
     // Destination (Warehouse, direct distribution, funds, or projects)
     destinationType: 'warehouse',
+    notes: ''
+  });
+
+  // Edit Donation Modal State
+  const [editingDonation, setEditingDonation] = useState<Donation | null>(null);
+  const [isEditDonationModalOpen, setIsEditDonationModalOpen] = useState(false);
+  const [editDonationForm, setEditDonationForm] = useState({
+    donorId: '',
+    category: 'cash' as DonationCategory,
+    amount: 100000,
+    currency: 'IQD' as 'IQD' | 'USD',
+    quantity: 50,
+    unit: 'کارتۆن / سەبەتە',
+    weightKgPerUnit: 15,
+    contentsDescription: '',
+    estimatedMarketValue: 0,
+    educationStage: 'سەرەتایی',
+    clothingType: 'جلوبەرگی زستانە',
+    method: 'کاش' as Donation['method'],
+    date: new Date().toISOString().split('T')[0],
+    destinationType: 'warehouse',
+    notes: ''
+  });
+
+  // Edit Donor Modal State
+  const [editingDonor, setEditingDonor] = useState<Donor | null>(null);
+  const [isEditDonorModalOpen, setIsEditDonorModalOpen] = useState(false);
+  const [editDonorForm, setEditDonorForm] = useState({
+    fullName: '',
+    type: 'individual' as DonorType,
+    phone: '',
+    email: '',
+    governorate: 'هەولێر',
+    status: 'active' as 'active' | 'inactive',
     notes: ''
   });
 
@@ -265,6 +303,218 @@ export const DonorsView: React.FC = () => {
     resetDonationForm();
   };
 
+  // Open Edit Donation Modal
+  const handleOpenEditDonation = (don: Donation) => {
+    setEditingDonation(don);
+
+    let destType = 'warehouse';
+    if (don.projectId) {
+      destType = `proj_${don.projectId}`;
+    } else if (don.projectName?.includes('دەستبەجێ')) {
+      destType = 'direct_distribution';
+    } else if (don.projectName?.includes('هەتیوان')) {
+      destType = 'orphan_fund';
+    } else if (don.projectName?.includes('دەرمان') || don.projectName?.includes('پزیشکی')) {
+      destType = 'medical_fund';
+    } else if (don.projectName?.includes('خوێندکاران')) {
+      destType = 'students_fund';
+    } else if (don.projectName?.includes('زستانە')) {
+      destType = 'winter_campaign';
+    } else if (don.projectName?.includes('گشتی')) {
+      destType = 'general_fund';
+    }
+
+    setEditDonationForm({
+      donorId: don.donorId,
+      category: don.category || 'cash',
+      amount: don.amount,
+      currency: don.currency,
+      quantity: don.itemDetails?.quantity || 1,
+      unit: don.itemDetails?.unit || 'دانە',
+      weightKgPerUnit: don.itemDetails?.weightKgPerUnit || 0,
+      contentsDescription: don.itemDetails?.contentsDescription || '',
+      estimatedMarketValue: don.itemDetails?.estimatedMarketValue || don.amount,
+      educationStage: 'سەرەتایی',
+      clothingType: 'جلوبەرگی زستانە',
+      method: don.method,
+      date: don.date,
+      destinationType: destType,
+      notes: don.notes || ''
+    });
+
+    setIsEditDonationModalOpen(true);
+  };
+
+  const handleEditCategoryChange = (cat: DonationCategory) => {
+    let defaultContents = '';
+    let defaultUnit = 'دانە';
+    let defaultWeight = 0;
+    let defaultMethod = editDonationForm.method;
+
+    if (cat === 'cash') {
+      defaultMethod = 'کاش';
+    } else if (cat === 'food_basket') {
+      defaultUnit = 'کارتۆن / سەبەتە';
+      defaultWeight = 15;
+      defaultContents = 'برنج 5کگم، شەکر 3کگم، زەیت 2لیتر، ئارد، نیسک، چا، دۆشاوی تەماتە';
+      defaultMethod = 'کەرەستە و کاڵا';
+    } else if (cat === 'student_supplies') {
+      defaultUnit = 'جانتا / پاکێج';
+      defaultContents = 'جانتای پشت، دەفتەر، قەڵەم، جێقەڵەم، ئامێری ئەندازە';
+      defaultMethod = 'کەرەستە و کاڵا';
+    } else if (cat === 'clothes') {
+      defaultUnit = 'دەست / پارچە';
+      defaultContents = 'چاکەت، پێڵاو، جلوبەرگی زستانەی منداڵان و گەوران';
+      defaultMethod = 'کەرەستە و کاڵا';
+    } else if (cat === 'medical') {
+      defaultUnit = 'دانە / پاکەت';
+      defaultContents = 'ویلچێری خاوەن پێداویستی، پێداویستی نەشتەرگەری، دەرمانی درێژخایەن';
+      defaultMethod = 'کەرەستە و کاڵا';
+    } else if (cat === 'heating_appliances') {
+      defaultUnit = 'دانە';
+      defaultContents = 'سۆپای نەوت، بەتانی زستانە، فەرش';
+      defaultMethod = 'کەرەستە و کاڵا';
+    } else if (cat === 'qurbani_meat') {
+      defaultUnit = 'کیلۆگرام / سەر ئاژەڵ';
+      defaultContents = 'گۆشتی قوربانی دابەشکراو بە پاکێجی تەندروست';
+      defaultMethod = 'کەرەستە و کاڵا';
+    }
+
+    setEditDonationForm(prev => ({
+      ...prev,
+      category: cat,
+      unit: defaultUnit,
+      weightKgPerUnit: defaultWeight,
+      contentsDescription: defaultContents || prev.contentsDescription,
+      method: defaultMethod
+    }));
+  };
+
+  const handleSaveEditDonation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDonation) return;
+
+    const targetDonor = donors.find(d => d.id === editDonationForm.donorId) || {
+      id: editingDonation.donorId,
+      fullName: editingDonation.donorName
+    };
+
+    const destNames: Record<string, string> = {
+      warehouse: 'کۆگای سەرەکی ڕێکخراو (پاشەکەوتکردن بۆ کاتی پێویست)',
+      direct_distribution: 'دابەشکردنی دەستبەجێ و ڕاستەوخۆ بەسەر خێزانە هەژارەکاندا',
+      general_fund: 'سندووقی گشتی خێرخوازی و فریاگوزاری خێرا',
+      orphan_fund: 'سندووقی چاودێری و کەفالەتی مانگانەی هەتیوان',
+      medical_fund: 'سندووقی نەشتەرگەری و دەرمانی کتوپڕ',
+      students_fund: 'سندووقی خوێندکاران و پشتیوانی پەروەردە',
+      winter_campaign: 'سندووقی کەمپەینی زستانە و سوتەمەنی'
+    };
+
+    let finalProjectName = '';
+    let finalProjectId: string | undefined = undefined;
+
+    if (editDonationForm.destinationType.startsWith('proj_')) {
+      const pId = editDonationForm.destinationType.replace('proj_', '');
+      const p = projects.find(pr => pr.id === pId);
+      finalProjectId = p?.id;
+      finalProjectName = p ? `پڕۆژە: ${p.title}` : 'پڕۆژەی دیاریکراو';
+    } else {
+      finalProjectName = destNames[editDonationForm.destinationType] || 'سندووقی گشتی خێرخوازی';
+    }
+
+    const categoryLabelsMap: Record<DonationCategory, string> = {
+      cash: 'کۆمەکی نەختینەیی (پارەی کاش)',
+      food_basket: 'سەبەتەی خۆراکی',
+      student_supplies: 'جانتا و پێداویستی خوێندکاران',
+      clothes: 'جلوبەرگ و پۆشاک',
+      medical: 'دەرمان و پێداویستی پزیشکی',
+      heating_appliances: 'کەلوپەلی ناوماڵ و گەرمکەرەوە',
+      qurbani_meat: 'قوربانی و گۆشت',
+      other_in_kind: 'کەرەستە و کەلوپەلی تر'
+    };
+
+    const isCash = editDonationForm.category === 'cash';
+    const finalAmount = isCash
+      ? Number(editDonationForm.amount)
+      : Number(editDonationForm.estimatedMarketValue || 0);
+
+    let itemDetails: DonationItemDetails | undefined = undefined;
+    if (!isCash) {
+      itemDetails = {
+        quantity: Number(editDonationForm.quantity) || 1,
+        unit: editDonationForm.unit,
+        weightKgPerUnit:
+          editDonationForm.category === 'food_basket'
+            ? Number(editDonationForm.weightKgPerUnit)
+            : undefined,
+        contentsDescription:
+          editDonationForm.category === 'student_supplies'
+            ? `${editDonationForm.contentsDescription} (قۆناغ: ${editDonationForm.educationStage})`
+            : editDonationForm.category === 'clothes'
+            ? `${editDonationForm.clothingType} - ${editDonationForm.contentsDescription}`
+            : editDonationForm.contentsDescription,
+        estimatedMarketValue: Number(editDonationForm.estimatedMarketValue || 0)
+      };
+    }
+
+    const updatedDonation: Donation = {
+      ...editingDonation,
+      donorId: targetDonor.id,
+      donorName: targetDonor.fullName,
+      category: editDonationForm.category,
+      categoryLabel: categoryLabelsMap[editDonationForm.category],
+      itemDetails,
+      amount: finalAmount,
+      currency: editDonationForm.currency,
+      method: editDonationForm.method,
+      date: editDonationForm.date,
+      projectId: finalProjectId,
+      projectName: finalProjectName,
+      notes: editDonationForm.notes
+    };
+
+    updateDonation(updatedDonation);
+    setIsEditDonationModalOpen(false);
+    setEditingDonation(null);
+  };
+
+  const handleDeleteDonation = (don: Donation) => {
+    const confirmMsg = `دڵنیایت لە سڕینەوەی پسوولەی بەخشینی [${don.receiptNumber}] بە بڕی (${don.amount.toLocaleString()} ${don.currency === 'IQD' ? 'د.ع' : '$'}) لەلایەن [${don.donorName}]؟\n\nئەم کردارە بڕەکە لە کۆی بەخشینی بەخشەر و کاڵاکانی کۆگاش دەسڕێتەوە.`;
+    if (window.confirm(confirmMsg)) {
+      deleteDonation(don.id);
+    }
+  };
+
+  const handleOpenEditDonor = (donor: Donor) => {
+    setEditingDonor(donor);
+    setEditDonorForm({
+      fullName: donor.fullName,
+      type: donor.type,
+      phone: donor.phone,
+      email: donor.email,
+      governorate: donor.governorate,
+      status: donor.status,
+      notes: donor.notes || ''
+    });
+    setIsEditDonorModalOpen(true);
+  };
+
+  const handleSaveEditDonor = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDonor) return;
+    updateDonor({
+      ...editingDonor,
+      fullName: editDonorForm.fullName,
+      type: editDonorForm.type,
+      phone: editDonorForm.phone,
+      email: editDonorForm.email,
+      governorate: editDonorForm.governorate,
+      status: editDonorForm.status,
+      notes: editDonorForm.notes
+    });
+    setIsEditDonorModalOpen(false);
+    setEditingDonor(null);
+  };
+
   return (
     <div className="space-y-6 pb-24 animate-in fade-in duration-300">
       
@@ -411,6 +661,14 @@ export const DonorsView: React.FC = () => {
                   </button>
 
                   <button
+                    onClick={() => handleOpenEditDonor(donor)}
+                    className="p-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors border border-amber-200"
+                    title="دەستکاریکردنی بەخشەر"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+
+                  <button
                     onClick={() => {
                       if (confirm(`دڵنیایت لە سڕینەوەی بەخشەر [${donor.fullName}]؟`)) {
                         deleteDonor(donor.id);
@@ -441,7 +699,7 @@ export const DonorsView: React.FC = () => {
                   <th className="py-3.5 px-4">شێوازی ڕادەستکردن</th>
                   <th className="py-3.5 px-4">مەبەست و شوێنی بەخشین</th>
                   <th className="py-3.5 px-4">بەروار</th>
-                  <th className="py-3.5 px-4 text-center">پسوولەی فەرمی</th>
+                  <th className="py-3.5 px-4 text-center">کردارەکان (پسوولە / دەستکاری / سڕینەوە)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -487,13 +745,31 @@ export const DonorsView: React.FC = () => {
                         {don.date}
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <button
-                          onClick={() => setActiveReceipt(don)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-50 text-cyan-800 hover:bg-cyan-100 font-bold text-[11px] mx-auto transition-colors border border-cyan-200"
-                        >
-                          <Receipt className="w-3.5 h-3.5 text-cyan-600" />
-                          بینینی پسوولە
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setActiveReceipt(don)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-cyan-50 text-cyan-800 hover:bg-cyan-100 font-bold text-[11px] transition-colors border border-cyan-200"
+                            title="بینینی پسوولەی فەرمی"
+                          >
+                            <Receipt className="w-3.5 h-3.5 text-cyan-600" />
+                            پسوولە
+                          </button>
+                          <button
+                            onClick={() => handleOpenEditDonation(don)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold text-[11px] transition-colors border border-amber-200"
+                            title="دەستکاریکردنی ئەم پسوولەیە"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                            دەستکاری
+                          </button>
+                          <button
+                            onClick={() => handleDeleteDonation(don)}
+                            className="p-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 font-bold text-[11px] transition-colors border border-rose-200"
+                            title="سڕینەوەی ئەم پسوولەیە"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1007,6 +1283,538 @@ export const DonorsView: React.FC = () => {
                   className="px-6 py-2.5 rounded-xl liquid-button-primary text-white font-bold shadow-md hover:shadow-lg transition-all"
                 >
                   دەرکردنی پسوولەی فەرمی
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Donation */}
+      {isEditDonationModalOpen && editingDonation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <button
+              onClick={() => {
+                setIsEditDonationModalOpen(false);
+                setEditingDonation(null);
+              }}
+              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  دەستکاریکردنی پسوولەی بەخشین
+                </h3>
+                <span className="text-xs font-mono font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-200">
+                  {editingDonation.receiptNumber}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveEditDonation} className="space-y-4 text-xs">
+              
+              {/* Select Donor */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">بەخشەر:</label>
+                <select
+                  required
+                  value={editDonationForm.donorId}
+                  onChange={(e) => setEditDonationForm({ ...editDonationForm, donorId: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold"
+                >
+                  {donors.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.fullName} ({d.phone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Category of Fund */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <label className="block text-slate-800 font-bold text-sm">
+                  پۆلێن و جۆری بەخشین (Category of Fund):
+                </label>
+
+                <select
+                  value={editDonationForm.category}
+                  onChange={(e) => handleEditCategoryChange(e.target.value as DonationCategory)}
+                  className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold text-xs sm:text-sm"
+                >
+                  <option value="cash">💰 کۆمەکی نەختینەیی (پارەی کاش)</option>
+                  <option value="food_basket">📦 سەبەتەی خۆراکی (Food Aid Boxes)</option>
+                  <option value="student_supplies">🎒 جانتا و پێداویستی خوێندکاران (Student Bags)</option>
+                  <option value="clothes">👕 جلوبەرگ و پۆشاک (Clothing & Apparel)</option>
+                  <option value="medical">🩺 دەرمان و پێداویستی پزیشکی (Medical Supplies)</option>
+                  <option value="heating_appliances">🔥 کەلوپەلی ناوماڵ و گەرمکەرەوە (Home & Heating)</option>
+                  <option value="qurbani_meat">🥩 قوربانی و بەخشینی گۆشت (Qurbani / Meat)</option>
+                  <option value="other_in_kind">🎁 کەرەستە و کەلوپەلی تر (Other In-Kind)</option>
+                </select>
+
+                {/* Dynamic Category Details */}
+                {editDonationForm.category === 'cash' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/80 animate-in fade-in">
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">بڕی پارەی بەخشراو:</label>
+                      <input
+                        type="number"
+                        min={1}
+                        required
+                        value={editDonationForm.amount}
+                        onChange={(e) => setEditDonationForm({ ...editDonationForm, amount: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">دراو:</label>
+                      <div className="grid grid-cols-2 gap-1.5 mt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditDonationForm({ ...editDonationForm, currency: 'IQD' })}
+                          className={`py-2 rounded-xl font-bold border transition-all ${
+                            editDonationForm.currency === 'IQD'
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                              : 'bg-white text-slate-600 border-slate-200'
+                          }`}
+                        >
+                          دینار (IQD)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditDonationForm({ ...editDonationForm, currency: 'USD' })}
+                          className={`py-2 rounded-xl font-bold border transition-all ${
+                            editDonationForm.currency === 'USD'
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                              : 'bg-white text-slate-600 border-slate-200'
+                          }`}
+                        >
+                          دۆلار (USD $)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-white rounded-xl border border-emerald-200 space-y-3 pt-3 animate-in fade-in">
+                    {/* Food Aid specific details */}
+                    {editDonationForm.category === 'food_basket' && (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-slate-700 font-bold mb-1">ژمارەی سەبەتە / کارتۆنی خۆراک:</label>
+                            <input
+                              type="number"
+                              min={1}
+                              required
+                              value={editDonationForm.quantity}
+                              onChange={(e) => setEditDonationForm({ ...editDonationForm, quantity: Number(e.target.value) })}
+                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-700 font-bold mb-1">کێشی هەر کارتۆنێک (کیلۆگرام):</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={editDonationForm.weightKgPerUnit}
+                              onChange={(e) => setEditDonationForm({ ...editDonationForm, weightKgPerUnit: Number(e.target.value) })}
+                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1">پێکهاتە و ناوەرۆکی سەبەتەکە:</label>
+                          <textarea
+                            rows={2}
+                            value={editDonationForm.contentsDescription}
+                            onChange={(e) => setEditDonationForm({ ...editDonationForm, contentsDescription: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 leading-relaxed"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Student Bags details */}
+                    {editDonationForm.category === 'student_supplies' && (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-slate-700 font-bold mb-1">ژمارەی جانتا / پاکێجی خوێندکار:</label>
+                            <input
+                              type="number"
+                              min={1}
+                              required
+                              value={editDonationForm.quantity}
+                              onChange={(e) => setEditDonationForm({ ...editDonationForm, quantity: Number(e.target.value) })}
+                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-700 font-bold mb-1">قۆناغی خوێندن:</label>
+                            <select
+                              value={editDonationForm.educationStage}
+                              onChange={(e) => setEditDonationForm({ ...editDonationForm, educationStage: e.target.value })}
+                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white font-bold"
+                            >
+                              <option value="سەرەتایی">پۆلەکانی سەرەتایی (١ تا ٦)</option>
+                              <option value="ناوەندی">پۆلەکانی ناوەندی (٧ تا ٩)</option>
+                              <option value="ئامادەیی">پۆلەکانی ئامادەیی (١٠ تا ١٢)</option>
+                              <option value="زانکۆ">خوێندکارانی پەیمانگە و زانکۆ</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1">پێکهاتە و کەلوپەلی ناو جانتا:</label>
+                          <input
+                            type="text"
+                            value={editDonationForm.contentsDescription}
+                            onChange={(e) => setEditDonationForm({ ...editDonationForm, contentsDescription: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Clothing details */}
+                    {editDonationForm.category === 'clothes' && (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-slate-700 font-bold mb-1">ژمارەی دەست / پارچە جلوبەرگ:</label>
+                            <input
+                              type="number"
+                              min={1}
+                              required
+                              value={editDonationForm.quantity}
+                              onChange={(e) => setEditDonationForm({ ...editDonationForm, quantity: Number(e.target.value) })}
+                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-slate-700 font-bold mb-1">جۆری پۆشاک:</label>
+                            <select
+                              value={editDonationForm.clothingType}
+                              onChange={(e) => setEditDonationForm({ ...editDonationForm, clothingType: e.target.value })}
+                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white font-bold"
+                            >
+                              <option value="جلوبەرگی زستانە">جلوبەرگی زستانە (چاکەت، کڵاو، دەستکێش)</option>
+                              <option value="جلوبەرگی هاوینە">جلوبەرگی هاوینە</option>
+                              <option value="جلی جەژن بۆ هەتیوان">جلی جەژن بۆ هەتیوان و منداڵان</option>
+                              <option value="پێڵاو">پێڵاوی تازە</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1">وەسف و تێبینی لەسەر پۆشاکەکە:</label>
+                          <input
+                            type="text"
+                            value={editDonationForm.contentsDescription}
+                            onChange={(e) => setEditDonationForm({ ...editDonationForm, contentsDescription: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Medical / Appliances / Qurbani / Other details */}
+                    {['medical', 'heating_appliances', 'qurbani_meat', 'other_in_kind'].includes(editDonationForm.category) && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1">بڕ و ژمارەی بەخشراو:</label>
+                          <input
+                            type="number"
+                            min={1}
+                            required
+                            value={editDonationForm.quantity}
+                            onChange={(e) => setEditDonationForm({ ...editDonationForm, quantity: Number(e.target.value) })}
+                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1">وەسف و جۆری کەرەستەکە:</label>
+                          <input
+                            type="text"
+                            required
+                            value={editDonationForm.contentsDescription}
+                            onChange={(e) => setEditDonationForm({ ...editDonationForm, contentsDescription: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Estimated Value */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">
+                          بەهای خەمڵێنراوی تەواوی کۆمەکەکە (ئارەزوومەندانە):
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={editDonationForm.estimatedMarketValue || ''}
+                          onChange={(e) =>
+                            setEditDonationForm({ ...editDonationForm, estimatedMarketValue: Number(e.target.value) })
+                          }
+                          className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">دراوی خەمڵاندن:</label>
+                        <div className="grid grid-cols-2 gap-1.5 mt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditDonationForm({ ...editDonationForm, currency: 'IQD' })}
+                            className={`py-2 rounded-xl font-bold border transition-all ${
+                              editDonationForm.currency === 'IQD'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                : 'bg-slate-50 text-slate-600 border-slate-200'
+                            }`}
+                          >
+                            دینار (IQD)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditDonationForm({ ...editDonationForm, currency: 'USD' })}
+                            className={`py-2 rounded-xl font-bold border transition-all ${
+                              editDonationForm.currency === 'USD'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                : 'bg-slate-50 text-slate-600 border-slate-200'
+                            }`}
+                          >
+                            دۆلار (USD $)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Method & Destination */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    شێوازی پێدان / ڕادەستکردن:
+                  </label>
+                  <select
+                    value={editDonationForm.method}
+                    onChange={(e) => setEditDonationForm({ ...editDonationForm, method: e.target.value as any })}
+                    className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold"
+                  >
+                    <option value="کاش">💵 کاش (دەستی) - نەختینە</option>
+                    <option value="FIB">🏦 بانکی یەکەمی عێراق FIB</option>
+                    <option value="FastPay">📱 فاست پەی FastPay</option>
+                    <option value="ZainCash">📲 زەین کاش ZainCash</option>
+                    <option value="حەواڵەی بانکی">🏛️ حەواڵەی بانکی / ئەلیکترۆنی</option>
+                    <option value="کەرەستە و کاڵا">📦 کەرەستە و کاڵای عەینی (ڕادەستکردنی مەیدانی)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    ئاراستە و مەبەستی بەخشین:
+                  </label>
+                  <select
+                    value={editDonationForm.destinationType}
+                    onChange={(e) => setEditDonationForm({ ...editDonationForm, destinationType: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold"
+                  >
+                    <optgroup label="🏢 کۆگا و پاشەکەوتکردن (Warehouse & Storage)">
+                      <option value="warehouse">کۆگای سەرەکی ڕێکخراو (پاشەکەوتکردن بۆ کاتی پێویست و فریاگوزاری)</option>
+                    </optgroup>
+
+                    <optgroup label="🤝 دابەشکردنی خێرا (Direct Distribution)">
+                      <option value="direct_distribution">دابەشکردنی دەستبەجێ و ڕاستەوخۆ بەسەر خێزانە هەژارەکاندا</option>
+                    </optgroup>
+
+                    <optgroup label="🛡️ سندووقە فەرمییەکان (Designated Funds)">
+                      <option value="general_fund">سندووقی گشتی خێرخوازی و فریاگوزاری خێرا</option>
+                      <option value="orphan_fund">سندووقی چاودێری و کەفالەتی مانگانەی هەتیوان</option>
+                      <option value="medical_fund">سندووقی نەشتەرگەری و دەرمانی کتوپڕ</option>
+                      <option value="students_fund">سندووقی خوێندکاران و پشتیوانی پەروەردە</option>
+                      <option value="winter_campaign">سندووقی کەمپەینی زستانە و سوتەمەنی</option>
+                    </optgroup>
+
+                    {projects.length > 0 && (
+                      <optgroup label="📋 پڕۆژە فەرمییەکان (Active Projects)">
+                        {projects.map(p => (
+                          <option key={p.id} value={`proj_${p.id}`}>
+                            پڕۆژەی دیاریکراو: {p.title}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* Receipt Notes */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">تێبینی سەر پسوولە:</label>
+                <input
+                  type="text"
+                  value={editDonationForm.notes}
+                  onChange={(e) => setEditDonationForm({ ...editDonationForm, notes: e.target.value })}
+                  placeholder="هەر تێبینییەک لەسەر وەرگرتنی ئەم بەخشینە..."
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditDonationModalOpen(false);
+                    setEditingDonation(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                >
+                  پەشیمانبوونەوە
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white font-bold shadow-md hover:shadow-lg transition-all"
+                >
+                  پاشەکەوتکردنی دەستکارییەکان
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Donor */}
+      {isEditDonorModalOpen && editingDonor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl">
+            <button
+              onClick={() => {
+                setIsEditDonorModalOpen(false);
+                setEditingDonor(null);
+              }}
+              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <HeartHandshake className="w-5 h-5 text-emerald-600" />
+              دەستکاریکردنی زانیاری بەخشەر
+            </h3>
+
+            <form onSubmit={handleSaveEditDonor} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">ناوی تەواو / دامەزراوە:</label>
+                <input
+                  type="text"
+                  required
+                  value={editDonorForm.fullName}
+                  onChange={(e) => setEditDonorForm({ ...editDonorForm, fullName: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">جۆری بەخشەر:</label>
+                  <select
+                    value={editDonorForm.type}
+                    onChange={(e) => setEditDonorForm({ ...editDonorForm, type: e.target.value as DonorType })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+                  >
+                    <option value="individual">کەسی</option>
+                    <option value="corporate">کۆمپانیا و بازرگان</option>
+                    <option value="organization">دەزگا و ڕێکخراو</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">پارێزگا:</label>
+                  <select
+                    value={editDonorForm.governorate}
+                    onChange={(e) => setEditDonorForm({ ...editDonorForm, governorate: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+                  >
+                    <option value="هەولێر">هەولێر</option>
+                    <option value="سلێمانی">سلێمانی</option>
+                    <option value="دهۆک">دهۆک</option>
+                    <option value="هەڵەبجە">هەڵەبجە</option>
+                    <option value="کەرکووک">کەرکووک</option>
+                    <option value="دەرەوەی وڵات">دەرەوەی وڵات</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">ژمارەی مۆبایل:</label>
+                  <input
+                    type="tel"
+                    required
+                    value={editDonorForm.phone}
+                    onChange={(e) => setEditDonorForm({ ...editDonorForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">دۆخ:</label>
+                  <select
+                    value={editDonorForm.status}
+                    onChange={(e) => setEditDonorForm({ ...editDonorForm, status: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+                  >
+                    <option value="active">چالاک</option>
+                    <option value="inactive">ناچالاک</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">ئیمەیڵ (ئارەزوومەندانە):</label>
+                <input
+                  type="email"
+                  value={editDonorForm.email}
+                  onChange={(e) => setEditDonorForm({ ...editDonorForm, email: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">تێبینی:</label>
+                <input
+                  type="text"
+                  value={editDonorForm.notes}
+                  onChange={(e) => setEditDonorForm({ ...editDonorForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditDonorModalOpen(false);
+                    setEditingDonor(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                >
+                  پەشیمانبوونەوە
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
+                >
+                  پاشەکەوتکردنی دەستکارییەکان
                 </button>
               </div>
             </form>

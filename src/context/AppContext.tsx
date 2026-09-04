@@ -64,8 +64,11 @@ interface AppContextType {
   donors: Donor[];
   donations: Donation[];
   addDonor: (donor: Omit<Donor, 'id' | 'joinedDate' | 'totalDonationsIQD' | 'totalDonationsUSD'>) => void;
+  updateDonor: (donor: Donor) => void;
   deleteDonor: (id: string) => void;
   addDonation: (donation: Omit<Donation, 'id' | 'receiptNumber' | 'status'>) => Donation;
+  updateDonation: (donation: Donation) => void;
+  deleteDonation: (id: string) => void;
 
   // Projects
   projects: Project[];
@@ -581,10 +584,175 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newDonation;
   };
 
+  const updateDonor = (updated: Donor) => {
+    setDonors(prev => prev.map(d => d.id === updated.id ? updated : d));
+    setDonations(prev => prev.map(don => don.donorId === updated.id ? { ...don, donorName: updated.fullName } : don));
+    setInventory(prev => prev.map(inv => inv.donorId === updated.id ? { ...inv, sourceDonorName: updated.fullName } : inv));
+    logAction('نوێکردنەوەی بەخشەر', `زانیارییەکانی بەخشەر [${updated.fullName}] نوێکرایەوە`, 'update');
+  };
+
   const deleteDonor = (id: string) => {
     const d = donors.find(item => item.id === id);
     setDonors(prev => prev.filter(item => item.id !== id));
     logAction('سڕینەوەی بەخشەر', `بەخشەر [${d?.fullName || id}] لە سیستەم سڕایەوە`, 'delete');
+  };
+
+  const updateDonation = (updated: Donation) => {
+    const oldDonation = donations.find(d => d.id === updated.id);
+    if (!oldDonation) return;
+
+    setDonations(prev => prev.map(d => d.id === updated.id ? updated : d));
+
+    // Update Donor totals: deduct old amount, add new amount
+    setDonors(prev => prev.map(d => {
+      let dCopy = { ...d };
+      if (d.id === oldDonation.donorId) {
+        if (oldDonation.currency === 'IQD') dCopy.totalDonationsIQD = Math.max(0, dCopy.totalDonationsIQD - oldDonation.amount);
+        if (oldDonation.currency === 'USD') dCopy.totalDonationsUSD = Math.max(0, dCopy.totalDonationsUSD - oldDonation.amount);
+      }
+      if (d.id === updated.donorId) {
+        if (updated.currency === 'IQD') dCopy.totalDonationsIQD += updated.amount;
+        if (updated.currency === 'USD') dCopy.totalDonationsUSD += updated.amount;
+      }
+      return dCopy;
+    }));
+
+    // Update Project raised budget if applicable
+    if (oldDonation.projectId || updated.projectId) {
+      setProjects(prev => prev.map(p => {
+        let pCopy = { ...p };
+        if (p.id === oldDonation.projectId) {
+          const oldUSD = oldDonation.currency === 'USD' ? oldDonation.amount : Math.round(oldDonation.amount / 1500);
+          pCopy.raisedBudgetUSD = Math.max(0, pCopy.raisedBudgetUSD - oldUSD);
+        }
+        if (p.id === updated.projectId) {
+          const newUSD = updated.currency === 'USD' ? updated.amount : Math.round(updated.amount / 1500);
+          pCopy.raisedBudgetUSD += newUSD;
+        }
+        return pCopy;
+      }));
+    }
+
+    // Update Financial Transaction if exists
+    setTransactions(prev => prev.map(tx => {
+      if (tx.receiptNumber === updated.receiptNumber) {
+        return {
+          ...tx,
+          amount: updated.amount,
+          currency: updated.currency,
+          date: updated.date,
+          category: `بەخشینی ${updated.method}`,
+          description: `بەخشینی فەرمی لەلایەن [${updated.donorName}] بە پسوولەی ${updated.receiptNumber}`,
+          relatedProjectId: updated.projectId
+        };
+      }
+      return tx;
+    }));
+
+    // Synchronize with Inventory
+    const isInKind = updated.category && updated.category !== 'cash';
+    const wasInKind = oldDonation.category && oldDonation.category !== 'cash';
+
+    if (isInKind) {
+      const invCategory =
+        updated.category === 'food_basket' ? 'خۆراک' :
+        updated.category === 'clothes' ? 'پۆشاک' :
+        updated.category === 'medical' ? 'پێداویستی پزیشکی' :
+        updated.category === 'heating_appliances' ? 'گەرمکەرەوە و سووتەمەنی' :
+        updated.category === 'student_supplies' ? 'پەروەردە و خوێندکاران' :
+        updated.category === 'qurbani_meat' ? 'قوربانی و گۆشت' : 'کەرەستە و کاڵا';
+
+      const warehouseLocation = updated.projectName && updated.projectName.includes('کۆگا')
+        ? updated.projectName
+        : 'هەولێر - کۆگای سەرەکی بەحرکە';
+
+      setInventory(prev => {
+        const existingIndex = prev.findIndex(i => i.sourceReceiptNumber === updated.receiptNumber || i.sourceDonationId === updated.id);
+        if (existingIndex >= 0) {
+          const updatedInv = [...prev];
+          updatedInv[existingIndex] = {
+            ...updatedInv[existingIndex],
+            name: updated.categoryLabel || 'کۆمەکی بەخشراو',
+            category: invCategory,
+            quantity: updated.itemDetails?.quantity || 1,
+            unit: updated.itemDetails?.unit || 'دانە',
+            location: warehouseLocation,
+            lastUpdated: updated.date,
+            sourceDonorName: updated.donorName,
+            donorId: updated.donorId,
+            estimatedMarketValue: updated.itemDetails?.estimatedMarketValue || updated.amount,
+            contentsDescription: updated.itemDetails?.contentsDescription,
+            notes: updated.notes
+          };
+          return updatedInv;
+        } else {
+          const newInvItem: InventoryItem = {
+            id: `inv-don-${Date.now()}`,
+            name: updated.categoryLabel || 'کۆمەکی بەخشراو',
+            category: invCategory,
+            quantity: updated.itemDetails?.quantity || 1,
+            unit: updated.itemDetails?.unit || 'دانە',
+            minAlertThreshold: 5,
+            location: warehouseLocation,
+            lastUpdated: updated.date,
+            sourceReceiptNumber: updated.receiptNumber,
+            sourceDonorName: updated.donorName,
+            sourceDonationId: updated.id,
+            donorId: updated.donorId,
+            estimatedMarketValue: updated.itemDetails?.estimatedMarketValue || updated.amount,
+            contentsDescription: updated.itemDetails?.contentsDescription,
+            notes: updated.notes
+          };
+          return [newInvItem, ...prev];
+        }
+      });
+    } else if (wasInKind && !isInKind) {
+      setInventory(prev => prev.filter(i => i.sourceReceiptNumber !== updated.receiptNumber && i.sourceDonationId !== updated.id));
+    }
+
+    logAction('دەستکاریکردنی بەخشین', `پسوولەی [${updated.receiptNumber}] دەستکاری کرا`, 'update');
+  };
+
+  const deleteDonation = (id: string) => {
+    const target = donations.find(d => d.id === id);
+    if (!target) return;
+
+    // Deduct from donor
+    setDonors(prev => prev.map(d => {
+      if (d.id === target.donorId) {
+        return {
+          ...d,
+          totalDonationsIQD: target.currency === 'IQD' ? Math.max(0, d.totalDonationsIQD - target.amount) : d.totalDonationsIQD,
+          totalDonationsUSD: target.currency === 'USD' ? Math.max(0, d.totalDonationsUSD - target.amount) : d.totalDonationsUSD
+        };
+      }
+      return d;
+    }));
+
+    // Deduct from project raised budget if applicable
+    if (target.projectId) {
+      setProjects(prev => prev.map(p => {
+        if (p.id === target.projectId) {
+          const deductUSD = target.currency === 'USD' ? target.amount : Math.round(target.amount / 1500);
+          return {
+            ...p,
+            raisedBudgetUSD: Math.max(0, p.raisedBudgetUSD - deductUSD)
+          };
+        }
+        return p;
+      }));
+    }
+
+    // Remove matching financial transaction
+    setTransactions(prev => prev.filter(tx => tx.receiptNumber !== target.receiptNumber));
+
+    // Remove matching inventory item if in-kind
+    setInventory(prev => prev.filter(i => i.sourceReceiptNumber !== target.receiptNumber && i.sourceDonationId !== target.id));
+
+    // Remove from donations
+    setDonations(prev => prev.filter(d => d.id !== id));
+
+    logAction('سڕینەوەی پسوولەی بەخشین', `پسوولەی بەخشینی [${target.receiptNumber}] لە سیستەم سڕایەوە`, 'delete');
   };
 
   // Projects
@@ -898,8 +1066,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         donors,
         donations,
         addDonor,
+        updateDonor,
         deleteDonor,
         addDonation,
+        updateDonation,
+        deleteDonation,
         projects,
         addProject,
         updateProject,
