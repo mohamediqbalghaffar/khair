@@ -7,7 +7,6 @@ import {
   FolderKanban,
   UserCheck,
   Package,
-  PlusCircle,
   Sparkles,
   ArrowUpRight,
   ChevronRight,
@@ -204,7 +203,7 @@ export const DashboardView: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 w-full lg:w-auto flex-wrap sm:flex-nowrap shrink-0">
+          <div className="flex items-center gap-3 w-full lg:w-auto shrink-0">
             <button
               onClick={exportImpactReport}
               className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/95 hover:bg-white border border-slate-200/90 text-slate-800 text-xs sm:text-sm font-bold transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
@@ -212,13 +211,6 @@ export const DashboardView: React.FC = () => {
             >
               <Download className="w-4 h-4 text-emerald-600" />
               <span>هەناردەکردنی ڕاپۆرت</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('beneficiaries')}
-              className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl liquid-button-primary text-white text-xs sm:text-sm font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>تۆمارکردنی سوودمەند</span>
             </button>
           </div>
         </div>
