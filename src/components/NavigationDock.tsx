@@ -43,8 +43,8 @@ export const NavigationDock: React.FC = () => {
   ];
 
   return (
-    <div className="fixed bottom-4 left-0 right-0 z-40 px-3 flex justify-center pointer-events-none">
-      <nav className="pointer-events-auto max-w-full overflow-x-auto no-scrollbar rounded-full p-2 bg-white/90 backdrop-blur-3xl border border-slate-200/90 shadow-[0_20px_50px_rgba(15,23,42,0.12),inset_0_1px_2px_rgba(255,255,255,1)] flex items-center gap-1.5 transition-all">
+    <footer className="w-full shrink-0 z-30 py-2.5 px-3 flex justify-center bg-white/90 backdrop-blur-2xl border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(15,23,42,0.03)]">
+      <nav className="max-w-full overflow-x-auto no-scrollbar rounded-full p-1.5 bg-white border border-slate-200/90 shadow-[0_4px_20px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] flex items-center gap-1.5 transition-all">
         {navItems.map(item => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -73,6 +73,6 @@ export const NavigationDock: React.FC = () => {
           );
         })}
       </nav>
-    </div>
+    </footer>
   );
 };

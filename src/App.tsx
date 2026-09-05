@@ -46,26 +46,29 @@ const MainContent: React.FC = () => {
         return <AuditView />;
       case 'settings':
         return <SettingsView />;
-
       default:
         return <DashboardView />;
     }
   };
 
   return (
-    <div className="relative min-h-screen text-slate-100 flex flex-col">
+    <div className="relative h-full text-slate-900 flex flex-col overflow-hidden select-text">
       {/* Background Liquid Atmosphere */}
       <LiquidBackground />
 
       {/* Persistent iOS 26 Liquid Topbar */}
-      <Topbar />
+      <div className="shrink-0 z-30">
+        <Topbar />
+      </div>
 
-      {/* Main Content Area with Adaptive Layout & Floating Dock Clearance */}
-      <main className="relative z-10 flex-1 max-w-[1536px] w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-36 animate-in fade-in duration-300">
-        {renderActiveView()}
+      {/* Main Content Area with Adaptive Layout - bounded cleanly between Topbar and Navigation Dock */}
+      <main className="relative z-10 flex-1 min-h-0 w-full overflow-y-auto">
+        <div className="max-w-[1536px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {renderActiveView()}
+        </div>
       </main>
 
-      {/* Floating Bottom iOS 26 Liquid Glass Dock */}
+      {/* Bottom Navigation Dock Area */}
       <NavigationDock />
 
       {/* Global Spotlight Search Modal */}

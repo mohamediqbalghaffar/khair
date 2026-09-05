@@ -12,7 +12,7 @@ export const SettingsView: React.FC = () => {
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
 
   return (
-    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+    <div className="space-y-6 pb-8 animate-in fade-in zoom-in-95 duration-300">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">ڕێکخستنەکانی سیستەم</h2>

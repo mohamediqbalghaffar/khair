@@ -182,7 +182,7 @@ export const DashboardView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-36">
+    <div className="space-y-6 pb-8">
       
       {/* Welcome Hero Banner with Balanced Responsive Proportions */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-sky-50 via-cyan-50/70 to-blue-50/80 p-6 sm:p-8 lg:p-10 border border-sky-200/90 shadow-sm">
