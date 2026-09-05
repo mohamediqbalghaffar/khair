@@ -24,6 +24,7 @@ import {
   ArrowRight,
   Download
 } from 'lucide-react';
+import { aggregateAmountsByDayRate, getExchangeRateForDate } from '../utils/exchangeRates';
 
 type ActiveModalType = 'donations' | 'beneficiaries' | 'projects' | 'volunteers' | null;
 
@@ -110,14 +111,10 @@ export const DashboardView: React.FC = () => {
     return matchGov && matchSearch;
   });
 
-  // Filtered Calculations
-  const totalDonationsIQD = filteredDonations
-    .filter(d => d.currency === 'IQD')
-    .reduce((sum, d) => sum + d.amount, 0);
-
-  const totalDonationsUSD = filteredDonations
-    .filter(d => d.currency === 'USD')
-    .reduce((sum, d) => sum + d.amount, 0);
+  // Filtered Calculations - Synchronized day-by-day exchange rate aggregation
+  const donationsAgg = aggregateAmountsByDayRate(filteredDonations);
+  const totalDonationsIQD = donationsAgg.totalIQD;
+  const totalDonationsUSD = donationsAgg.totalUSD;
 
   const totalBeneficiaries = filteredBeneficiaries.length;
   const aidedBeneficiaries = filteredBeneficiaries.filter(b => b.status === 'aided').length;
@@ -346,9 +343,14 @@ export const DashboardView: React.FC = () => {
               </div>
               <p className="text-xs sm:text-sm font-bold text-slate-500 mt-1.5 font-mono">
                 {currencyView === 'IQD'
-                  ? `هاوتای $${totalDonationsUSD.toLocaleString()} دۆلار`
-                  : `هاوتای ${totalDonationsIQD.toLocaleString()} دینار`}
+                  ? `هاوتای $${totalDonationsUSD.toLocaleString()} دۆلار (بە نرخی فەرمی ڕۆژ)`
+                  : `هاوتای ${totalDonationsIQD.toLocaleString()} دینار (بە نرخی فەرمی ڕۆژ)`}
               </p>
+              {donationsAgg.directIQD > 0 && donationsAgg.directUSD > 0 && (
+                <div className="text-[11px] font-mono text-slate-400 mt-1">
+                  نەختینەی ڕاستەوخۆ: {donationsAgg.directIQD.toLocaleString()} د.ع + ${donationsAgg.directUSD.toLocaleString()}
+                </div>
+              )}
             </div>
           </div>
 
@@ -615,11 +617,11 @@ export const DashboardView: React.FC = () => {
             {/* Quick Summary Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
               <div className="p-3.5 rounded-2xl bg-cyan-50 border border-cyan-200">
-                <span className="text-xs font-bold text-cyan-800 block">کۆی بەخشین (دینار):</span>
+                <span className="text-xs font-bold text-cyan-800 block">کۆی بەخشین (دینار بە نرخی ڕۆژ):</span>
                 <span className="text-lg font-black text-cyan-900">{totalDonationsIQD.toLocaleString()} د.ع</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200">
-                <span className="text-xs font-bold text-emerald-800 block">کۆی بەخشین (دۆلار):</span>
+                <span className="text-xs font-bold text-emerald-800 block">کۆی بەخشین (دۆلار بە نرخی ڕۆژ):</span>
                 <span className="text-lg font-black text-emerald-900">${totalDonationsUSD.toLocaleString()}</span>
               </div>
               <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 col-span-2 sm:col-span-1">
@@ -639,20 +641,38 @@ export const DashboardView: React.FC = () => {
                     هیچ بەخشینێک تۆمار نەکراوە (سفر پسوولە)
                   </div>
                 ) : (
-                  filteredDonations.map(d => (
-                    <div key={d.id} className="p-3.5 flex items-center justify-between text-xs sm:text-sm hover:bg-slate-50 transition-colors">
-                      <div>
-                        <p className="font-bold text-slate-900">{d.donorName}</p>
-                        <p className="text-xs text-slate-500 font-mono mt-0.5">{d.receiptNumber} • {d.method} • {d.date}</p>
+                  filteredDonations.map(d => {
+                    const dayRate = d.exchangeRateAtDate || getExchangeRateForDate(d.date).rate;
+                    const conv = d.convertedAmount || (
+                      d.currency === 'IQD'
+                        ? Number((d.amount / dayRate).toFixed(2))
+                        : Math.round(d.amount * dayRate)
+                    );
+                    return (
+                      <div key={d.id} className="p-3.5 flex items-center justify-between text-xs sm:text-sm hover:bg-slate-50 transition-colors">
+                        <div>
+                          <p className="font-bold text-slate-900">{d.donorName}</p>
+                          <p className="text-xs text-slate-500 font-mono mt-0.5">{d.receiptNumber} • {d.method} • {d.date}</p>
+                        </div>
+                        <div className="text-left">
+                          <span className="font-black text-emerald-700 text-sm block">
+                            {d.amount.toLocaleString()} {d.currency === 'IQD' ? 'د.ع' : '$'}
+                          </span>
+                          {d.amount > 0 && (
+                            <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1 justify-end mt-0.5" title={`نرخی بۆرسەی ڕۆژ: 1$ = ${dayRate.toLocaleString()} د.ع`}>
+                              <span className="text-cyan-700 font-bold">
+                                {d.currency === 'IQD' ? `≈ $${conv.toLocaleString()}` : `≈ ${conv.toLocaleString()} د.ع`}
+                              </span>
+                              <span className="text-[9px] bg-slate-100 text-slate-600 px-1 rounded border border-slate-200">
+                                {dayRate.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          <p className="text-xs text-slate-500 mt-0.5">{d.projectName || 'سندووقی گشتی'}</p>
+                        </div>
                       </div>
-                      <div className="text-left">
-                        <span className="font-black text-emerald-700 text-sm">
-                          {d.amount.toLocaleString()} {d.currency === 'IQD' ? 'د.ع' : '$'}
-                        </span>
-                        <p className="text-xs text-slate-500 mt-0.5">{d.projectName || 'سندووقی گشتی'}</p>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

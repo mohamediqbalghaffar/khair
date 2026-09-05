@@ -24,6 +24,7 @@ import {
   ArrowRight,
   ChevronDown
 } from 'lucide-react';
+import { getExchangeRateForDate, aggregateAmountsByDayRate } from '../utils/exchangeRates';
 
 const PROJECT_CATEGORIES: { id: ProjectCategory; name: string; image: string }[] = [
   {
@@ -127,11 +128,12 @@ export const ProjectsView: React.FC = () => {
     if (newCurr === budgetCurrency) return;
     const clean = budgetAmountStr.replace(/[^0-9]/g, '');
     const num = clean ? parseInt(clean, 10) : 0;
-    if (num > 0) {
+    const rate = getExchangeRateForDate(formData.startDate).rate;
+    if (num > 0 && rate > 0) {
       if (newCurr === 'USD') {
-        setBudgetAmountStr(Math.round(num / 1500).toString());
+        setBudgetAmountStr(Number((num / rate).toFixed(2)).toString());
       } else {
-        setBudgetAmountStr((num * 1500).toString());
+        setBudgetAmountStr(Math.round(num * rate).toString());
       }
     }
     setBudgetCurrency(newCurr);
@@ -142,11 +144,12 @@ export const ProjectsView: React.FC = () => {
     if (newCurr === editBudgetCurrency) return;
     const clean = editBudgetAmountStr.replace(/[^0-9]/g, '');
     const num = clean ? parseInt(clean, 10) : 0;
-    if (num > 0) {
+    const rate = getExchangeRateForDate(editFormData.startDate).rate;
+    if (num > 0 && rate > 0) {
       if (newCurr === 'USD') {
-        setEditBudgetAmountStr(Math.round(num / 1500).toString());
+        setEditBudgetAmountStr(Number((num / rate).toFixed(2)).toString());
       } else {
-        setEditBudgetAmountStr((num * 1500).toString());
+        setEditBudgetAmountStr(Math.round(num * rate).toString());
       }
     }
     setEditBudgetCurrency(newCurr);
@@ -157,9 +160,10 @@ export const ProjectsView: React.FC = () => {
     setEditingProject(proj);
     const curr = proj.budgetCurrency || 'USD';
     setEditBudgetCurrency(curr);
+    const rate = getExchangeRateForDate(proj.startDate).rate;
     const targetAmt = curr === 'USD'
       ? (proj.targetBudgetUSD || 0)
-      : (proj.targetBudgetIQD || (proj.targetBudgetUSD * 1500) || 0);
+      : (proj.targetBudgetIQD || Math.round((proj.targetBudgetUSD || 0) * rate) || 0);
     setEditBudgetAmountStr(targetAmt > 0 ? targetAmt.toString() : '');
     setEditFormData({
       title: proj.title,
@@ -190,8 +194,9 @@ export const ProjectsView: React.FC = () => {
     e.preventDefault();
     const cleanVal = budgetAmountStr.replace(/[^0-9]/g, '');
     const targetAmount = cleanVal ? parseInt(cleanVal, 10) : 0;
-    const targetUSD = budgetCurrency === 'USD' ? targetAmount : Math.round(targetAmount / 1500);
-    const targetIQD = budgetCurrency === 'IQD' ? targetAmount : targetAmount * 1500;
+    const rate = getExchangeRateForDate(formData.startDate).rate;
+    const targetUSD = budgetCurrency === 'USD' ? targetAmount : Number((targetAmount / rate).toFixed(2));
+    const targetIQD = budgetCurrency === 'IQD' ? targetAmount : Math.round(targetAmount * rate);
 
     addProject({
       title: formData.title,
@@ -230,8 +235,9 @@ export const ProjectsView: React.FC = () => {
 
     const cleanVal = editBudgetAmountStr.replace(/[^0-9]/g, '');
     const targetAmount = cleanVal ? parseInt(cleanVal, 10) : 0;
-    const targetUSD = editBudgetCurrency === 'USD' ? targetAmount : Math.round(targetAmount / 1500);
-    const targetIQD = editBudgetCurrency === 'IQD' ? targetAmount : targetAmount * 1500;
+    const rate = getExchangeRateForDate(editFormData.startDate).rate;
+    const targetUSD = editBudgetCurrency === 'USD' ? targetAmount : Number((targetAmount / rate).toFixed(2));
+    const targetIQD = editBudgetCurrency === 'IQD' ? targetAmount : Math.round(targetAmount * rate);
 
     const updated: Project = {
       ...editingProject,
@@ -393,12 +399,21 @@ export const ProjectsView: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map(proj => {
-            const targetUSD = proj.targetBudgetUSD || 0;
-            const targetIQD = proj.targetBudgetIQD || targetUSD * 1500;
-            const raisedUSD = proj.raisedBudgetUSD || 0;
-            const raisedIQD = proj.raisedBudgetIQD || raisedUSD * 1500;
-            const spentUSD = proj.spentBudgetUSD || 0;
-            const spentIQD = proj.spentBudgetIQD || spentUSD * 1500;
+            const projRate = getExchangeRateForDate(proj.startDate).rate;
+            const targetUSD = proj.targetBudgetUSD || (proj.targetBudgetIQD ? Number((proj.targetBudgetIQD / projRate).toFixed(2)) : 0);
+            const targetIQD = proj.targetBudgetIQD || Math.round(targetUSD * projRate);
+
+            const linkedDonations = donations.filter(d => d.projectId === proj.id);
+            const linkedExpenses = transactions.filter(t => t.relatedProjectId === proj.id && t.type === 'expense');
+
+            const donAgg = aggregateAmountsByDayRate(linkedDonations);
+            const expAgg = aggregateAmountsByDayRate(linkedExpenses);
+
+            const raisedUSD = linkedDonations.length > 0 ? donAgg.totalUSD : (proj.raisedBudgetUSD || 0);
+            const raisedIQD = linkedDonations.length > 0 ? donAgg.totalIQD : (proj.raisedBudgetIQD || Math.round(raisedUSD * projRate));
+
+            const spentUSD = linkedExpenses.length > 0 ? expAgg.totalUSD : (proj.spentBudgetUSD || 0);
+            const spentIQD = linkedExpenses.length > 0 ? expAgg.totalIQD : (proj.spentBudgetIQD || Math.round(spentUSD * projRate));
 
             const raisedPercent = targetUSD > 0 ? Math.min(100, Math.round((raisedUSD / targetUSD) * 100)) : 0;
             const spentPercent = targetUSD > 0 ? Math.min(100, Math.round((spentUSD / targetUSD) * 100)) : 0;
@@ -742,16 +757,19 @@ export const ProjectsView: React.FC = () => {
                 </div>
 
                 {/* Real-time Currency Conversion Display */}
-                {budgetAmountStr && parseInt(budgetAmountStr, 10) > 0 && (
-                  <div className="text-[11px] font-medium text-purple-900 bg-purple-100/70 px-3 py-1.5 rounded-lg flex items-center justify-between">
-                    <span>نرخی گۆڕینەوەی هاوتەریب (1 USD = 1,500 IQD):</span>
-                    <span className="font-mono font-bold">
-                      {budgetCurrency === 'IQD'
-                        ? `بەرامبەر بە نزیکەی: $${Math.round(parseInt(budgetAmountStr, 10) / 1500).toLocaleString()}`
-                        : `بەرامبەر بە نزیکەی: ${(parseInt(budgetAmountStr, 10) * 1500).toLocaleString()} دینار`}
-                    </span>
-                  </div>
-                )}
+                {budgetAmountStr && parseInt(budgetAmountStr, 10) > 0 && (() => {
+                  const rate = getExchangeRateForDate(formData.startDate).rate;
+                  const amt = parseInt(budgetAmountStr, 10);
+                  const convStr = budgetCurrency === 'IQD'
+                    ? `بەرامبەر بە نزیکەی: $${(amt / rate).toFixed(2)}`
+                    : `بەرامبەر بە نزیکەی: ${Math.round(amt * rate).toLocaleString()} دینار`;
+                  return (
+                    <div className="text-[11px] font-medium text-purple-900 bg-purple-100/70 px-3 py-1.5 rounded-lg flex items-center justify-between">
+                      <span>نرخی بۆرسەی ڕۆژ (1 USD = {rate.toLocaleString()} IQD):</span>
+                      <span className="font-mono font-bold">{convStr}</span>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Description */}
@@ -1011,16 +1029,19 @@ export const ProjectsView: React.FC = () => {
                 </div>
 
                 {/* Real-time Currency Conversion Display */}
-                {editBudgetAmountStr && parseInt(editBudgetAmountStr, 10) > 0 && (
-                  <div className="text-[11px] font-medium text-purple-900 bg-purple-100/70 px-3 py-1.5 rounded-lg flex items-center justify-between">
-                    <span>نرخی گۆڕینەوەی هاوتەریب (1 USD = 1,500 IQD):</span>
-                    <span className="font-mono font-bold">
-                      {editBudgetCurrency === 'IQD'
-                        ? `بەرامبەر بە نزیکەی: $${Math.round(parseInt(editBudgetAmountStr, 10) / 1500).toLocaleString()}`
-                        : `بەرامبەر بە نزیکەی: ${(parseInt(editBudgetAmountStr, 10) * 1500).toLocaleString()} دینار`}
-                    </span>
-                  </div>
-                )}
+                {editBudgetAmountStr && parseInt(editBudgetAmountStr, 10) > 0 && (() => {
+                  const rate = getExchangeRateForDate(editFormData.startDate).rate;
+                  const amt = parseInt(editBudgetAmountStr, 10);
+                  const convStr = editBudgetCurrency === 'IQD'
+                    ? `بەرامبەر بە نزیکەی: $${(amt / rate).toFixed(2)}`
+                    : `بەرامبەر بە نزیکەی: ${Math.round(amt * rate).toLocaleString()} دینار`;
+                  return (
+                    <div className="text-[11px] font-medium text-purple-900 bg-purple-100/70 px-3 py-1.5 rounded-lg flex items-center justify-between">
+                      <span>نرخی بۆرسەی ڕۆژ (1 USD = {rate.toLocaleString()} IQD):</span>
+                      <span className="font-mono font-bold">{convStr}</span>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Description */}
@@ -1218,12 +1239,22 @@ export const ProjectsView: React.FC = () => {
 
               {/* Financial & Budget Breakdown */}
               {(() => {
-                const tUSD = selectedProject.targetBudgetUSD || 0;
-                const tIQD = selectedProject.targetBudgetIQD || tUSD * 1500;
-                const rUSD = selectedProject.raisedBudgetUSD || 0;
-                const rIQD = selectedProject.raisedBudgetIQD || rUSD * 1500;
-                const sUSD = selectedProject.spentBudgetUSD || 0;
-                const sIQD = selectedProject.spentBudgetIQD || sUSD * 1500;
+                const projRate = getExchangeRateForDate(selectedProject.startDate).rate;
+                const tUSD = selectedProject.targetBudgetUSD || (selectedProject.targetBudgetIQD ? Number((selectedProject.targetBudgetIQD / projRate).toFixed(2)) : 0);
+                const tIQD = selectedProject.targetBudgetIQD || Math.round(tUSD * projRate);
+
+                const linkedDonations = donations.filter(d => d.projectId === selectedProject.id);
+                const linkedExpenses = transactions.filter(t => t.relatedProjectId === selectedProject.id && t.type === 'expense');
+
+                const donAgg = aggregateAmountsByDayRate(linkedDonations);
+                const expAgg = aggregateAmountsByDayRate(linkedExpenses);
+
+                const rUSD = linkedDonations.length > 0 ? donAgg.totalUSD : (selectedProject.raisedBudgetUSD || 0);
+                const rIQD = linkedDonations.length > 0 ? donAgg.totalIQD : (selectedProject.raisedBudgetIQD || Math.round(rUSD * projRate));
+
+                const sUSD = linkedExpenses.length > 0 ? expAgg.totalUSD : (selectedProject.spentBudgetUSD || 0);
+                const sIQD = linkedExpenses.length > 0 ? expAgg.totalIQD : (selectedProject.spentBudgetIQD || Math.round(sUSD * projRate));
+
                 const percent = tUSD > 0 ? Math.min(100, Math.round((rUSD / tUSD) * 100)) : 0;
 
                 return (

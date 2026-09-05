@@ -27,7 +27,7 @@ import {
   BadgeCheck
 } from 'lucide-react';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
-import { getExchangeRateForDate, convertByDateRate } from '../utils/exchangeRates';
+import { getExchangeRateForDate, convertByDateRate, aggregateAmountsByDayRate } from '../utils/exchangeRates';
 
 export const DonorsView: React.FC = () => {
   const {
@@ -671,7 +671,14 @@ export const DonorsView: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredDonors.map(donor => (
+            {filteredDonors.map(donor => {
+              const donorDonations = donations.filter(d => d.donorId === donor.id);
+              const donorAgg = aggregateAmountsByDayRate(donorDonations);
+              const hasDonations = donorDonations.length > 0;
+              const dispIQD = hasDonations ? donorAgg.totalIQD : (donor.totalDonationsIQD || 0);
+              const dispUSD = hasDonations ? donorAgg.totalUSD : (donor.totalDonationsUSD || 0);
+
+              return (
               <div
                 key={donor.id}
                 className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 border border-slate-200/90 hover:border-emerald-500/50 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between"
@@ -696,13 +703,18 @@ export const DonorsView: React.FC = () => {
 
                   <div className="space-y-2 py-3 border-y border-slate-100 text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">کۆی بەخشینی نەختینەیی (دینار):</span>
-                      <span className="font-bold text-slate-900">{donor.totalDonationsIQD.toLocaleString()} د.ع</span>
+                      <span className="text-slate-500">کۆی بەخشین (دینار بە نرخی ڕۆژ):</span>
+                      <span className="font-bold text-slate-900">{dispIQD.toLocaleString()} د.ع</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">کۆی بەخشین (دۆلار):</span>
-                      <span className="font-bold text-cyan-700">${donor.totalDonationsUSD.toLocaleString()}</span>
+                      <span className="text-slate-500">کۆی بەخشین (دۆلار بە نرخی ڕۆژ):</span>
+                      <span className="font-bold text-cyan-700">${dispUSD.toLocaleString()}</span>
                     </div>
+                    {hasDonations && donorAgg.directIQD > 0 && donorAgg.directUSD > 0 && (
+                      <div className="text-[10px] text-slate-400 font-mono text-left">
+                        ڕاستەوخۆ: {donorAgg.directIQD.toLocaleString()} د.ع + ${donorAgg.directUSD.toLocaleString()}
+                      </div>
+                    )}
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-slate-500">مۆبایل:</span>
                       <span className="font-mono font-bold text-slate-700">{donor.phone}</span>
@@ -753,8 +765,9 @@ export const DonorsView: React.FC = () => {
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+        </div>
         )
       )}
 

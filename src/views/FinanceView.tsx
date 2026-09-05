@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { OnlinePaymentModal } from '../components/OnlinePaymentModal';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
+import { getExchangeRateForDate, aggregateAmountsByDayRate } from '../utils/exchangeRates';
 
 export const FinanceView: React.FC = () => {
   const {
@@ -46,21 +47,35 @@ export const FinanceView: React.FC = () => {
     receiptNumber: ''
   });
 
-  // Financial aggregates
-  const incomeIQD = transactions.filter(t => t.type === 'income' && t.currency === 'IQD').reduce((s, t) => s + t.amount, 0);
-  const expenseIQD = transactions.filter(t => t.type === 'expense' && t.currency === 'IQD').reduce((s, t) => s + t.amount, 0);
-  const balanceIQD = incomeIQD - expenseIQD;
+  // Financial aggregates - Day-by-day synchronized
+  const incomeTx = transactions.filter(t => t.type === 'income');
+  const expenseTx = transactions.filter(t => t.type === 'expense');
 
-  const incomeUSD = transactions.filter(t => t.type === 'income' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0);
-  const expenseUSD = transactions.filter(t => t.type === 'expense' && t.currency === 'USD').reduce((s, t) => s + t.amount, 0);
-  const balanceUSD = incomeUSD - expenseUSD;
+  const incomeAgg = aggregateAmountsByDayRate(incomeTx);
+  const expenseAgg = aggregateAmountsByDayRate(expenseTx);
+
+  const totalIncomeIQD = incomeAgg.totalIQD;
+  const totalIncomeUSD = incomeAgg.totalUSD;
+  const totalExpenseIQD = expenseAgg.totalIQD;
+  const totalExpenseUSD = expenseAgg.totalUSD;
+
+  const balanceIQD = totalIncomeIQD - totalExpenseIQD;
+  const balanceUSD = Number((totalIncomeUSD - totalExpenseUSD).toFixed(2));
 
   // Dynamic Budget Planning & Forecasting metrics (connected to projects & transactions, 0 when empty)
-  const totalPlannedBudgetUSD = projects.reduce((sum, p) => sum + (p.targetBudgetUSD || 0), 0);
-  const totalPlannedBudgetIQD = totalPlannedBudgetUSD * 1500;
+  let totalPlannedBudgetUSD = 0;
+  let totalPlannedBudgetIQD = 0;
+  for (const p of projects) {
+    const rate = getExchangeRateForDate(p.startDate).rate;
+    const pUSD = p.targetBudgetUSD || (p.targetBudgetIQD ? Number((p.targetBudgetIQD / rate).toFixed(2)) : 0);
+    const pIQD = p.targetBudgetIQD || Math.round(pUSD * rate);
+    totalPlannedBudgetUSD += pUSD;
+    totalPlannedBudgetIQD += pIQD;
+  }
+  totalPlannedBudgetUSD = Number(totalPlannedBudgetUSD.toFixed(2));
 
-  const totalSpentUSD = expenseUSD + Math.round(expenseIQD / 1500);
-  const totalSpentIQD = expenseIQD + (expenseUSD * 1500);
+  const totalSpentUSD = totalExpenseUSD;
+  const totalSpentIQD = totalExpenseIQD;
 
   const overallBudgetUSD = totalPlannedBudgetUSD;
   const overallBudgetIQD = totalPlannedBudgetIQD;
@@ -68,7 +83,7 @@ export const FinanceView: React.FC = () => {
     ? Math.min(100, Math.round(((currencyView === 'IQD' ? totalSpentIQD : totalSpentUSD) / (currencyView === 'IQD' ? overallBudgetIQD : overallBudgetUSD)) * 100))
     : 0;
 
-  const remainingBudgetUSD = Math.max(0, totalPlannedBudgetUSD - totalSpentUSD);
+  const remainingBudgetUSD = Math.max(0, Number((totalPlannedBudgetUSD - totalSpentUSD).toFixed(2)));
   const remainingBudgetIQD = Math.max(0, totalPlannedBudgetIQD - totalSpentIQD);
 
   // Dynamic Category Breakdown linked directly to projects and transactions
@@ -97,15 +112,32 @@ export const FinanceView: React.FC = () => {
 
   const budgetCategories = categoryTemplates.map(cat => {
     const matchingProjects = projects.filter(p => p.category === cat.categoryKey || p.title.includes(cat.categoryKey));
-    const catBudgetUSD = matchingProjects.reduce((sum, p) => sum + (p.targetBudgetUSD || 0), 0);
-    const catBudgetIQD = catBudgetUSD * 1500;
+    let catBudgetUSD = 0;
+    let catBudgetIQD = 0;
+    for (const p of matchingProjects) {
+      const rate = getExchangeRateForDate(p.startDate).rate;
+      const pUSD = p.targetBudgetUSD || (p.targetBudgetIQD ? Number((p.targetBudgetIQD / rate).toFixed(2)) : 0);
+      const pIQD = p.targetBudgetIQD || Math.round(pUSD * rate);
+      catBudgetUSD += pUSD;
+      catBudgetIQD += pIQD;
+    }
+    catBudgetUSD = Number(catBudgetUSD.toFixed(2));
 
-    const spentFromTxIQD = transactions
-      .filter(t => t.type === 'expense' && (t.category.includes(cat.categoryKey) || matchingProjects.some(p => p.id === t.relatedProjectId)))
-      .reduce((sum, t) => sum + (t.currency === 'IQD' ? t.amount : t.amount * 1500), 0);
-    const spentFromProjectsIQD = matchingProjects.reduce((sum, p) => sum + ((p.spentBudgetUSD || 0) * 1500), 0);
-    const catSpentIQD = Math.max(spentFromTxIQD, spentFromProjectsIQD);
-    const catSpentUSD = Math.round(catSpentIQD / 1500);
+    const matchingTx = transactions.filter(t => t.type === 'expense' && (t.category.includes(cat.categoryKey) || matchingProjects.some(p => p.id === t.relatedProjectId)));
+    const txAgg = aggregateAmountsByDayRate(matchingTx);
+
+    let projSpentUSD = 0;
+    let projSpentIQD = 0;
+    for (const p of matchingProjects) {
+      const rate = getExchangeRateForDate(p.startDate).rate;
+      const sUSD = p.spentBudgetUSD || (p.spentBudgetIQD ? Number((p.spentBudgetIQD / rate).toFixed(2)) : 0);
+      const sIQD = p.spentBudgetIQD || Math.round(sUSD * rate);
+      projSpentUSD += sUSD;
+      projSpentIQD += sIQD;
+    }
+
+    const catSpentIQD = Math.max(txAgg.totalIQD, projSpentIQD);
+    const catSpentUSD = Math.max(txAgg.totalUSD, Number(projSpentUSD.toFixed(2)));
 
     const percent = (currencyView === 'IQD' ? catBudgetIQD : catBudgetUSD) > 0
       ? Math.min(100, Math.round(((currencyView === 'IQD' ? catSpentIQD : catSpentUSD) / (currencyView === 'IQD' ? catBudgetIQD : catBudgetUSD)) * 100))
@@ -135,11 +167,12 @@ export const FinanceView: React.FC = () => {
     if (newCurr === txForm.currency) return;
     const clean = txAmountStr.replace(/[^0-9]/g, '');
     const num = clean ? parseInt(clean, 10) : 0;
-    if (num > 0) {
+    const rate = getExchangeRateForDate(txForm.date).rate;
+    if (num > 0 && rate > 0) {
       if (newCurr === 'USD') {
-        setTxAmountStr(Math.round(num / 1500).toString());
+        setTxAmountStr(Number((num / rate).toFixed(2)).toString());
       } else {
-        setTxAmountStr((num * 1500).toString());
+        setTxAmountStr(Math.round(num * rate).toString());
       }
     }
     setTxForm(prev => ({ ...prev, currency: newCurr }));
@@ -234,12 +267,19 @@ export const FinanceView: React.FC = () => {
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-2xl font-black text-emerald-900">
-            {incomeIQD.toLocaleString()} <span className="text-xs font-normal">د.ع</span>
+          <div className="text-2xl font-black text-emerald-900 font-mono">
+            {currencyView === 'IQD' ? `${totalIncomeIQD.toLocaleString()} د.ع` : `$${totalIncomeUSD.toLocaleString()}`}
           </div>
           <p className="text-xs text-emerald-700 mt-1 font-mono font-bold">
-            + ${incomeUSD.toLocaleString()} دۆلاری ئەمریکی
+            {currencyView === 'IQD'
+              ? `هاوتای $${totalIncomeUSD.toLocaleString()} دۆلار (بە نرخی ڕۆژ)`
+              : `هاوتای ${totalIncomeIQD.toLocaleString()} دینار (بە نرخی ڕۆژ)`}
           </p>
+          {incomeAgg.directIQD > 0 && incomeAgg.directUSD > 0 && (
+            <p className="text-[10px] text-emerald-600 font-mono mt-0.5">
+              نەختینە: {incomeAgg.directIQD.toLocaleString()} د.ع + ${incomeAgg.directUSD.toLocaleString()}
+            </p>
+          )}
         </div>
 
         {/* Expense Card */}
@@ -250,12 +290,19 @@ export const FinanceView: React.FC = () => {
               <TrendingDown className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-2xl font-black text-rose-900">
-            {expenseIQD.toLocaleString()} <span className="text-xs font-normal">د.ع</span>
+          <div className="text-2xl font-black text-rose-900 font-mono">
+            {currencyView === 'IQD' ? `${totalExpenseIQD.toLocaleString()} د.ع` : `$${totalExpenseUSD.toLocaleString()}`}
           </div>
           <p className="text-xs text-rose-700 mt-1 font-mono font-bold">
-            - ${expenseUSD.toLocaleString()} دۆلاری ئەمریکی
+            {currencyView === 'IQD'
+              ? `هاوتای $${totalExpenseUSD.toLocaleString()} دۆلار (بە نرخی ڕۆژ)`
+              : `هاوتای ${totalExpenseIQD.toLocaleString()} دینار (بە نرخی ڕۆژ)`}
           </p>
+          {expenseAgg.directIQD > 0 && expenseAgg.directUSD > 0 && (
+            <p className="text-[10px] text-rose-600 font-mono mt-0.5">
+              نەختینە: {expenseAgg.directIQD.toLocaleString()} د.ع + ${expenseAgg.directUSD.toLocaleString()}
+            </p>
+          )}
         </div>
 
         {/* Balance Card */}
@@ -266,11 +313,13 @@ export const FinanceView: React.FC = () => {
               <Wallet className="w-5 h-5" />
             </div>
           </div>
-          <div className={`text-2xl font-black ${balanceIQD >= 0 ? 'text-cyan-900' : 'text-rose-700'}`}>
-            {balanceIQD.toLocaleString()} <span className="text-xs font-normal">د.ع</span>
+          <div className={`text-2xl font-black font-mono ${balanceIQD >= 0 ? 'text-cyan-900' : 'text-rose-700'}`}>
+            {currencyView === 'IQD' ? `${balanceIQD.toLocaleString()} د.ع` : `$${balanceUSD.toLocaleString()}`}
           </div>
           <p className="text-xs text-cyan-800 mt-1 font-mono font-bold">
-            باڵانس: ${balanceUSD.toLocaleString()} دۆلار
+            {currencyView === 'IQD'
+              ? `هاوتای $${balanceUSD.toLocaleString()} دۆلار (بە نرخی ڕۆژ)`
+              : `هاوتای ${balanceIQD.toLocaleString()} دینار (بە نرخی ڕۆژ)`}
           </p>
         </div>
 
@@ -470,9 +519,27 @@ export const FinanceView: React.FC = () => {
                       )}
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className={`font-black text-sm ${tx.type === 'income' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {tx.type === 'income' ? '+' : '-'}{tx.amount.toLocaleString()} {tx.currency}
+                      <span className={`font-black text-sm block ${tx.type === 'income' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {tx.type === 'income' ? '+' : '-'}{tx.amount.toLocaleString()} {tx.currency === 'IQD' ? 'د.ع' : '$'}
                       </span>
+                      {(() => {
+                        const dayRate = tx.exchangeRateAtDate || getExchangeRateForDate(tx.date).rate;
+                        const conv = tx.convertedAmount || (
+                          tx.currency === 'IQD'
+                            ? Number((tx.amount / dayRate).toFixed(2))
+                            : Math.round(tx.amount * dayRate)
+                        );
+                        return (
+                          <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1 mt-0.5" title={`نرخی بۆرسەی ڕۆژ: 1$ = ${dayRate.toLocaleString()} د.ع`}>
+                            <span className={tx.type === 'income' ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                              {tx.currency === 'IQD' ? `≈ $${conv.toLocaleString()}` : `≈ ${conv.toLocaleString()} د.ع`}
+                            </span>
+                            <span className="text-[9px] bg-slate-100 text-slate-600 px-1 rounded border border-slate-200">
+                              {dayRate.toLocaleString()}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-900">
                       {tx.category}
@@ -610,16 +677,19 @@ export const FinanceView: React.FC = () => {
                 </div>
 
                 {/* Live rate preview */}
-                {txAmountStr && parseInt(txAmountStr, 10) > 0 && (
-                  <div className="text-[11px] font-medium text-emerald-900 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center justify-between border border-emerald-200/60">
-                    <span className="text-slate-600">هاوتای خەمڵێنراو (1 USD = 1,500 IQD):</span>
-                    <span className="font-mono font-bold text-emerald-700">
-                      {txForm.currency === 'IQD'
-                        ? `بەرامبەر بە نزیکەی: $${Math.round(parseInt(txAmountStr, 10) / 1500).toLocaleString()}`
-                        : `بەرامبەر بە نزیکەی: ${(parseInt(txAmountStr, 10) * 1500).toLocaleString()} دینار`}
-                    </span>
-                  </div>
-                )}
+                {txAmountStr && parseInt(txAmountStr, 10) > 0 && (() => {
+                  const rate = getExchangeRateForDate(txForm.date).rate;
+                  const amt = parseInt(txAmountStr, 10);
+                  const convStr = txForm.currency === 'IQD'
+                    ? `بەرامبەر بە نزیکەی: $${(amt / rate).toFixed(2)}`
+                    : `بەرامبەر بە نزیکەی: ${Math.round(amt * rate).toLocaleString()} دینار`;
+                  return (
+                    <div className="text-[11px] font-medium text-emerald-900 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center justify-between border border-emerald-200/60">
+                      <span className="text-slate-600">نرخی بۆرسەی ڕۆژ (1 USD = {rate.toLocaleString()} IQD):</span>
+                      <span className="font-mono font-bold text-emerald-700">{convStr}</span>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

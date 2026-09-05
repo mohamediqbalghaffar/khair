@@ -31,6 +31,7 @@ import {
   INITIAL_ANNOUNCEMENTS,
   INITIAL_REMINDERS
 } from '../data/initialData';
+import { getExchangeRateForDate, calcItemAmountInUSD, calcItemAmountInIQD } from '../utils/exchangeRates';
 
 export type NavTab =
   | 'dashboard'
@@ -501,14 +502,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Synchronize with Project
     let matchedProjectId: string | undefined = undefined;
     if (record.projectTitle) {
+      const aidDate = record.date || new Date().toISOString().split('T')[0];
+      const dayRate = getExchangeRateForDate(aidDate).rate;
+      const spentAddUSD = (record.type === 'monetary' && record.amountIQD)
+        ? Number((record.amountIQD / dayRate).toFixed(2))
+        : 0;
+
       setProjects(prev => prev.map(p => {
         if (p.title === record.projectTitle) {
           matchedProjectId = p.id;
-          const spentAddUSD = (record.type === 'monetary' && record.amountIQD) ? Math.round(record.amountIQD / 1500) : 0;
           return {
             ...p,
             beneficiariesCount: p.beneficiariesCount + 1,
-            spentBudgetUSD: p.spentBudgetUSD + spentAddUSD
+            spentBudgetUSD: Number((p.spentBudgetUSD + spentAddUSD).toFixed(2)),
+            spentBudgetIQD: (p.spentBudgetIQD || 0) + (record.amountIQD || 0)
           };
         }
         return p;
@@ -517,13 +524,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Auto-record financial expense transaction if monetary aid
     if (record.type === 'monetary' && record.amountIQD && record.amountIQD > 0) {
+      const aidDate = record.date || new Date().toISOString().split('T')[0];
+      const dayRate = getExchangeRateForDate(aidDate).rate;
       const aidTx: FinancialTransaction = {
         id: `tx-aid-${Date.now()}`,
         type: 'expense',
         amount: record.amountIQD,
         currency: 'IQD',
+        exchangeRateAtDate: dayRate,
+        convertedAmount: Number((record.amountIQD / dayRate).toFixed(2)),
         category: 'هاوکاری نەختینەیی سوودمەند',
-        date: record.date || new Date().toISOString().split('T')[0],
+        date: aidDate,
         description: `هاوکاری نەختینەیی بۆ [${ben?.fullName || 'سوودمەند'}] - ${record.projectTitle}`,
         recordedBy: record.distributedBy || ROLE_PROFILES[currentRole].name,
         relatedProjectId: matchedProjectId
@@ -562,12 +573,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDonations(prev => [newDonation, ...prev]);
 
     // Update Donor total
+    const itemIQD = calcItemAmountInIQD(newDonation);
+    const itemUSD = calcItemAmountInUSD(newDonation);
+
     setDonors(prev => prev.map(d => {
       if (d.id === data.donorId) {
         return {
           ...d,
-          totalDonationsIQD: data.currency === 'IQD' ? d.totalDonationsIQD + data.amount : d.totalDonationsIQD,
-          totalDonationsUSD: data.currency === 'USD' ? d.totalDonationsUSD + data.amount : d.totalDonationsUSD
+          totalDonationsIQD: d.totalDonationsIQD + itemIQD,
+          totalDonationsUSD: Number((d.totalDonationsUSD + itemUSD).toFixed(2))
         };
       }
       return d;
@@ -579,6 +593,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type: 'income',
       amount: data.amount,
       currency: data.currency,
+      exchangeRateAtDate: newDonation.exchangeRateAtDate || getExchangeRateForDate(data.date).rate,
+      convertedAmount: newDonation.convertedAmount,
       category: `بەخشینی ${data.method}`,
       date: data.date,
       description: `بەخشینی فەرمی لەلایەن [${data.donorName}] بە پسوولەی ${receiptNumber}`,
@@ -592,10 +608,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (data.projectId) {
       setProjects(prev => prev.map(p => {
         if (p.id === data.projectId) {
-          const addedUSD = data.currency === 'USD' ? data.amount : Math.round(data.amount / 1500);
           return {
             ...p,
-            raisedBudgetUSD: p.raisedBudgetUSD + addedUSD
+            raisedBudgetUSD: Number((p.raisedBudgetUSD + itemUSD).toFixed(2)),
+            raisedBudgetIQD: (p.raisedBudgetIQD || 0) + itemIQD
           };
         }
         return p;
@@ -662,15 +678,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDonations(prev => prev.map(d => d.id === updated.id ? updated : d));
 
     // Update Donor totals: deduct old amount, add new amount
+    const oldIQD = calcItemAmountInIQD(oldDonation);
+    const oldUSD = calcItemAmountInUSD(oldDonation);
+    const newIQD = calcItemAmountInIQD(updated);
+    const newUSD = calcItemAmountInUSD(updated);
+
     setDonors(prev => prev.map(d => {
       let dCopy = { ...d };
       if (d.id === oldDonation.donorId) {
-        if (oldDonation.currency === 'IQD') dCopy.totalDonationsIQD = Math.max(0, dCopy.totalDonationsIQD - oldDonation.amount);
-        if (oldDonation.currency === 'USD') dCopy.totalDonationsUSD = Math.max(0, dCopy.totalDonationsUSD - oldDonation.amount);
+        dCopy.totalDonationsIQD = Math.max(0, dCopy.totalDonationsIQD - oldIQD);
+        dCopy.totalDonationsUSD = Number(Math.max(0, dCopy.totalDonationsUSD - oldUSD).toFixed(2));
       }
       if (d.id === updated.donorId) {
-        if (updated.currency === 'IQD') dCopy.totalDonationsIQD += updated.amount;
-        if (updated.currency === 'USD') dCopy.totalDonationsUSD += updated.amount;
+        dCopy.totalDonationsIQD += newIQD;
+        dCopy.totalDonationsUSD = Number((dCopy.totalDonationsUSD + newUSD).toFixed(2));
       }
       return dCopy;
     }));
@@ -680,12 +701,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setProjects(prev => prev.map(p => {
         let pCopy = { ...p };
         if (p.id === oldDonation.projectId) {
-          const oldUSD = oldDonation.currency === 'USD' ? oldDonation.amount : Math.round(oldDonation.amount / 1500);
-          pCopy.raisedBudgetUSD = Math.max(0, pCopy.raisedBudgetUSD - oldUSD);
+          pCopy.raisedBudgetUSD = Number(Math.max(0, pCopy.raisedBudgetUSD - oldUSD).toFixed(2));
+          pCopy.raisedBudgetIQD = Math.max(0, (pCopy.raisedBudgetIQD || 0) - oldIQD);
         }
         if (p.id === updated.projectId) {
-          const newUSD = updated.currency === 'USD' ? updated.amount : Math.round(updated.amount / 1500);
-          pCopy.raisedBudgetUSD += newUSD;
+          pCopy.raisedBudgetUSD = Number((pCopy.raisedBudgetUSD + newUSD).toFixed(2));
+          pCopy.raisedBudgetIQD = (pCopy.raisedBudgetIQD || 0) + newIQD;
         }
         return pCopy;
       }));
@@ -698,6 +719,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...tx,
           amount: updated.amount,
           currency: updated.currency,
+          exchangeRateAtDate: updated.exchangeRateAtDate || getExchangeRateForDate(updated.date).rate,
+          convertedAmount: updated.convertedAmount,
           date: updated.date,
           category: `بەخشینی ${updated.method}`,
           description: `بەخشینی فەرمی لەلایەن [${updated.donorName}] بە پسوولەی ${updated.receiptNumber}`,
@@ -775,13 +798,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = donations.find(d => d.id === id);
     if (!target) return;
 
+    const deductIQD = calcItemAmountInIQD(target);
+    const deductUSD = calcItemAmountInUSD(target);
+
     // Deduct from donor
     setDonors(prev => prev.map(d => {
       if (d.id === target.donorId) {
         return {
           ...d,
-          totalDonationsIQD: target.currency === 'IQD' ? Math.max(0, d.totalDonationsIQD - target.amount) : d.totalDonationsIQD,
-          totalDonationsUSD: target.currency === 'USD' ? Math.max(0, d.totalDonationsUSD - target.amount) : d.totalDonationsUSD
+          totalDonationsIQD: Math.max(0, d.totalDonationsIQD - deductIQD),
+          totalDonationsUSD: Number(Math.max(0, d.totalDonationsUSD - deductUSD).toFixed(2))
         };
       }
       return d;
@@ -791,10 +817,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (target.projectId) {
       setProjects(prev => prev.map(p => {
         if (p.id === target.projectId) {
-          const deductUSD = target.currency === 'USD' ? target.amount : Math.round(target.amount / 1500);
           return {
             ...p,
-            raisedBudgetUSD: Math.max(0, p.raisedBudgetUSD - deductUSD)
+            raisedBudgetUSD: Number(Math.max(0, p.raisedBudgetUSD - deductUSD).toFixed(2)),
+            raisedBudgetIQD: Math.max(0, (p.raisedBudgetIQD || 0) - deductIQD)
           };
         }
         return p;
@@ -816,12 +842,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Projects
   const addProject = (data: Omit<Project, 'id' | 'raisedBudgetUSD' | 'spentBudgetUSD' | 'beneficiariesCount' | 'volunteersCount'>) => {
     const budgetCurrency = data.budgetCurrency || 'USD';
+    const rate = getExchangeRateForDate(data.startDate || new Date().toISOString()).rate;
     const targetBudgetUSD = budgetCurrency === 'USD'
       ? data.targetBudgetUSD
-      : Math.round((data.targetBudgetIQD || 0) / 1500);
+      : Number(((data.targetBudgetIQD || 0) / rate).toFixed(2));
     const targetBudgetIQD = budgetCurrency === 'IQD'
       ? (data.targetBudgetIQD || 0)
-      : (data.targetBudgetUSD * 1500);
+      : Math.round(data.targetBudgetUSD * rate);
 
     const newProject: Project = {
       ...data,
@@ -842,12 +869,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateProject = (updated: Project) => {
     const budgetCurrency = updated.budgetCurrency || 'USD';
+    const rate = getExchangeRateForDate(updated.startDate || new Date().toISOString()).rate;
     const targetBudgetUSD = budgetCurrency === 'USD'
       ? updated.targetBudgetUSD
-      : Math.round((updated.targetBudgetIQD || 0) / 1500);
+      : Number(((updated.targetBudgetIQD || 0) / rate).toFixed(2));
     const targetBudgetIQD = budgetCurrency === 'IQD'
       ? (updated.targetBudgetIQD || 0)
-      : (updated.targetBudgetUSD * 1500);
+      : Math.round(updated.targetBudgetUSD * rate);
 
     const projectToSave: Project = {
       ...updated,
@@ -933,21 +961,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Finance
   const addTransaction = (data: Omit<FinancialTransaction, 'id'>) => {
+    const dayRate = data.exchangeRateAtDate || getExchangeRateForDate(data.date).rate;
+    const convertedAmount = data.convertedAmount || (
+      data.currency === 'IQD'
+        ? Number((data.amount / dayRate).toFixed(2))
+        : Math.round(data.amount * dayRate)
+    );
+
     const newTx: FinancialTransaction = {
       ...data,
+      exchangeRateAtDate: dayRate,
+      convertedAmount,
       id: `tx-${Date.now()}`
     };
     setTransactions(prev => [newTx, ...prev]);
 
     // Synchronize with related project
     if (data.relatedProjectId) {
+      const amountUSD = calcItemAmountInUSD(newTx);
+      const amountIQD = calcItemAmountInIQD(newTx);
       setProjects(prev => prev.map(p => {
         if (p.id === data.relatedProjectId) {
-          const amountUSD = data.currency === 'USD' ? data.amount : Math.round(data.amount / 1500);
           if (data.type === 'expense') {
-            return { ...p, spentBudgetUSD: p.spentBudgetUSD + amountUSD };
+            return {
+              ...p,
+              spentBudgetUSD: Number((p.spentBudgetUSD + amountUSD).toFixed(2)),
+              spentBudgetIQD: (p.spentBudgetIQD || 0) + amountIQD
+            };
           } else if (data.type === 'income') {
-            return { ...p, raisedBudgetUSD: p.raisedBudgetUSD + amountUSD };
+            return {
+              ...p,
+              raisedBudgetUSD: Number((p.raisedBudgetUSD + amountUSD).toFixed(2)),
+              raisedBudgetIQD: (p.raisedBudgetIQD || 0) + amountIQD
+            };
           }
         }
         return p;

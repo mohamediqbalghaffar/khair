@@ -161,3 +161,97 @@ export function convertByDateRate(
     };
   }
 }
+
+export interface MonetaryItem {
+  amount: number;
+  currency: 'IQD' | 'USD';
+  date?: string;
+  exchangeRateAtDate?: number;
+}
+
+export interface AggregatedCurrencyResult {
+  totalIQD: number; // Sum of all items converted to IQD using their individual day rates
+  totalUSD: number; // Sum of all items converted to USD using their individual day rates
+  directIQD: number; // Sum of items originally given in IQD
+  directUSD: number; // Sum of items originally given in USD
+  countIQD: number;
+  countUSD: number;
+  totalCount: number;
+  blendedRate: number; // Effective weighted exchange rate across all items
+}
+
+/**
+ * Resolves the exchange rate for a given monetary item:
+ * Uses item's stored exchangeRateAtDate if available, or looks up the rate for item's date.
+ */
+export function getItemDayRate(item: { date?: string; exchangeRateAtDate?: number }): number {
+  if (item.exchangeRateAtDate && item.exchangeRateAtDate > 0) {
+    return item.exchangeRateAtDate;
+  }
+  return getExchangeRateForDate(item.date).rate;
+}
+
+/**
+ * Calculates the exact IQD value of a single item based on its date's exchange rate.
+ */
+export function calcItemAmountInIQD(item: MonetaryItem): number {
+  if (!item.amount || item.amount <= 0) return 0;
+  if (item.currency === 'IQD') return item.amount;
+  const rate = getItemDayRate(item);
+  return Math.round(item.amount * rate);
+}
+
+/**
+ * Calculates the exact USD value of a single item based on its date's exchange rate.
+ */
+export function calcItemAmountInUSD(item: MonetaryItem): number {
+  if (!item.amount || item.amount <= 0) return 0;
+  if (item.currency === 'USD') return item.amount;
+  const rate = getItemDayRate(item);
+  return Number((item.amount / rate).toFixed(2));
+}
+
+/**
+ * Aggregates a list of monetary items (donations, expenses, transactions)
+ * where each item is converted based on its OWN individual day's exchange rate.
+ */
+export function aggregateAmountsByDayRate(items: MonetaryItem[]): AggregatedCurrencyResult {
+  let directIQD = 0;
+  let directUSD = 0;
+  let totalIQD = 0;
+  let totalUSD = 0;
+  let countIQD = 0;
+  let countUSD = 0;
+
+  for (const item of items) {
+    if (!item.amount || item.amount <= 0) continue;
+
+    if (item.currency === 'IQD') {
+      directIQD += item.amount;
+      countIQD++;
+      totalIQD += item.amount;
+      const rate = getItemDayRate(item);
+      totalUSD += Number((item.amount / rate).toFixed(2));
+    } else {
+      directUSD += item.amount;
+      countUSD++;
+      totalUSD += item.amount;
+      const rate = getItemDayRate(item);
+      totalIQD += Math.round(item.amount * rate);
+    }
+  }
+
+  totalUSD = Number(totalUSD.toFixed(2));
+  const blendedRate = totalUSD > 0 ? Math.round(totalIQD / totalUSD) : 1530;
+
+  return {
+    totalIQD,
+    totalUSD,
+    directIQD,
+    directUSD,
+    countIQD,
+    countUSD,
+    totalCount: countIQD + countUSD,
+    blendedRate,
+  };
+}
