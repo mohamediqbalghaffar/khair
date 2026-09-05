@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { Beneficiary, NeedCategory, BeneficiaryStatus, OtherProvider, BeneficiaryDocument, BeneficiaryDocCategory } from '../types';
+import { Beneficiary, NeedCategory, BeneficiaryStatus, OtherProvider, BeneficiaryDocument, BeneficiaryDocCategory, BeneficiaryLocation } from '../types';
 import {
   downloadBeneficiaryExcelTemplate,
   parseBeneficiaryExcelFile,
@@ -34,7 +34,10 @@ import {
   ExternalLink,
   File,
   Check,
-  UploadCloud
+  UploadCloud,
+  Navigation,
+  Crosshair,
+  Compass
 } from 'lucide-react';
 
 export const BeneficiariesView: React.FC = () => {
@@ -49,7 +52,8 @@ export const BeneficiariesView: React.FC = () => {
     sendSMS,
     addBeneficiaryDocument,
     updateBeneficiaryDocument,
-    deleteBeneficiaryDocument
+    deleteBeneficiaryDocument,
+    setActiveTab
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,7 +93,8 @@ export const BeneficiariesView: React.FC = () => {
     needCategory: 'poor' as NeedCategory,
     status: 'pending' as BeneficiaryStatus,
     notes: '',
-    documents: [] as BeneficiaryDocument[]
+    documents: [] as BeneficiaryDocument[],
+    location: undefined as BeneficiaryLocation | undefined
   });
   const [newEditOtherProvider, setNewEditOtherProvider] = useState<OtherProvider>({
     name: '',
@@ -97,6 +102,52 @@ export const BeneficiariesView: React.FC = () => {
     monthlyIncomeIQD: 0
   });
   const [editDuplicateAlert, setEditDuplicateAlert] = useState<string | null>(null);
+
+  // GPS Helper State
+  const [isGettingGPS, setIsGettingGPS] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+
+  const handleGetCurrentGPS = (isEdit: boolean) => {
+    if (!navigator.geolocation) {
+      alert('وێبگەڕەکەت پشتگیری وەرگرتنی پێگەی GPS ناکات.');
+      return;
+    }
+    setIsGettingGPS(true);
+    setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(6));
+        const lng = Number(pos.coords.longitude.toFixed(6));
+        setIsGettingGPS(false);
+        if (isEdit) {
+          setEditFormData(prev => ({
+            ...prev,
+            location: {
+              lat,
+              lng,
+              label: prev.location?.label || 'وەرگیراو لە ڕێگەی GPS ئامێر',
+              tagDate: new Date().toISOString()
+            }
+          }));
+        } else {
+          setFormData(prev => ({
+            ...prev,
+            location: {
+              lat,
+              lng,
+              label: prev.location?.label || 'وەرگیراو لە ڕێگەی GPS ئامێر',
+              tagDate: new Date().toISOString()
+            }
+          }));
+        }
+      },
+      () => {
+        setIsGettingGPS(false);
+        setGpsError('نەتوانرا پێگەی جوگرافی وەربگیرێت. دڵنیابە مۆڵەتی GPS بەخشراوە.');
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  };
 
   // Lightbox / Document Preview State
   const [previewDocument, setPreviewDocument] = useState<BeneficiaryDocument | null>(null);
@@ -126,7 +177,8 @@ export const BeneficiariesView: React.FC = () => {
     needCategory: 'poor' as NeedCategory,
     status: 'pending' as BeneficiaryStatus,
     notes: '',
-    documents: [] as BeneficiaryDocument[]
+    documents: [] as BeneficiaryDocument[],
+    location: undefined as BeneficiaryLocation | undefined
   });
 
   // State for new dynamic other provider inputs
@@ -248,7 +300,8 @@ export const BeneficiariesView: React.FC = () => {
       needCategory: 'poor',
       status: 'pending',
       notes: '',
-      documents: []
+      documents: [],
+      location: undefined
     });
     setNewOtherProvider({ name: '', relation: 'کوڕ', monthlyIncomeIQD: 0 });
     setDuplicateAlert(null);
@@ -342,7 +395,8 @@ export const BeneficiariesView: React.FC = () => {
       needCategory: ben.needCategory || 'poor',
       status: ben.status || 'pending',
       notes: ben.notes || '',
-      documents: ben.documents ? [...ben.documents] : []
+      documents: ben.documents ? [...ben.documents] : [],
+      location: ben.location ? { ...ben.location } : undefined
     });
     setNewEditOtherProvider({ name: '', relation: 'کوڕ', monthlyIncomeIQD: 0 });
     setEditDuplicateAlert(null);
@@ -435,7 +489,8 @@ export const BeneficiariesView: React.FC = () => {
       needCategory: editFormData.needCategory,
       status: editFormData.status,
       notes: editFormData.notes,
-      documents: editFormData.documents || []
+      documents: editFormData.documents || [],
+      location: editFormData.location
     };
 
     updateBeneficiary(updatedBen);
@@ -709,6 +764,28 @@ export const BeneficiariesView: React.FC = () => {
                         {ben.governorate}
                       </span>
                       <p className="text-[11px] text-slate-600 max-w-xs truncate">{ben.address}</p>
+                      {ben.location && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('geo')}
+                            className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 transition-colors shadow-xs"
+                            title={`GPS: ${ben.location.lat}, ${ben.location.lng}${ben.location.label ? ` (${ben.location.label})` : ''}`}
+                          >
+                            <MapPin className="w-3 h-3 text-emerald-600" />
+                            <span>ماڵ لەسەر نەخشەیە</span>
+                          </button>
+                          <a
+                            href={`https://www.google.com/maps?q=${ben.location.lat},${ben.location.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-slate-400 hover:text-cyan-700 p-0.5 rounded"
+                            title="Google Maps"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4">
                       {ben.isProvider ? (
@@ -1160,6 +1237,94 @@ export const BeneficiariesView: React.FC = () => {
                     />
                   </div>
 
+                  {/* GPS House Location on Map */}
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-slate-800 font-bold flex items-center gap-1.5 text-xs">
+                        <MapPin className="w-4 h-4 text-cyan-600" />
+                        دیاریکردنی وردی سەربان و پێگەی ماڵ لەسەر نەخشە (GPS):
+                      </label>
+                      {formData.location ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          پێگە دیاریکراوە
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">ئارەزوومەندانە</span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[11px] text-slate-500 font-medium mb-1">هێڵی پانی و درێژی (Lat, Lng):</label>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            readOnly
+                            value={formData.location ? `${formData.location.lat}, ${formData.location.lng}` : ''}
+                            placeholder="پێگە دیاری نەکراوە"
+                            className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-mono bg-white text-slate-800"
+                          />
+                          {formData.location && (
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, location: undefined }))}
+                              className="p-1.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shrink-0"
+                              title="سڕینەوەی پێگە"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-slate-500 font-medium mb-1">تێبینی ماڵ / ئاماژەی شوێن:</label>
+                        <input
+                          type="text"
+                          value={formData.location?.label || ''}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            location: prev.location
+                              ? { ...prev.location, label: e.target.value }
+                              : { lat: 36.19, lng: 44.01, label: e.target.value, tagDate: new Date().toISOString() }
+                          }))}
+                          placeholder="وەک: خانوی دوو نهۆم، سەربانی شین"
+                          className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-white text-slate-800"
+                        />
+                      </div>
+                    </div>
+
+                    {gpsError && (
+                      <p className="text-[11px] text-rose-600 font-medium bg-rose-50 p-2 rounded-xl border border-rose-200">
+                        {gpsError}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleGetCurrentGPS(false)}
+                        disabled={isGettingGPS}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 text-xs font-bold transition-all shadow-sm"
+                      >
+                        <Navigation className={`w-3.5 h-3.5 text-cyan-600 ${isGettingGPS ? 'animate-spin' : ''}`} />
+                        <span>{isGettingGPS ? 'وەرگرتنی پێگە...' : 'وەرگرتنی پێگەی ئێستام (GPS مۆبایل)'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddModalOpen(false);
+                          setActiveTab('geo');
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-sm"
+                      >
+                        <Crosshair className="w-3.5 h-3.5 text-slate-600" />
+                        <span>دیاریکردن لەسەر نەخشەی گشتی</span>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Family Count, Monthly Income & Need Category */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
@@ -1554,6 +1719,51 @@ export const BeneficiariesView: React.FC = () => {
                 <span>دەستکاریکردنی دۆسیە و بەڵگەنامەکان</span>
               </button>
             </div>
+
+            {/* GPS House Location Card */}
+            {selectedBeneficiary.location && (
+              <div className="my-4 p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold shrink-0">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-emerald-900">پێگەی دیاریکراوی ماڵ لەسەر نەخشە</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/60 text-emerald-800">
+                        GPS تۆمارکراوە
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-mono text-emerald-700 mt-0.5">
+                      {selectedBeneficiary.location.lat}, {selectedBeneficiary.location.lng}
+                      {selectedBeneficiary.location.label ? ` • ${selectedBeneficiary.location.label}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedBeneficiary(null);
+                      setActiveTab('geo');
+                    }}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm"
+                  >
+                    <Crosshair className="w-3.5 h-3.5" />
+                    <span>بینین لەسەر نەخشە</span>
+                  </button>
+                  <a
+                    href={`https://www.google.com/maps?q=${selectedBeneficiary.location.lat},${selectedBeneficiary.location.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-bold transition-all shadow-sm"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Google Maps</span>
+                  </a>
+                </div>
+              </div>
+            )}
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-5">
@@ -2258,6 +2468,94 @@ export const BeneficiariesView: React.FC = () => {
                   onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
+              </div>
+
+              {/* GPS House Location on Map */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-800 font-bold flex items-center gap-1.5 text-xs">
+                    <MapPin className="w-4 h-4 text-cyan-600" />
+                    دیاریکردنی وردی سەربان و پێگەی ماڵ لەسەر نەخشە (GPS):
+                  </label>
+                  {editFormData.location ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      پێگە دیاریکراوە
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-slate-400">ئارەزوومەندانە</span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] text-slate-500 font-medium mb-1">هێڵی پانی و درێژی (Lat, Lng):</label>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        readOnly
+                        value={editFormData.location ? `${editFormData.location.lat}, ${editFormData.location.lng}` : ''}
+                        placeholder="پێگە دیاری نەکراوە"
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-mono bg-white text-slate-800"
+                      />
+                      {editFormData.location && (
+                        <button
+                          type="button"
+                          onClick={() => setEditFormData(prev => ({ ...prev, location: undefined }))}
+                          className="p-1.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shrink-0"
+                          title="سڕینەوەی پێگە"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-500 font-medium mb-1">تێبینی ماڵ / ئاماژەی شوێن:</label>
+                    <input
+                      type="text"
+                      value={editFormData.location?.label || ''}
+                      onChange={(e) => setEditFormData(prev => ({
+                        ...prev,
+                        location: prev.location
+                          ? { ...prev.location, label: e.target.value }
+                          : { lat: 36.19, lng: 44.01, label: e.target.value, tagDate: new Date().toISOString() }
+                      }))}
+                      placeholder="وەک: خانوی دوو نهۆم، سەربانی شین"
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 text-xs bg-white text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                {gpsError && (
+                  <p className="text-[11px] text-rose-600 font-medium bg-rose-50 p-2 rounded-xl border border-rose-200">
+                    {gpsError}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleGetCurrentGPS(true)}
+                    disabled={isGettingGPS}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 text-xs font-bold transition-all shadow-sm"
+                  >
+                    <Navigation className={`w-3.5 h-3.5 text-cyan-600 ${isGettingGPS ? 'animate-spin' : ''}`} />
+                    <span>{isGettingGPS ? 'وەرگرتنی پێگە...' : 'وەرگرتنی پێگەی ئێستام (GPS مۆبایل)'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditModalOpen(false);
+                      setActiveTab('geo');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-sm"
+                  >
+                    <Crosshair className="w-3.5 h-3.5 text-slate-600" />
+                    <span>دیاریکردن لەسەر نەخشەی گشتی</span>
+                  </button>
+                </div>
               </div>
 
               {/* Family Count, Monthly Income & Need Category */}

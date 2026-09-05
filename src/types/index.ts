@@ -51,6 +51,14 @@ export interface BeneficiaryDocument {
   uploadDate: string;
 }
 
+export interface BeneficiaryLocation {
+  lat: number;
+  lng: number;
+  label?: string;
+  addressDetails?: string;
+  tagDate?: string;
+}
+
 export interface Beneficiary {
   id: string;
   nationalId: string; // بۆ پشکنینی دووبارەبوونەوە
@@ -73,6 +81,7 @@ export interface Beneficiary {
   registeredDate: string;
   aidHistory: AidRecord[];
   documents?: BeneficiaryDocument[];
+  location?: BeneficiaryLocation; // پێگەی جوگرافی وردی ماڵ لەسەر نەخشە
 }
 
 export type DonorType = 'individual' | 'corporate' | 'organization';

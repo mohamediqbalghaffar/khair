@@ -153,8 +153,28 @@
     z-index: 10;
   }
 
-  .custom-map-pin {
+  .custom-map-pin, .house-map-marker {
     background: transparent !important;
     border: none !important;
+  }
+
+  .leaflet-popup-content-wrapper {
+    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 1.25rem !important;
+    box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.2) !important;
+    padding: 0 !important;
+    font-family: 'Speda', system-ui, sans-serif !important;
+    direction: rtl !important;
+    text-align: right !important;
+  }
+  .leaflet-popup-content {
+    margin: 0 !important;
+    line-height: 1.4 !important;
+  }
+  .leaflet-popup-tip {
+    background: #ffffff !important;
   }
 }
