@@ -33,6 +33,7 @@ export const FinanceView: React.FC = () => {
   const [activeReceiptDonation, setActiveReceiptDonation] = useState<Donation | null>(null);
 
   // New Transaction Form State
+  const [txAmountStr, setTxAmountStr] = useState('');
   const [txForm, setTxForm] = useState({
     type: 'expense' as 'income' | 'expense',
     amount: 0,
@@ -130,10 +131,27 @@ export const FinanceView: React.FC = () => {
     return matchesSearch && matchesType;
   });
 
+  const handleTxCurrencySwitch = (newCurr: 'IQD' | 'USD') => {
+    if (newCurr === txForm.currency) return;
+    const clean = txAmountStr.replace(/[^0-9]/g, '');
+    const num = clean ? parseInt(clean, 10) : 0;
+    if (num > 0) {
+      if (newCurr === 'USD') {
+        setTxAmountStr(Math.round(num / 1500).toString());
+      } else {
+        setTxAmountStr((num * 1500).toString());
+      }
+    }
+    setTxForm(prev => ({ ...prev, currency: newCurr }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    addTransaction(txForm);
+    const cleanAmount = txAmountStr.replace(/[^0-9]/g, '');
+    const amountVal = cleanAmount ? parseInt(cleanAmount, 10) : 0;
+    addTransaction({ ...txForm, amount: amountVal });
     setIsAddModalOpen(false);
+    setTxAmountStr('');
     setTxForm({
       type: 'expense',
       amount: 0,
@@ -521,29 +539,87 @@ export const FinanceView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">بڕی پارە:</label>
-                  <input
-                    type="number"
-                    min={1}
-                    required
-                    value={txForm.amount}
-                    onChange={(e) => setTxForm({ ...txForm, amount: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold"
-                  />
+              {/* Amount & Currency */}
+              <div className="space-y-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">بڕی پارە:</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        value={txAmountStr}
+                        onChange={(e) => {
+                          const clean = e.target.value.replace(/[^0-9]/g, '');
+                          setTxAmountStr(clean);
+                        }}
+                        placeholder={txForm.currency === 'IQD' ? 'نموونە: 150,000' : 'نموونە: 100'}
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                        {txForm.currency === 'IQD' ? 'د.ع' : '$ USD'}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1">دراو:</label>
+                    <div className="grid grid-cols-2 gap-1.5 mt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => handleTxCurrencySwitch('IQD')}
+                        className={`py-2 rounded-xl font-bold border transition-all text-xs ${
+                          txForm.currency === 'IQD'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        دینار (IQD)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleTxCurrencySwitch('USD')}
+                        className={`py-2 rounded-xl font-bold border transition-all text-xs ${
+                          txForm.currency === 'USD'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        دۆلار (USD $)
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">دراو:</label>
-                  <select
-                    value={txForm.currency}
-                    onChange={(e) => setTxForm({ ...txForm, currency: e.target.value as any })}
-                    className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white"
-                  >
-                    <option value="IQD">دیناری عێراقی (IQD)</option>
-                    <option value="USD">دۆلاری ئەمریکی (USD $)</option>
-                  </select>
+
+                {/* Quick suggestion pills */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-slate-500 font-bold">بڕی ئامادەکراو:</span>
+                  {(txForm.currency === 'IQD'
+                    ? ['25000', '50000', '100000', '250000', '500000', '1000000']
+                    : ['25', '50', '100', '250', '500', '1000']
+                  ).map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setTxAmountStr(val)}
+                      className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[11px] font-mono text-slate-700 hover:border-emerald-400 hover:text-emerald-700 transition-colors"
+                    >
+                      {txForm.currency === 'IQD' ? `${parseInt(val, 10).toLocaleString()} د.ع` : `$${parseInt(val, 10).toLocaleString()}`}
+                    </button>
+                  ))}
                 </div>
+
+                {/* Live rate preview */}
+                {txAmountStr && parseInt(txAmountStr, 10) > 0 && (
+                  <div className="text-[11px] font-medium text-emerald-900 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center justify-between border border-emerald-200/60">
+                    <span className="text-slate-600">هاوتای خەمڵێنراو (1 USD = 1,500 IQD):</span>
+                    <span className="font-mono font-bold text-emerald-700">
+                      {txForm.currency === 'IQD'
+                        ? `بەرامبەر بە نزیکەی: $${Math.round(parseInt(txAmountStr, 10) / 1500).toLocaleString()}`
+                        : `بەرامبەر بە نزیکەی: ${(parseInt(txAmountStr, 10) * 1500).toLocaleString()} دینار`}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -57,6 +57,8 @@ export const DonorsView: React.FC = () => {
   });
 
   // New Donation Form State with Rich Categories & Details
+  const [donationAmountStr, setDonationAmountStr] = useState('100000');
+  const [donationEstValueStr, setDonationEstValueStr] = useState('');
   const [donationForm, setDonationForm] = useState({
     donorId: '',
     category: 'cash' as DonationCategory,
@@ -82,6 +84,8 @@ export const DonorsView: React.FC = () => {
   // Edit Donation Modal State
   const [editingDonation, setEditingDonation] = useState<Donation | null>(null);
   const [isEditDonationModalOpen, setIsEditDonationModalOpen] = useState(false);
+  const [editAmountStr, setEditAmountStr] = useState('');
+  const [editEstValueStr, setEditEstValueStr] = useState('');
   const [editDonationForm, setEditDonationForm] = useState({
     donorId: '',
     category: 'cash' as DonationCategory,
@@ -147,6 +151,8 @@ export const DonorsView: React.FC = () => {
 
   // Reset donation form
   const resetDonationForm = (donorId?: string) => {
+    setDonationAmountStr('100000');
+    setDonationEstValueStr('');
     setDonationForm({
       donorId: donorId || (donors.length > 0 ? donors[0].id : ''),
       category: 'cash',
@@ -216,6 +222,34 @@ export const DonorsView: React.FC = () => {
     }));
   };
 
+  const handleAddDonationCurrencySwitch = (newCurr: 'IQD' | 'USD') => {
+    if (newCurr === donationForm.currency) return;
+    const clean = donationAmountStr.replace(/[^0-9]/g, '');
+    const num = clean ? parseInt(clean, 10) : 0;
+    if (num > 0) {
+      if (newCurr === 'USD') {
+        setDonationAmountStr(Math.round(num / 1500).toString());
+      } else {
+        setDonationAmountStr((num * 1500).toString());
+      }
+    }
+    setDonationForm(prev => ({ ...prev, currency: newCurr }));
+  };
+
+  const handleEditDonationCurrencySwitch = (newCurr: 'IQD' | 'USD') => {
+    if (newCurr === editDonationForm.currency) return;
+    const clean = editAmountStr.replace(/[^0-9]/g, '');
+    const num = clean ? parseInt(clean, 10) : 0;
+    if (num > 0) {
+      if (newCurr === 'USD') {
+        setEditAmountStr(Math.round(num / 1500).toString());
+      } else {
+        setEditAmountStr((num * 1500).toString());
+      }
+    }
+    setEditDonationForm(prev => ({ ...prev, currency: newCurr }));
+  };
+
   const handleAddDonationSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const targetDonor = donors.find(d => d.id === donationForm.donorId);
@@ -260,9 +294,11 @@ export const DonorsView: React.FC = () => {
     };
 
     const isCash = donationForm.category === 'cash';
+    const cleanAmount = donationAmountStr.replace(/[^0-9]/g, '');
+    const cleanEstValue = donationEstValueStr.replace(/[^0-9]/g, '');
     const finalAmount = isCash
-      ? Number(donationForm.amount)
-      : Number(donationForm.estimatedMarketValue || 0);
+      ? (cleanAmount ? parseInt(cleanAmount, 10) : 0)
+      : (cleanEstValue ? parseInt(cleanEstValue, 10) : 0);
 
     let itemDetails: DonationItemDetails | undefined = undefined;
     if (!isCash) {
@@ -323,6 +359,9 @@ export const DonorsView: React.FC = () => {
     } else if (don.projectName?.includes('گشتی')) {
       destType = 'general_fund';
     }
+
+    setEditAmountStr(don.amount ? don.amount.toString() : '');
+    setEditEstValueStr(don.itemDetails?.estimatedMarketValue ? don.itemDetails.estimatedMarketValue.toString() : '');
 
     setEditDonationForm({
       donorId: don.donorId,
@@ -433,9 +472,11 @@ export const DonorsView: React.FC = () => {
     };
 
     const isCash = editDonationForm.category === 'cash';
+    const cleanAmount = editAmountStr.replace(/[^0-9]/g, '');
+    const cleanEstValue = editEstValueStr.replace(/[^0-9]/g, '');
     const finalAmount = isCash
-      ? Number(editDonationForm.amount)
-      : Number(editDonationForm.estimatedMarketValue || 0);
+      ? (cleanAmount ? parseInt(cleanAmount, 10) : 0)
+      : (cleanEstValue ? parseInt(cleanEstValue, 10) : 0);
 
     let itemDetails: DonationItemDetails | undefined = undefined;
     if (!isCash) {
@@ -951,45 +992,86 @@ export const DonorsView: React.FC = () => {
                 {/* DYNAMIC CATEGORY DETAILS */}
                 {/* 1. If Cash: show cash amount & currency */}
                 {donationForm.category === 'cash' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/80 animate-in fade-in">
-                    <div>
-                      <label className="block text-slate-700 font-bold mb-1">بڕی پارەی بەخشراو:</label>
-                      <input
-                        type="number"
-                        min={1}
-                        required
-                        value={donationForm.amount}
-                        onChange={(e) => setDonationForm({ ...donationForm, amount: Number(e.target.value) })}
-                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-700 font-bold mb-1">دراو:</label>
-                      <div className="grid grid-cols-2 gap-1.5 mt-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setDonationForm({ ...donationForm, currency: 'IQD' })}
-                          className={`py-2 rounded-xl font-bold border transition-all ${
-                            donationForm.currency === 'IQD'
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                              : 'bg-white text-slate-600 border-slate-200'
-                          }`}
-                        >
-                          دینار (IQD)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDonationForm({ ...donationForm, currency: 'USD' })}
-                          className={`py-2 rounded-xl font-bold border transition-all ${
-                            donationForm.currency === 'USD'
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                              : 'bg-white text-slate-600 border-slate-200'
-                          }`}
-                        >
-                          دۆلار (USD $)
-                        </button>
+                  <div className="space-y-3 pt-2 border-t border-slate-200/80 animate-in fade-in">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">بڕی پارەی بەخشراو:</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            required
+                            value={donationAmountStr}
+                            onChange={(e) => {
+                              const clean = e.target.value.replace(/[^0-9]/g, '');
+                              setDonationAmountStr(clean);
+                            }}
+                            placeholder={donationForm.currency === 'IQD' ? 'نموونە: 100,000' : 'نموونە: 100'}
+                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono focus:ring-2 focus:ring-emerald-500"
+                          />
+                          <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                            {donationForm.currency === 'IQD' ? 'د.ع' : '$ USD'}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">دراو:</label>
+                        <div className="grid grid-cols-2 gap-1.5 mt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleAddDonationCurrencySwitch('IQD')}
+                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
+                              donationForm.currency === 'IQD'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            دینار (IQD)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAddDonationCurrencySwitch('USD')}
+                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
+                              donationForm.currency === 'USD'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            دۆلار (USD $)
+                          </button>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Quick Suggestion Pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] text-slate-500 font-bold">بڕی ئامادەکراو:</span>
+                      {(donationForm.currency === 'IQD'
+                        ? ['25000', '50000', '100000', '250000', '500000', '1000000']
+                        : ['25', '50', '100', '250', '500', '1000']
+                      ).map(val => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setDonationAmountStr(val)}
+                          className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[11px] font-mono text-slate-700 hover:border-emerald-400 hover:text-emerald-700 transition-colors"
+                        >
+                          {donationForm.currency === 'IQD' ? `${parseInt(val, 10).toLocaleString()} د.ع` : `$${parseInt(val, 10).toLocaleString()}`}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Real-time Currency Conversion Display */}
+                    {donationAmountStr && parseInt(donationAmountStr, 10) > 0 && (
+                      <div className="text-[11px] font-medium text-emerald-900 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center justify-between border border-emerald-200/60">
+                        <span className="text-slate-600">هاوتای خەمڵێنراو (1 USD = 1,500 IQD):</span>
+                        <span className="font-mono font-bold text-emerald-700">
+                          {donationForm.currency === 'IQD'
+                            ? `بەرامبەر بە نزیکەی: $${Math.round(parseInt(donationAmountStr, 10) / 1500).toLocaleString()}`
+                            : `بەرامبەر بە نزیکەی: ${(parseInt(donationAmountStr, 10) * 1500).toLocaleString()} دینار`}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   /* 2. If In-Kind Category: Show common details (boxes, weight, ingredients, bags, etc.) */
@@ -1155,24 +1237,30 @@ export const DonorsView: React.FC = () => {
                         <label className="block text-slate-700 font-bold mb-1">
                           بەهای خەمڵێنراوی تەواوی کۆمەکەکە (ئارەزوومەندانە):
                         </label>
-                        <input
-                          type="number"
-                          min={0}
-                          value={donationForm.estimatedMarketValue || ''}
-                          onChange={(e) =>
-                            setDonationForm({ ...donationForm, estimatedMarketValue: Number(e.target.value) })
-                          }
-                          placeholder="0 د.ع"
-                          className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={donationEstValueStr}
+                            onChange={(e) => {
+                              const clean = e.target.value.replace(/[^0-9]/g, '');
+                              setDonationEstValueStr(clean);
+                            }}
+                            placeholder="نموونە: 250,000"
+                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono"
+                          />
+                          <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                            {donationForm.currency === 'IQD' ? 'د.ع' : '$ USD'}
+                          </span>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-slate-700 font-bold mb-1">دراوی خەمڵاندن:</label>
                         <div className="grid grid-cols-2 gap-1.5 mt-0.5">
                           <button
                             type="button"
-                            onClick={() => setDonationForm({ ...donationForm, currency: 'IQD' })}
-                            className={`py-2 rounded-xl font-bold border transition-all ${
+                            onClick={() => handleAddDonationCurrencySwitch('IQD')}
+                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
                               donationForm.currency === 'IQD'
                                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                                 : 'bg-slate-50 text-slate-600 border-slate-200'
@@ -1182,8 +1270,8 @@ export const DonorsView: React.FC = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setDonationForm({ ...donationForm, currency: 'USD' })}
-                            className={`py-2 rounded-xl font-bold border transition-all ${
+                            onClick={() => handleAddDonationCurrencySwitch('USD')}
+                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
                               donationForm.currency === 'USD'
                                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                                 : 'bg-slate-50 text-slate-600 border-slate-200'
@@ -1360,45 +1448,86 @@ export const DonorsView: React.FC = () => {
 
                 {/* Dynamic Category Details */}
                 {editDonationForm.category === 'cash' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/80 animate-in fade-in">
-                    <div>
-                      <label className="block text-slate-700 font-bold mb-1">بڕی پارەی بەخشراو:</label>
-                      <input
-                        type="number"
-                        min={1}
-                        required
-                        value={editDonationForm.amount}
-                        onChange={(e) => setEditDonationForm({ ...editDonationForm, amount: Number(e.target.value) })}
-                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-slate-700 font-bold mb-1">دراو:</label>
-                      <div className="grid grid-cols-2 gap-1.5 mt-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setEditDonationForm({ ...editDonationForm, currency: 'IQD' })}
-                          className={`py-2 rounded-xl font-bold border transition-all ${
-                            editDonationForm.currency === 'IQD'
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                              : 'bg-white text-slate-600 border-slate-200'
-                          }`}
-                        >
-                          دینار (IQD)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditDonationForm({ ...editDonationForm, currency: 'USD' })}
-                          className={`py-2 rounded-xl font-bold border transition-all ${
-                            editDonationForm.currency === 'USD'
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                              : 'bg-white text-slate-600 border-slate-200'
-                          }`}
-                        >
-                          دۆلار (USD $)
-                        </button>
+                  <div className="space-y-3 pt-2 border-t border-slate-200/80 animate-in fade-in">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">بڕی پارەی بەخشراو:</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            required
+                            value={editAmountStr}
+                            onChange={(e) => {
+                              const clean = e.target.value.replace(/[^0-9]/g, '');
+                              setEditAmountStr(clean);
+                            }}
+                            placeholder={editDonationForm.currency === 'IQD' ? 'نموونە: 100,000' : 'نموونە: 100'}
+                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono focus:ring-2 focus:ring-emerald-500"
+                          />
+                          <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                            {editDonationForm.currency === 'IQD' ? 'د.ع' : '$ USD'}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">دراو:</label>
+                        <div className="grid grid-cols-2 gap-1.5 mt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleEditDonationCurrencySwitch('IQD')}
+                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
+                              editDonationForm.currency === 'IQD'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            دینار (IQD)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEditDonationCurrencySwitch('USD')}
+                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
+                              editDonationForm.currency === 'USD'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            دۆلار (USD $)
+                          </button>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Quick Suggestion Pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] text-slate-500 font-bold">بڕی ئامادەکراو:</span>
+                      {(editDonationForm.currency === 'IQD'
+                        ? ['25000', '50000', '100000', '250000', '500000', '1000000']
+                        : ['25', '50', '100', '250', '500', '1000']
+                      ).map(val => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setEditAmountStr(val)}
+                          className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[11px] font-mono text-slate-700 hover:border-emerald-400 hover:text-emerald-700 transition-colors"
+                        >
+                          {editDonationForm.currency === 'IQD' ? `${parseInt(val, 10).toLocaleString()} د.ع` : `$${parseInt(val, 10).toLocaleString()}`}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Real-time Currency Conversion Display */}
+                    {editAmountStr && parseInt(editAmountStr, 10) > 0 && (
+                      <div className="text-[11px] font-medium text-emerald-900 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center justify-between border border-emerald-200/60">
+                        <span className="text-slate-600">هاوتای خەمڵێنراو (1 USD = 1,500 IQD):</span>
+                        <span className="font-mono font-bold text-emerald-700">
+                          {editDonationForm.currency === 'IQD'
+                            ? `بەرامبەر بە نزیکەی: $${Math.round(parseInt(editAmountStr, 10) / 1500).toLocaleString()}`
+                            : `بەرامبەر بە نزیکەی: ${(parseInt(editAmountStr, 10) * 1500).toLocaleString()} دینار`}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="p-3.5 bg-white rounded-xl border border-emerald-200 space-y-3 pt-3 animate-in fade-in">
@@ -1558,23 +1687,30 @@ export const DonorsView: React.FC = () => {
                         <label className="block text-slate-700 font-bold mb-1">
                           بەهای خەمڵێنراوی تەواوی کۆمەکەکە (ئارەزوومەندانە):
                         </label>
-                        <input
-                          type="number"
-                          min={0}
-                          value={editDonationForm.estimatedMarketValue || ''}
-                          onChange={(e) =>
-                            setEditDonationForm({ ...editDonationForm, estimatedMarketValue: Number(e.target.value) })
-                          }
-                          className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={editEstValueStr}
+                            onChange={(e) => {
+                              const clean = e.target.value.replace(/[^0-9]/g, '');
+                              setEditEstValueStr(clean);
+                            }}
+                            placeholder="نموونە: 250,000"
+                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono"
+                          />
+                          <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                            {editDonationForm.currency === 'IQD' ? 'د.ع' : '$ USD'}
+                          </span>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-slate-700 font-bold mb-1">دراوی خەمڵاندن:</label>
                         <div className="grid grid-cols-2 gap-1.5 mt-0.5">
                           <button
                             type="button"
-                            onClick={() => setEditDonationForm({ ...editDonationForm, currency: 'IQD' })}
-                            className={`py-2 rounded-xl font-bold border transition-all ${
+                            onClick={() => handleEditDonationCurrencySwitch('IQD')}
+                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
                               editDonationForm.currency === 'IQD'
                                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                                 : 'bg-slate-50 text-slate-600 border-slate-200'
@@ -1584,8 +1720,8 @@ export const DonorsView: React.FC = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setEditDonationForm({ ...editDonationForm, currency: 'USD' })}
-                            className={`py-2 rounded-xl font-bold border transition-all ${
+                            onClick={() => handleEditDonationCurrencySwitch('USD')}
+                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
                               editDonationForm.currency === 'USD'
                                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                                 : 'bg-slate-50 text-slate-600 border-slate-200'
