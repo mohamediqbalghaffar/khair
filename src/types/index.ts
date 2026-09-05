@@ -119,6 +119,9 @@ export interface Donation {
   itemDetails?: DonationItemDetails;
   amount: number;
   currency: 'IQD' | 'USD';
+  exchangeRateAtDate?: number; // نرخی بۆرسەی ڕۆژی بەخشین، بۆ نموونە 1530
+  convertedAmount?: number; // هاوتای بەخشین بە دراوەکەی تر بەپێی نرخی ئەو ڕۆژە
+  exchangeRateSource?: string; // سەرچاوەی بۆرسە، وەک AlanChand / بۆرسەی کیفاح و هەولێر
   method: 'کاش' | 'FastPay' | 'FIB' | 'ZainCash' | 'حەواڵەی بانکی' | 'کەرەستە و کاڵا' | 'ڕادەستکردنی مەیدانی';
   date: string;
   projectId?: string;
@@ -189,6 +192,8 @@ export interface FinancialTransaction {
   type: 'income' | 'expense';
   amount: number;
   currency: 'IQD' | 'USD';
+  exchangeRateAtDate?: number;
+  convertedAmount?: number;
   category: string;
   date: string;
   description: string;

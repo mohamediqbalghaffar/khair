@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { InventoryItem, Donation } from '../types';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
+import { getExchangeRateForDate } from '../utils/exchangeRates';
 import {
   PackageSearch,
   Search,
@@ -609,9 +610,22 @@ export const InventoryView: React.FC = () => {
                               </div>
                             ) : (
                               <div>
-                                <span className="font-mono font-black text-slate-900 text-sm">
-                                  {don.amount.toLocaleString()} {don.currency}
+                                <span className="font-mono font-black text-slate-900 text-sm block">
+                                  {don.amount.toLocaleString()} {don.currency === 'IQD' ? 'د.ع' : '$'}
                                 </span>
+                                {(() => {
+                                  const dayRate = don.exchangeRateAtDate || getExchangeRateForDate(don.date).rate;
+                                  const conv = don.convertedAmount || (
+                                    don.currency === 'IQD'
+                                      ? Number((don.amount / dayRate).toFixed(2))
+                                      : Math.round(don.amount * dayRate)
+                                  );
+                                  return (
+                                    <span className="text-[10px] text-cyan-700 font-mono block" title={`نرخی بۆرسەی ڕۆژ: 1$ = ${dayRate.toLocaleString()} د.ع`}>
+                                      {don.currency === 'IQD' ? `≈ $${conv.toLocaleString()}` : `≈ ${conv.toLocaleString()} د.ع`} ({dayRate.toLocaleString()})
+                                    </span>
+                                  );
+                                })()}
                                 <span className="text-[10px] text-slate-500 block">{don.method}</span>
                               </div>
                             )}

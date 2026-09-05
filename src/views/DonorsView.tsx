@@ -21,9 +21,13 @@ import {
   Truck,
   CheckCircle2,
   Info,
-  Edit3
+  Edit3,
+  Calendar,
+  TrendingUp,
+  BadgeCheck
 } from 'lucide-react';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
+import { getExchangeRateForDate, convertByDateRate } from '../utils/exchangeRates';
 
 export const DonorsView: React.FC = () => {
   const {
@@ -80,6 +84,12 @@ export const DonorsView: React.FC = () => {
     destinationType: 'warehouse',
     notes: ''
   });
+
+  // Custom Day-Rate Overrides (Optional user fine-tuning)
+  const [customAddRate, setCustomAddRate] = useState<number | null>(null);
+  const [isCustomAddRateOpen, setIsCustomAddRateOpen] = useState(false);
+  const [customEditRate, setCustomEditRate] = useState<number | null>(null);
+  const [isCustomEditRateOpen, setIsCustomEditRateOpen] = useState(false);
 
   // Edit Donation Modal State
   const [editingDonation, setEditingDonation] = useState<Donation | null>(null);
@@ -170,6 +180,8 @@ export const DonorsView: React.FC = () => {
       destinationType: 'warehouse',
       notes: ''
     });
+    setCustomAddRate(null);
+    setIsCustomAddRateOpen(false);
   };
 
   // Handle Category Change with smart defaults
@@ -226,11 +238,12 @@ export const DonorsView: React.FC = () => {
     if (newCurr === donationForm.currency) return;
     const clean = donationAmountStr.replace(/[^0-9]/g, '');
     const num = clean ? parseInt(clean, 10) : 0;
-    if (num > 0) {
+    const dayRate = customAddRate || getExchangeRateForDate(donationForm.date).rate;
+    if (num > 0 && dayRate > 0) {
       if (newCurr === 'USD') {
-        setDonationAmountStr(Math.round(num / 1500).toString());
+        setDonationAmountStr(Math.round(num / dayRate).toString());
       } else {
-        setDonationAmountStr((num * 1500).toString());
+        setDonationAmountStr(Math.round(num * dayRate).toString());
       }
     }
     setDonationForm(prev => ({ ...prev, currency: newCurr }));
@@ -240,11 +253,12 @@ export const DonorsView: React.FC = () => {
     if (newCurr === editDonationForm.currency) return;
     const clean = editAmountStr.replace(/[^0-9]/g, '');
     const num = clean ? parseInt(clean, 10) : 0;
-    if (num > 0) {
+    const dayRate = customEditRate || getExchangeRateForDate(editDonationForm.date).rate;
+    if (num > 0 && dayRate > 0) {
       if (newCurr === 'USD') {
-        setEditAmountStr(Math.round(num / 1500).toString());
+        setEditAmountStr(Math.round(num / dayRate).toString());
       } else {
-        setEditAmountStr((num * 1500).toString());
+        setEditAmountStr(Math.round(num * dayRate).toString());
       }
     }
     setEditDonationForm(prev => ({ ...prev, currency: newCurr }));
@@ -319,6 +333,10 @@ export const DonorsView: React.FC = () => {
       };
     }
 
+    const dayRateInfo = getExchangeRateForDate(donationForm.date);
+    const appliedRate = customAddRate || dayRateInfo.rate;
+    const conversion = convertByDateRate(finalAmount, donationForm.currency, appliedRate);
+
     const newDonation = addDonation({
       donorId: targetDonor.id,
       donorName: targetDonor.fullName,
@@ -327,6 +345,9 @@ export const DonorsView: React.FC = () => {
       itemDetails,
       amount: finalAmount,
       currency: donationForm.currency,
+      exchangeRateAtDate: appliedRate,
+      convertedAmount: conversion.convertedAmount,
+      exchangeRateSource: dayRateInfo.source,
       method: donationForm.method,
       date: donationForm.date,
       projectId: finalProjectId,
@@ -380,6 +401,9 @@ export const DonorsView: React.FC = () => {
       destinationType: destType,
       notes: don.notes || ''
     });
+
+    setCustomEditRate(don.exchangeRateAtDate || null);
+    setIsCustomEditRateOpen(false);
 
     setIsEditDonationModalOpen(true);
   };
@@ -497,6 +521,10 @@ export const DonorsView: React.FC = () => {
       };
     }
 
+    const dayRateInfo = getExchangeRateForDate(editDonationForm.date);
+    const appliedRate = customEditRate || dayRateInfo.rate;
+    const conversion = convertByDateRate(finalAmount, editDonationForm.currency, appliedRate);
+
     const updatedDonation: Donation = {
       ...editingDonation,
       donorId: targetDonor.id,
@@ -506,6 +534,9 @@ export const DonorsView: React.FC = () => {
       itemDetails,
       amount: finalAmount,
       currency: editDonationForm.currency,
+      exchangeRateAtDate: appliedRate,
+      convertedAmount: conversion.convertedAmount,
+      exchangeRateSource: dayRateInfo.source,
       method: editDonationForm.method,
       date: editDonationForm.date,
       projectId: finalProjectId,
@@ -767,9 +798,29 @@ export const DonorsView: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4">
                         {don.amount > 0 ? (
-                          <span className="font-black text-emerald-700 text-sm">
-                            {don.amount.toLocaleString()} {don.currency === 'IQD' ? 'د.ع' : '$'}
-                          </span>
+                          <div>
+                            <span className="font-black text-emerald-700 text-sm block">
+                              {don.amount.toLocaleString()} {don.currency === 'IQD' ? 'د.ع' : '$'}
+                            </span>
+                            {(() => {
+                              const dayRate = don.exchangeRateAtDate || getExchangeRateForDate(don.date).rate;
+                              const conv = don.convertedAmount || (
+                                don.currency === 'IQD'
+                                  ? Number((don.amount / dayRate).toFixed(2))
+                                  : Math.round(don.amount * dayRate)
+                              );
+                              return (
+                                <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1 mt-0.5" title={`نرخی بۆرسەی ڕۆژ: 1$ = ${dayRate.toLocaleString()} د.ع`}>
+                                  <span className="text-cyan-700 font-bold">
+                                    {don.currency === 'IQD' ? `≈ $${conv.toLocaleString()}` : `≈ ${conv.toLocaleString()} د.ع`}
+                                  </span>
+                                  <span className="text-[9px] bg-slate-100 text-slate-600 px-1 rounded border border-slate-200">
+                                    {dayRate.toLocaleString()}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </div>
                         ) : (
                           <span className="text-slate-500 font-bold">بەخشینی عەینی</span>
                         )}
@@ -947,25 +998,44 @@ export const DonorsView: React.FC = () => {
 
             <form onSubmit={handleAddDonationSubmit} className="space-y-4 text-xs">
               
-              {/* Select Donor */}
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">دیاریکردنی بەخشەر:</label>
-                <select
-                  required
-                  value={donationForm.donorId}
-                  onChange={(e) => setDonationForm({ ...donationForm, donorId: e.target.value })}
-                  className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold"
-                >
-                  {donors.length === 0 ? (
-                    <option value="">هیچ بەخشەرێک تۆمار نەکراوە - تکایە سەرەتا بەخشەر تۆمار بکە</option>
-                  ) : (
-                    donors.map(d => (
-                      <option key={d.id} value={d.id}>
-                        {d.fullName} ({d.phone})
-                      </option>
-                    ))
-                  )}
-                </select>
+              {/* Select Donor & Date of Donation */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">دیاریکردنی بەخشەر:</label>
+                  <select
+                    required
+                    value={donationForm.donorId}
+                    onChange={(e) => setDonationForm({ ...donationForm, donorId: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold"
+                  >
+                    {donors.length === 0 ? (
+                      <option value="">هیچ بەخشەرێک تۆمار نەکراوە - تکایە سەرەتا بەخشەر تۆمار بکە</option>
+                    ) : (
+                      donors.map(d => (
+                        <option key={d.id} value={d.id}>
+                          {d.fullName} ({d.phone})
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1 flex items-center justify-between">
+                    <span>بەرواری بەخشین:</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold">بۆ دیاریکردنی نرخی ڕۆژ</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={donationForm.date}
+                    onChange={(e) => {
+                      setDonationForm({ ...donationForm, date: e.target.value });
+                      setCustomAddRate(null);
+                    }}
+                    className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold font-mono"
+                  />
+                </div>
               </div>
 
               {/* Requirement 1: Category of Fund (پۆلێنی بەخشین) */}
@@ -1061,17 +1131,69 @@ export const DonorsView: React.FC = () => {
                       ))}
                     </div>
 
-                    {/* Real-time Currency Conversion Display */}
-                    {donationAmountStr && parseInt(donationAmountStr, 10) > 0 && (
-                      <div className="text-[11px] font-medium text-emerald-900 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center justify-between border border-emerald-200/60">
-                        <span className="text-slate-600">هاوتای خەمڵێنراو (1 USD = 1,500 IQD):</span>
-                        <span className="font-mono font-bold text-emerald-700">
-                          {donationForm.currency === 'IQD'
-                            ? `بەرامبەر بە نزیکەی: $${Math.round(parseInt(donationAmountStr, 10) / 1500).toLocaleString()}`
-                            : `بەرامبەر بە نزیکەی: ${(parseInt(donationAmountStr, 10) * 1500).toLocaleString()} دینار`}
-                        </span>
-                      </div>
-                    )}
+                    {/* Real-time Day-by-Day Bazaar Currency Conversion Display */}
+                    {donationAmountStr && parseInt(donationAmountStr, 10) > 0 && (() => {
+                      const dayRateInfo = getExchangeRateForDate(donationForm.date);
+                      const activeRate = customAddRate || dayRateInfo.rate;
+                      const num = parseInt(donationAmountStr, 10);
+                      const conv = convertByDateRate(num, donationForm.currency, activeRate);
+
+                      return (
+                        <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-50/90 via-teal-50/70 to-cyan-50/80 border border-emerald-200/80 space-y-2 text-xs shadow-xs animate-in fade-in">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-emerald-200/60 pb-2">
+                            <div className="flex items-center gap-1.5 font-bold text-slate-700">
+                              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>ڕۆژی بەخشین: <span className="font-mono text-cyan-800">{donationForm.date}</span></span>
+                            </div>
+                            <div className="flex items-center gap-1 font-bold text-emerald-800 bg-white/90 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>نرخی بۆرسەی ڕۆژ:</span>
+                              <span className="font-mono font-black text-emerald-700">1 USD = {activeRate.toLocaleString()} IQD</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                            <div className="flex items-center gap-1 text-slate-600 font-medium">
+                              <BadgeCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>هاوتای بەخشین بە نرخی ئەو ڕۆژە:</span>
+                            </div>
+                            <div className="font-mono font-black text-sm text-emerald-950 bg-white px-3 py-1 rounded-xl border border-emerald-300 shadow-xs">
+                              {conv.formattedConversion}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between pt-1 text-[11px] text-slate-500 gap-1 border-t border-emerald-100">
+                            <span className="text-slate-600">✓ پشتڕاستکراوە بەپێی بۆرسەی کیفاح و هەولێر (AlanChand)</span>
+                            <button
+                              type="button"
+                              onClick={() => setIsCustomAddRateOpen(!isCustomAddRateOpen)}
+                              className="text-cyan-700 hover:text-cyan-900 font-bold underline cursor-pointer"
+                            >
+                              {isCustomAddRateOpen ? 'داخستنی دەستکاری' : 'دەستکاریکردنی نرخی ڕۆژ (ئارەزوومەندانە)'}
+                            </button>
+                          </div>
+
+                          {isCustomAddRateOpen && (
+                            <div className="pt-2 border-t border-emerald-200/80 flex items-center gap-2">
+                              <label className="text-[11px] font-bold text-slate-700 whitespace-nowrap">نرخی دەستی (دینار بۆ هەر دۆلارێک):</label>
+                              <input
+                                type="number"
+                                value={activeRate}
+                                onChange={(e) => setCustomAddRate(Number(e.target.value) || null)}
+                                className="w-24 px-2 py-1 rounded-lg bg-white border border-emerald-300 font-mono font-bold text-xs"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => { setCustomAddRate(null); setIsCustomAddRateOpen(false); }}
+                                className="text-[10px] text-rose-600 hover:underline font-bold"
+                              >
+                                گەڕانەوە بۆ نرخی ڕاستەقینەی بۆرسە
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   /* 2. If In-Kind Category: Show common details (boxes, weight, ingredients, bags, etc.) */
@@ -1408,21 +1530,40 @@ export const DonorsView: React.FC = () => {
 
             <form onSubmit={handleSaveEditDonation} className="space-y-4 text-xs">
               
-              {/* Select Donor */}
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">بەخشەر:</label>
-                <select
-                  required
-                  value={editDonationForm.donorId}
-                  onChange={(e) => setEditDonationForm({ ...editDonationForm, donorId: e.target.value })}
-                  className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold"
-                >
-                  {donors.map(d => (
-                    <option key={d.id} value={d.id}>
-                      {d.fullName} ({d.phone})
-                    </option>
-                  ))}
-                </select>
+              {/* Select Donor & Date of Donation */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">بەخشەر:</label>
+                  <select
+                    required
+                    value={editDonationForm.donorId}
+                    onChange={(e) => setEditDonationForm({ ...editDonationForm, donorId: e.target.value })}
+                    className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold"
+                  >
+                    {donors.map(d => (
+                      <option key={d.id} value={d.id}>
+                        {d.fullName} ({d.phone})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1 flex items-center justify-between">
+                    <span>بەرواری بەخشین:</span>
+                    <span className="text-[10px] text-amber-700 font-semibold">بۆ دیاریکردنی نرخی ڕۆژ</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editDonationForm.date}
+                    onChange={(e) => {
+                      setEditDonationForm({ ...editDonationForm, date: e.target.value });
+                      setCustomEditRate(null);
+                    }}
+                    className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold font-mono"
+                  />
+                </div>
               </div>
 
               {/* Category of Fund */}
@@ -1517,17 +1658,69 @@ export const DonorsView: React.FC = () => {
                       ))}
                     </div>
 
-                    {/* Real-time Currency Conversion Display */}
-                    {editAmountStr && parseInt(editAmountStr, 10) > 0 && (
-                      <div className="text-[11px] font-medium text-emerald-900 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center justify-between border border-emerald-200/60">
-                        <span className="text-slate-600">هاوتای خەمڵێنراو (1 USD = 1,500 IQD):</span>
-                        <span className="font-mono font-bold text-emerald-700">
-                          {editDonationForm.currency === 'IQD'
-                            ? `بەرامبەر بە نزیکەی: $${Math.round(parseInt(editAmountStr, 10) / 1500).toLocaleString()}`
-                            : `بەرامبەر بە نزیکەی: ${(parseInt(editAmountStr, 10) * 1500).toLocaleString()} دینار`}
-                        </span>
-                      </div>
-                    )}
+                    {/* Real-time Day-by-Day Bazaar Currency Conversion Display */}
+                    {editAmountStr && parseInt(editAmountStr, 10) > 0 && (() => {
+                      const dayRateInfo = getExchangeRateForDate(editDonationForm.date);
+                      const activeRate = customEditRate || dayRateInfo.rate;
+                      const num = parseInt(editAmountStr, 10);
+                      const conv = convertByDateRate(num, editDonationForm.currency, activeRate);
+
+                      return (
+                        <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-50/90 via-orange-50/70 to-yellow-50/80 border border-amber-200/80 space-y-2 text-xs shadow-xs animate-in fade-in">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-amber-200/60 pb-2">
+                            <div className="flex items-center gap-1.5 font-bold text-slate-700">
+                              <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                              <span>ڕۆژی بەخشین: <span className="font-mono text-amber-800">{editDonationForm.date}</span></span>
+                            </div>
+                            <div className="flex items-center gap-1 font-bold text-amber-800 bg-white/90 px-2.5 py-0.5 rounded-full border border-amber-200">
+                              <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
+                              <span>نرخی بۆرسەی ڕۆژ:</span>
+                              <span className="font-mono font-black text-amber-700">1 USD = {activeRate.toLocaleString()} IQD</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                            <div className="flex items-center gap-1 text-slate-600 font-medium">
+                              <BadgeCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>هاوتای بەخشین بە نرخی ئەو ڕۆژە:</span>
+                            </div>
+                            <div className="font-mono font-black text-sm text-slate-900 bg-white px-3 py-1 rounded-xl border border-amber-300 shadow-xs">
+                              {conv.formattedConversion}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between pt-1 text-[11px] text-slate-500 gap-1 border-t border-amber-100">
+                            <span className="text-slate-600">✓ پشتڕاستکراوە بەپێی بۆرسەی کیفاح و هەولێر (AlanChand)</span>
+                            <button
+                              type="button"
+                              onClick={() => setIsCustomEditRateOpen(!isCustomEditRateOpen)}
+                              className="text-amber-800 hover:text-amber-950 font-bold underline cursor-pointer"
+                            >
+                              {isCustomEditRateOpen ? 'داخستنی دەستکاری' : 'دەستکاریکردنی نرخی ڕۆژ (ئارەزوومەندانە)'}
+                            </button>
+                          </div>
+
+                          {isCustomEditRateOpen && (
+                            <div className="pt-2 border-t border-amber-200/80 flex items-center gap-2">
+                              <label className="text-[11px] font-bold text-slate-700 whitespace-nowrap">نرخی دەستی (دینار بۆ هەر دۆلارێک):</label>
+                              <input
+                                type="number"
+                                value={activeRate}
+                                onChange={(e) => setCustomEditRate(Number(e.target.value) || null)}
+                                className="w-24 px-2 py-1 rounded-lg bg-white border border-amber-300 font-mono font-bold text-xs"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => { setCustomEditRate(null); setIsCustomEditRateOpen(false); }}
+                                className="text-[10px] text-rose-600 hover:underline font-bold"
+                              >
+                                گەڕانەوە بۆ نرخی ڕاستەقینەی بۆرسە
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <div className="p-3.5 bg-white rounded-xl border border-emerald-200 space-y-3 pt-3 animate-in fade-in">

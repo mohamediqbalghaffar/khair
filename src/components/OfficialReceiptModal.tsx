@@ -1,6 +1,7 @@
 import React from 'react';
 import { Donation } from '../types';
-import { Printer, X, ShieldCheck, QrCode, Package, HeartHandshake } from 'lucide-react';
+import { Printer, X, ShieldCheck, QrCode, Package, HeartHandshake, TrendingUp, BadgeCheck } from 'lucide-react';
+import { getExchangeRateForDate } from '../utils/exchangeRates';
 
 interface OfficialReceiptModalProps {
   donation: Donation | null;
@@ -15,6 +16,14 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
   };
 
   const isInKind = donation.category && donation.category !== 'cash';
+
+  const dayRate = donation.exchangeRateAtDate || getExchangeRateForDate(donation.date).rate;
+  const convertedAmount = donation.convertedAmount || (
+    donation.currency === 'IQD'
+      ? Number((donation.amount / dayRate).toFixed(2))
+      : Math.round(donation.amount * dayRate)
+  );
+  const rateSource = donation.exchangeRateSource || 'بۆرسەی کیفاح و هەولێر (AlanChand)';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
@@ -111,27 +120,60 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
                 )}
 
                 {donation.amount > 0 && (
-                  <div className="flex items-center justify-between pt-2 text-xs">
-                    <span className="text-slate-600 font-bold">بەهای خەمڵێنراوی تەواوی بەخشینەکە:</span>
-                    <span className="font-bold text-emerald-800">
-                      {donation.amount.toLocaleString()} {donation.currency === 'IQD' ? 'د.ع' : '$'}
-                    </span>
+                  <div className="pt-2 border-t border-emerald-200/80 space-y-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-600 font-bold">بەهای خەمڵێنراوی تەواوی بەخشینەکە:</span>
+                      <span className="font-bold text-emerald-800">
+                        {donation.amount.toLocaleString()} {donation.currency === 'IQD' ? 'د.ع' : '$'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                      <span>نرخی بۆرسەی ڕۆژ (1 USD = {dayRate.toLocaleString()} IQD):</span>
+                      <span className="font-mono text-cyan-800 font-bold">
+                        هاوتا: {donation.currency === 'IQD' ? `$${convertedAmount.toLocaleString()} USD` : `${convertedAmount.toLocaleString()} د.ع`}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
             ) : (
-              /* Cash Donation Card */
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-cyan-50 border border-cyan-200">
-                <div>
-                  <span className="text-xs text-slate-500 block">جۆری بەخشین:</span>
-                  <span className="text-sm text-slate-700 font-bold">کۆمەکی نەختینەیی (پارە)</span>
+              /* Cash Donation Card with Day-by-Day Bazaar Exchange Rate */
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-50/90 to-blue-50/80 border border-cyan-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-slate-500 block">جۆری بەخشین:</span>
+                    <span className="text-sm text-slate-800 font-bold">کۆمەکی نەختینەیی (پارە)</span>
+                  </div>
+                  <div className="text-left">
+                    <span className="text-xs text-slate-500 block">بڕی پارەی بەخشراو:</span>
+                    <span className="text-2xl font-black text-cyan-900 tracking-wide font-mono">
+                      {donation.amount.toLocaleString()} {donation.currency === 'IQD' ? 'دیناری عێراقی' : 'دۆلاری ئەمریکی ($)'}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <span className="text-xs text-slate-500 block">بڕی پارەی بەخشراو:</span>
-                  <span className="text-2xl font-black text-cyan-800 tracking-wide font-mono">
-                    {donation.amount.toLocaleString()} {donation.currency === 'IQD' ? 'دیناری عێراقی' : 'دۆلاری ئەمریکی ($)'}
-                  </span>
-                </div>
+
+                {/* Day Exchange Rate & Verified Equivalent Bar */}
+                {donation.amount > 0 && (
+                  <div className="pt-2.5 border-t border-cyan-200/70 space-y-1.5 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-slate-700 font-bold">
+                        <TrendingUp className="w-3.5 h-3.5 text-cyan-700" />
+                        <span>نرخی بۆرسەی ڕۆژی بەخشین ({donation.date}):</span>
+                        <span className="font-mono text-cyan-950 font-black">1 USD = {dayRate.toLocaleString()} IQD</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-xl border border-cyan-200/90 shadow-xs">
+                        <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-slate-600 font-medium">هاوتای فەرمی بەخشین:</span>
+                        <span className="font-mono font-black text-emerald-800">
+                          {donation.currency === 'IQD' ? `$${convertedAmount.toLocaleString()} USD` : `${convertedAmount.toLocaleString()} د.ع`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-slate-500 text-left pt-0.5">
+                      ✓ پشتڕاستکراوە بەپێی بۆرسەی بازاڕی عێراق ({rateSource})
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
