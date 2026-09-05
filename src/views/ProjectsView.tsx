@@ -89,7 +89,9 @@ export const ProjectsView: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const selectedProject = selectedProjectId ? projects.find(p => p.id === selectedProjectId) || null : null;
+  const setSelectedProject = (p: Project | null) => setSelectedProjectId(p ? p.id : null);
 
   // New Project Form State
   const [budgetCurrency, setBudgetCurrency] = useState<'IQD' | 'USD'>('IQD');
@@ -404,16 +406,20 @@ export const ProjectsView: React.FC = () => {
             const targetIQD = proj.targetBudgetIQD || Math.round(targetUSD * projRate);
 
             const linkedDonations = donations.filter(d => d.projectId === proj.id);
+            const directIncomeTx = transactions.filter(
+              t => t.relatedProjectId === proj.id && t.type === 'income' && (!t.receiptNumber || !linkedDonations.some(d => d.receiptNumber === t.receiptNumber))
+            );
             const linkedExpenses = transactions.filter(t => t.relatedProjectId === proj.id && t.type === 'expense');
 
             const donAgg = aggregateAmountsByDayRate(linkedDonations);
+            const txIncomeAgg = aggregateAmountsByDayRate(directIncomeTx);
             const expAgg = aggregateAmountsByDayRate(linkedExpenses);
 
-            const raisedUSD = linkedDonations.length > 0 ? donAgg.totalUSD : (proj.raisedBudgetUSD || 0);
-            const raisedIQD = linkedDonations.length > 0 ? donAgg.totalIQD : (proj.raisedBudgetIQD || Math.round(raisedUSD * projRate));
+            const raisedUSD = Number((donAgg.totalUSD + txIncomeAgg.totalUSD).toFixed(2));
+            const raisedIQD = donAgg.totalIQD + txIncomeAgg.totalIQD;
 
-            const spentUSD = linkedExpenses.length > 0 ? expAgg.totalUSD : (proj.spentBudgetUSD || 0);
-            const spentIQD = linkedExpenses.length > 0 ? expAgg.totalIQD : (proj.spentBudgetIQD || Math.round(spentUSD * projRate));
+            const spentUSD = expAgg.totalUSD;
+            const spentIQD = expAgg.totalIQD;
 
             const raisedPercent = targetUSD > 0 ? Math.min(100, Math.round((raisedUSD / targetUSD) * 100)) : 0;
             const spentPercent = targetUSD > 0 ? Math.min(100, Math.round((spentUSD / targetUSD) * 100)) : 0;
@@ -1244,16 +1250,20 @@ export const ProjectsView: React.FC = () => {
                 const tIQD = selectedProject.targetBudgetIQD || Math.round(tUSD * projRate);
 
                 const linkedDonations = donations.filter(d => d.projectId === selectedProject.id);
+                const directIncomeTx = transactions.filter(
+                  t => t.relatedProjectId === selectedProject.id && t.type === 'income' && (!t.receiptNumber || !linkedDonations.some(d => d.receiptNumber === t.receiptNumber))
+                );
                 const linkedExpenses = transactions.filter(t => t.relatedProjectId === selectedProject.id && t.type === 'expense');
 
                 const donAgg = aggregateAmountsByDayRate(linkedDonations);
+                const txIncomeAgg = aggregateAmountsByDayRate(directIncomeTx);
                 const expAgg = aggregateAmountsByDayRate(linkedExpenses);
 
-                const rUSD = linkedDonations.length > 0 ? donAgg.totalUSD : (selectedProject.raisedBudgetUSD || 0);
-                const rIQD = linkedDonations.length > 0 ? donAgg.totalIQD : (selectedProject.raisedBudgetIQD || Math.round(rUSD * projRate));
+                const rUSD = Number((donAgg.totalUSD + txIncomeAgg.totalUSD).toFixed(2));
+                const rIQD = donAgg.totalIQD + txIncomeAgg.totalIQD;
 
-                const sUSD = linkedExpenses.length > 0 ? expAgg.totalUSD : (selectedProject.spentBudgetUSD || 0);
-                const sIQD = linkedExpenses.length > 0 ? expAgg.totalIQD : (selectedProject.spentBudgetIQD || Math.round(sUSD * projRate));
+                const sUSD = expAgg.totalUSD;
+                const sIQD = expAgg.totalIQD;
 
                 const percent = tUSD > 0 ? Math.min(100, Math.round((rUSD / tUSD) * 100)) : 0;
 

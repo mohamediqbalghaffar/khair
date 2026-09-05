@@ -675,8 +675,8 @@ export const DonorsView: React.FC = () => {
               const donorDonations = donations.filter(d => d.donorId === donor.id);
               const donorAgg = aggregateAmountsByDayRate(donorDonations);
               const hasDonations = donorDonations.length > 0;
-              const dispIQD = hasDonations ? donorAgg.totalIQD : (donor.totalDonationsIQD || 0);
-              const dispUSD = hasDonations ? donorAgg.totalUSD : (donor.totalDonationsUSD || 0);
+              const dispIQD = donorAgg.totalIQD;
+              const dispUSD = donorAgg.totalUSD;
 
               return (
               <div
@@ -754,7 +754,11 @@ export const DonorsView: React.FC = () => {
 
                   <button
                     onClick={() => {
-                      if (confirm(`دڵنیایت لە سڕینەوەی بەخشەر [${donor.fullName}]؟`)) {
+                      const donCount = donations.filter(d => d.donorId === donor.id).length;
+                      const msg = donCount > 0
+                        ? `دڵنیایت لە سڕینەوەی بەخشەر [${donor.fullName}]؟\n\nئاگاداری: ئەم بەخشەرە (${donCount}) پسوولەی بەخشینی تۆمارکراوی هەیە. سڕینەوەی بەخشەرەکە دەبێتە هۆی سڕینەوەی تەواوی پسوولەکانی و نوێبوونەوەی بودجەی پڕۆژەکان بۆ ئەوەی هیچ پارەیەکی نادیار نەمێنێتەوە.`
+                        : `دڵنیایت لە سڕینەوەی بەخشەر [${donor.fullName}]؟`;
+                      if (confirm(msg)) {
                         deleteDonor(donor.id);
                       }
                     }}

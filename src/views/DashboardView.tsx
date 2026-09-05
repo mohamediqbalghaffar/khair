@@ -32,6 +32,7 @@ export const DashboardView: React.FC = () => {
   const {
     beneficiaries,
     donations,
+    transactions,
     projects,
     volunteers,
     donors,
@@ -824,8 +825,21 @@ export const DashboardView: React.FC = () => {
                 </div>
               ) : (
                 filteredProjects.map(p => {
-                  const raisedPercent = p.targetBudgetUSD > 0 ? Math.min(100, Math.round((p.raisedBudgetUSD / p.targetBudgetUSD) * 100)) : 0;
-                  const spentPercent = p.targetBudgetUSD > 0 ? Math.min(100, Math.round((p.spentBudgetUSD / p.targetBudgetUSD) * 100)) : 0;
+                  const linkedDonations = donations.filter(d => d.projectId === p.id);
+                  const directIncomeTx = transactions.filter(
+                    t => t.relatedProjectId === p.id && t.type === 'income' && (!t.receiptNumber || !linkedDonations.some(d => d.receiptNumber === t.receiptNumber))
+                  );
+                  const linkedExpenses = transactions.filter(t => t.relatedProjectId === p.id && t.type === 'expense');
+
+                  const donAgg = aggregateAmountsByDayRate(linkedDonations);
+                  const txIncomeAgg = aggregateAmountsByDayRate(directIncomeTx);
+                  const expAgg = aggregateAmountsByDayRate(linkedExpenses);
+
+                  const pRaisedUSD = Number((donAgg.totalUSD + txIncomeAgg.totalUSD).toFixed(2));
+                  const pSpentUSD = expAgg.totalUSD;
+
+                  const raisedPercent = p.targetBudgetUSD > 0 ? Math.min(100, Math.round((pRaisedUSD / p.targetBudgetUSD) * 100)) : 0;
+                  const spentPercent = p.targetBudgetUSD > 0 ? Math.min(100, Math.round((pSpentUSD / p.targetBudgetUSD) * 100)) : 0;
 
                   return (
                     <div key={p.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
@@ -844,7 +858,7 @@ export const DashboardView: React.FC = () => {
                       {/* Progress meters */}
                       <div className="space-y-1.5 text-xs sm:text-sm">
                         <div className="flex items-center justify-between text-slate-600">
-                          <span>کۆکراوە: ${p.raisedBudgetUSD.toLocaleString()} / ${p.targetBudgetUSD.toLocaleString()}</span>
+                          <span>کۆکراوە: ${pRaisedUSD.toLocaleString()} / ${p.targetBudgetUSD.toLocaleString()}</span>
                           <span className="font-bold text-emerald-700 font-mono">{raisedPercent}٪</span>
                         </div>
                         <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">

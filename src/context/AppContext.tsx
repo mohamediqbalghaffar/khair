@@ -31,7 +31,7 @@ import {
   INITIAL_ANNOUNCEMENTS,
   INITIAL_REMINDERS
 } from '../data/initialData';
-import { getExchangeRateForDate, calcItemAmountInUSD, calcItemAmountInIQD } from '../utils/exchangeRates';
+import { getExchangeRateForDate, calcItemAmountInUSD, calcItemAmountInIQD, aggregateAmountsByDayRate } from '../utils/exchangeRates';
 
 export type NavTab =
   | 'dashboard'
@@ -91,6 +91,7 @@ interface AppContextType {
   // Finance
   transactions: FinancialTransaction[];
   addTransaction: (tx: Omit<FinancialTransaction, 'id'>) => void;
+  deleteTransaction: (id: string) => void;
   currencyView: 'IQD' | 'USD';
   setCurrencyView: (c: 'IQD' | 'USD') => void;
 
@@ -318,6 +319,121 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('ngo_audit_logs', JSON.stringify(auditLogs));
   }, [auditLogs]);
 
+  /**
+   * Computes live, 100% mathematically synchronized metrics for a project
+   * using ground-truth donations, financial transactions, and beneficiaries.
+   */
+  const computeProjectLiveMetrics = (
+    projectId: string,
+    projectTitle: string,
+    allDonations: Donation[],
+    allTransactions: FinancialTransaction[],
+    allBeneficiaries: Beneficiary[]
+  ) => {
+    const linkedDonations = allDonations.filter(d => d.projectId === projectId);
+    const directIncomeTx = allTransactions.filter(
+      t => t.relatedProjectId === projectId && t.type === 'income' && (!t.receiptNumber || !linkedDonations.some(d => d.receiptNumber === t.receiptNumber))
+    );
+    const linkedExpenses = allTransactions.filter(
+      t => t.relatedProjectId === projectId && t.type === 'expense'
+    );
+
+    const donAgg = aggregateAmountsByDayRate(linkedDonations);
+    const txIncomeAgg = aggregateAmountsByDayRate(directIncomeTx);
+    const expAgg = aggregateAmountsByDayRate(linkedExpenses);
+
+    const raisedUSD = Number((donAgg.totalUSD + txIncomeAgg.totalUSD).toFixed(2));
+    const raisedIQD = donAgg.totalIQD + txIncomeAgg.totalIQD;
+    const spentUSD = expAgg.totalUSD;
+    const spentIQD = expAgg.totalIQD;
+
+    const beneficiariesCount = allBeneficiaries.filter(b =>
+      (b.aidHistory || []).some(a => a.projectTitle === projectTitle)
+    ).length;
+
+    return {
+      raisedUSD,
+      raisedIQD,
+      spentUSD,
+      spentIQD,
+      beneficiariesCount
+    };
+  };
+
+  /**
+   * Computes live synchronized donation totals for a donor
+   */
+  const computeDonorLiveMetrics = (
+    donorId: string,
+    allDonations: Donation[]
+  ) => {
+    const donorDonations = allDonations.filter(d => d.donorId === donorId);
+    const agg = aggregateAmountsByDayRate(donorDonations);
+    return {
+      totalDonationsIQD: agg.totalIQD,
+      totalDonationsUSD: agg.totalUSD
+    };
+  };
+
+  // Database Auto-Reconciliation on launch: cleans up orphaned data and heals any desynchronized figures from localStorage
+  useEffect(() => {
+    // 1. Purge orphaned transactions (income transactions tied to deleted donation receipts)
+    const validReceiptNumbers = new Set(donations.map(d => d.receiptNumber).filter(Boolean));
+    const sanitizedTransactions = transactions.filter(t => {
+      if (t.type === 'income' && t.receiptNumber && !validReceiptNumbers.has(t.receiptNumber)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (sanitizedTransactions.length !== transactions.length) {
+      setTransactions(sanitizedTransactions);
+    }
+
+    // 2. Purge orphaned inventory items (items created from donations that were deleted)
+    const validDonationIds = new Set(donations.map(d => d.id));
+    const sanitizedInventory = inventory.filter(i => {
+      if (i.sourceDonationId && !validDonationIds.has(i.sourceDonationId)) {
+        return false;
+      }
+      if (i.sourceReceiptNumber && !validReceiptNumbers.has(i.sourceReceiptNumber)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (sanitizedInventory.length !== inventory.length) {
+      setInventory(sanitizedInventory);
+    }
+
+    // 3. Reconcile all projects' raised/spent budgets and beneficiary counts
+    setProjects(prevProjects => {
+      return prevProjects.map(p => {
+        const m = computeProjectLiveMetrics(p.id, p.title, donations, sanitizedTransactions, beneficiaries);
+        return {
+          ...p,
+          raisedBudgetUSD: m.raisedUSD,
+          raisedBudgetIQD: m.raisedIQD,
+          spentBudgetUSD: m.spentUSD,
+          spentBudgetIQD: m.spentIQD,
+          beneficiariesCount: m.beneficiariesCount
+        };
+      });
+    });
+
+    // 4. Reconcile all donors' total donations
+    setDonors(prevDonors => {
+      return prevDonors.map(d => {
+        const m = computeDonorLiveMetrics(d.id, donations);
+        return {
+          ...d,
+          totalDonationsIQD: m.totalDonationsIQD,
+          totalDonationsUSD: m.totalDonationsUSD
+        };
+      });
+    });
+  }, []);
+
   // Helper to log audit actions
   const logAction = (action: string, details: string, type: AuditLog['type'] = 'create') => {
     const newLog: AuditLog = {
@@ -426,8 +542,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteBeneficiary = (id: string) => {
     const target = beneficiaries.find(b => b.id === id);
-    setBeneficiaries(prev => prev.filter(b => b.id !== id));
-    logAction('سڕینەوەی سوودمەند', `دۆسیەی [${target?.fullName || id}] سڕایەوە`, 'delete');
+    if (!target) return;
+
+    const targetName = target.fullName;
+
+    // 1. Remove beneficiary from beneficiaries list
+    const nextBeneficiaries = beneficiaries.filter(b => b.id !== id);
+
+    // 2. Remove financial transactions associated with this beneficiary's aid
+    const nextTransactions = transactions.filter(t => {
+      if (t.id.startsWith('tx-aid-') && (t.description.includes(targetName) || (target.id && t.description.includes(target.id)))) {
+        return false;
+      }
+      return true;
+    });
+
+    // 3. Recalculate affected projects' spent budgets and beneficiary counts
+    const nextProjects = projects.map(p => {
+      const m = computeProjectLiveMetrics(p.id, p.title, donations, nextTransactions, nextBeneficiaries);
+      return {
+        ...p,
+        spentBudgetUSD: m.spentUSD,
+        spentBudgetIQD: m.spentIQD,
+        beneficiariesCount: m.beneficiariesCount
+      };
+    });
+
+    setBeneficiaries(nextBeneficiaries);
+    setTransactions(nextTransactions);
+    setProjects(nextProjects);
+
+    logAction('سڕینەوەی سوودمەند', `دۆسیەی [${target.fullName}] لە سیستەم سڕایەوە و هاوسەنگیی دارایی پڕۆژەکان نوێکرانەوە`, 'delete');
   };
 
   const addBeneficiaryDocument = (beneficiaryId: string, doc: Omit<BeneficiaryDocument, 'id' | 'uploadDate'>) => {
@@ -486,43 +631,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `aid-${Date.now()}`
     };
 
-    setBeneficiaries(prev => prev.map(b => {
+    const nextBeneficiaries = beneficiaries.map(b => {
       if (b.id === beneficiaryId) {
         return {
           ...b,
-          status: 'aided',
+          status: 'aided' as const,
           aidHistory: [newRecord, ...b.aidHistory]
         };
       }
       return b;
-    }));
+    });
+    setBeneficiaries(nextBeneficiaries);
 
     const ben = beneficiaries.find(b => b.id === beneficiaryId);
 
-    // Synchronize with Project
+    // Synchronize with Project to get matchedProjectId
     let matchedProjectId: string | undefined = undefined;
     if (record.projectTitle) {
-      const aidDate = record.date || new Date().toISOString().split('T')[0];
-      const dayRate = getExchangeRateForDate(aidDate).rate;
-      const spentAddUSD = (record.type === 'monetary' && record.amountIQD)
-        ? Number((record.amountIQD / dayRate).toFixed(2))
-        : 0;
-
-      setProjects(prev => prev.map(p => {
-        if (p.title === record.projectTitle) {
-          matchedProjectId = p.id;
-          return {
-            ...p,
-            beneficiariesCount: p.beneficiariesCount + 1,
-            spentBudgetUSD: Number((p.spentBudgetUSD + spentAddUSD).toFixed(2)),
-            spentBudgetIQD: (p.spentBudgetIQD || 0) + (record.amountIQD || 0)
-          };
-        }
-        return p;
-      }));
+      const targetProj = projects.find(p => p.title === record.projectTitle);
+      if (targetProj) matchedProjectId = targetProj.id;
     }
 
     // Auto-record financial expense transaction if monetary aid
+    let nextTransactions = transactions;
     if (record.type === 'monetary' && record.amountIQD && record.amountIQD > 0) {
       const aidDate = record.date || new Date().toISOString().split('T')[0];
       const dayRate = getExchangeRateForDate(aidDate).rate;
@@ -539,8 +670,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         recordedBy: record.distributedBy || ROLE_PROFILES[currentRole].name,
         relatedProjectId: matchedProjectId
       };
-      setTransactions(prev => [aidTx, ...prev]);
+      nextTransactions = [aidTx, ...transactions];
+      setTransactions(nextTransactions);
     }
+
+    // Reconcile projects live metrics
+    setProjects(prevProjects => prevProjects.map(p => {
+      const m = computeProjectLiveMetrics(p.id, p.title, donations, nextTransactions, nextBeneficiaries);
+      return {
+        ...p,
+        beneficiariesCount: m.beneficiariesCount,
+        spentBudgetUSD: m.spentUSD,
+        spentBudgetIQD: m.spentIQD
+      };
+    }));
 
     logAction('دابەشکردنی هاوکاری', `هاوکاری لە پڕۆژەی [${record.projectTitle}] بەخشرا بە [${ben?.fullName}]`);
   };
@@ -608,10 +751,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (data.projectId) {
       setProjects(prev => prev.map(p => {
         if (p.id === data.projectId) {
+          const m = computeProjectLiveMetrics(p.id, p.title, [newDonation, ...donations], [newTx, ...transactions], beneficiaries);
           return {
             ...p,
-            raisedBudgetUSD: Number((p.raisedBudgetUSD + itemUSD).toFixed(2)),
-            raisedBudgetIQD: (p.raisedBudgetIQD || 0) + itemIQD
+            raisedBudgetUSD: m.raisedUSD,
+            raisedBudgetIQD: m.raisedIQD
           };
         }
         return p;
@@ -666,54 +810,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteDonor = (id: string) => {
-    const d = donors.find(item => item.id === id);
-    setDonors(prev => prev.filter(item => item.id !== id));
-    logAction('سڕینەوەی بەخشەر', `بەخشەر [${d?.fullName || id}] لە سیستەم سڕایەوە`, 'delete');
+    const targetDonor = donors.find(item => item.id === id);
+    if (!targetDonor) return;
+
+    // 1. Collect all donations belonging to this donor
+    const donorDonations = donations.filter(d => d.donorId === id);
+    const receiptNumbers = new Set(donorDonations.map(d => d.receiptNumber).filter(Boolean));
+    const donationIds = new Set(donorDonations.map(d => d.id));
+
+    // 2. Cascade delete donations
+    const nextDonations = donations.filter(d => d.donorId !== id);
+
+    // 3. Cascade delete financial transactions created by these donation receipts
+    const nextTransactions = transactions.filter(t => !t.receiptNumber || !receiptNumbers.has(t.receiptNumber));
+
+    // 4. Cascade delete inventory items created by these donations or tied to this donor
+    const nextInventory = inventory.filter(i =>
+      i.donorId !== id &&
+      (!i.sourceReceiptNumber || !receiptNumbers.has(i.sourceReceiptNumber)) &&
+      (!i.sourceDonationId || !donationIds.has(i.sourceDonationId))
+    );
+
+    // 5. Cascade recalculate project budgets with remaining donations & transactions
+    const nextProjects = projects.map(p => {
+      const m = computeProjectLiveMetrics(p.id, p.title, nextDonations, nextTransactions, beneficiaries);
+      return {
+        ...p,
+        raisedBudgetUSD: m.raisedUSD,
+        raisedBudgetIQD: m.raisedIQD,
+        spentBudgetUSD: m.spentUSD,
+        spentBudgetIQD: m.spentIQD,
+        beneficiariesCount: m.beneficiariesCount
+      };
+    });
+
+    // 6. Delete donor
+    const nextDonors = donors.filter(item => item.id !== id);
+
+    // Apply all atomic updates
+    setDonors(nextDonors);
+    setDonations(nextDonations);
+    setTransactions(nextTransactions);
+    setInventory(nextInventory);
+    setProjects(nextProjects);
+
+    logAction('سڕینەوەی بەخشەر', `بەخشەر [${targetDonor.fullName}] و (${donorDonations.length}) پسوولەی بەخشین لە سیستەم سڕانەوە و بودجەی پڕۆژەکان نوێکرانەوە`, 'delete');
   };
 
   const updateDonation = (updated: Donation) => {
     const oldDonation = donations.find(d => d.id === updated.id);
     if (!oldDonation) return;
 
-    setDonations(prev => prev.map(d => d.id === updated.id ? updated : d));
-
-    // Update Donor totals: deduct old amount, add new amount
-    const oldIQD = calcItemAmountInIQD(oldDonation);
-    const oldUSD = calcItemAmountInUSD(oldDonation);
-    const newIQD = calcItemAmountInIQD(updated);
-    const newUSD = calcItemAmountInUSD(updated);
-
-    setDonors(prev => prev.map(d => {
-      let dCopy = { ...d };
-      if (d.id === oldDonation.donorId) {
-        dCopy.totalDonationsIQD = Math.max(0, dCopy.totalDonationsIQD - oldIQD);
-        dCopy.totalDonationsUSD = Number(Math.max(0, dCopy.totalDonationsUSD - oldUSD).toFixed(2));
-      }
-      if (d.id === updated.donorId) {
-        dCopy.totalDonationsIQD += newIQD;
-        dCopy.totalDonationsUSD = Number((dCopy.totalDonationsUSD + newUSD).toFixed(2));
-      }
-      return dCopy;
-    }));
-
-    // Update Project raised budget if applicable
-    if (oldDonation.projectId || updated.projectId) {
-      setProjects(prev => prev.map(p => {
-        let pCopy = { ...p };
-        if (p.id === oldDonation.projectId) {
-          pCopy.raisedBudgetUSD = Number(Math.max(0, pCopy.raisedBudgetUSD - oldUSD).toFixed(2));
-          pCopy.raisedBudgetIQD = Math.max(0, (pCopy.raisedBudgetIQD || 0) - oldIQD);
-        }
-        if (p.id === updated.projectId) {
-          pCopy.raisedBudgetUSD = Number((pCopy.raisedBudgetUSD + newUSD).toFixed(2));
-          pCopy.raisedBudgetIQD = (pCopy.raisedBudgetIQD || 0) + newIQD;
-        }
-        return pCopy;
-      }));
-    }
+    const nextDonations = donations.map(d => d.id === updated.id ? updated : d);
+    setDonations(nextDonations);
 
     // Update Financial Transaction if exists
-    setTransactions(prev => prev.map(tx => {
+    const nextTransactions = transactions.map(tx => {
       if (tx.receiptNumber === updated.receiptNumber) {
         return {
           ...tx,
@@ -728,6 +880,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }
       return tx;
+    });
+    setTransactions(nextTransactions);
+
+    // Synchronize Donors
+    setDonors(prev => prev.map(d => {
+      const m = computeDonorLiveMetrics(d.id, nextDonations);
+      return {
+        ...d,
+        totalDonationsIQD: m.totalDonationsIQD,
+        totalDonationsUSD: m.totalDonationsUSD
+      };
+    }));
+
+    // Synchronize Projects
+    setProjects(prev => prev.map(p => {
+      const m = computeProjectLiveMetrics(p.id, p.title, nextDonations, nextTransactions, beneficiaries);
+      return {
+        ...p,
+        raisedBudgetUSD: m.raisedUSD,
+        raisedBudgetIQD: m.raisedIQD,
+        spentBudgetUSD: m.spentUSD,
+        spentBudgetIQD: m.spentIQD,
+        beneficiariesCount: m.beneficiariesCount
+      };
     }));
 
     // Synchronize with Inventory
@@ -798,45 +974,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = donations.find(d => d.id === id);
     if (!target) return;
 
-    const deductIQD = calcItemAmountInIQD(target);
-    const deductUSD = calcItemAmountInUSD(target);
+    // 1. Remove from donations
+    const nextDonations = donations.filter(d => d.id !== id);
 
-    // Deduct from donor
-    setDonors(prev => prev.map(d => {
-      if (d.id === target.donorId) {
-        return {
-          ...d,
-          totalDonationsIQD: Math.max(0, d.totalDonationsIQD - deductIQD),
-          totalDonationsUSD: Number(Math.max(0, d.totalDonationsUSD - deductUSD).toFixed(2))
-        };
-      }
-      return d;
-    }));
+    // 2. Remove matching financial transaction
+    const nextTransactions = transactions.filter(tx => tx.receiptNumber !== target.receiptNumber);
 
-    // Deduct from project raised budget if applicable
-    if (target.projectId) {
-      setProjects(prev => prev.map(p => {
-        if (p.id === target.projectId) {
-          return {
-            ...p,
-            raisedBudgetUSD: Number(Math.max(0, p.raisedBudgetUSD - deductUSD).toFixed(2)),
-            raisedBudgetIQD: Math.max(0, (p.raisedBudgetIQD || 0) - deductIQD)
-          };
-        }
-        return p;
-      }));
-    }
+    // 3. Remove matching inventory item if in-kind
+    const nextInventory = inventory.filter(i => i.sourceReceiptNumber !== target.receiptNumber && i.sourceDonationId !== target.id);
 
-    // Remove matching financial transaction
-    setTransactions(prev => prev.filter(tx => tx.receiptNumber !== target.receiptNumber));
+    // 4. Recalculate donors
+    const nextDonors = donors.map(d => {
+      const m = computeDonorLiveMetrics(d.id, nextDonations);
+      return {
+        ...d,
+        totalDonationsIQD: m.totalDonationsIQD,
+        totalDonationsUSD: m.totalDonationsUSD
+      };
+    });
 
-    // Remove matching inventory item if in-kind
-    setInventory(prev => prev.filter(i => i.sourceReceiptNumber !== target.receiptNumber && i.sourceDonationId !== target.id));
+    // 5. Recalculate projects
+    const nextProjects = projects.map(p => {
+      const m = computeProjectLiveMetrics(p.id, p.title, nextDonations, nextTransactions, beneficiaries);
+      return {
+        ...p,
+        raisedBudgetUSD: m.raisedUSD,
+        raisedBudgetIQD: m.raisedIQD,
+        spentBudgetUSD: m.spentUSD,
+        spentBudgetIQD: m.spentIQD,
+        beneficiariesCount: m.beneficiariesCount
+      };
+    });
 
-    // Remove from donations
-    setDonations(prev => prev.filter(d => d.id !== id));
+    // Apply updates
+    setDonations(nextDonations);
+    setTransactions(nextTransactions);
+    setInventory(nextInventory);
+    setDonors(nextDonors);
+    setProjects(nextProjects);
 
-    logAction('سڕینەوەی پسوولەی بەخشین', `پسوولەی بەخشینی [${target.receiptNumber}] لە سیستەم سڕایەوە`, 'delete');
+    logAction('سڕینەوەی پسوولەی بەخشین', `پسوولەی بەخشینی [${target.receiptNumber}] لە سیستەم سڕایەوە و بودجەی پڕۆژە نوێکرایەوە`, 'delete');
   };
 
   // Projects
@@ -877,10 +1054,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ? (updated.targetBudgetIQD || 0)
       : Math.round(updated.targetBudgetUSD * rate);
 
+    // Compute live accurate metrics from actual records so editing metadata preserves true numbers
+    const liveMetrics = computeProjectLiveMetrics(updated.id, updated.title, donations, transactions, beneficiaries);
+
     const projectToSave: Project = {
       ...updated,
       targetBudgetUSD,
-      targetBudgetIQD
+      targetBudgetIQD,
+      raisedBudgetUSD: liveMetrics.raisedUSD,
+      raisedBudgetIQD: liveMetrics.raisedIQD,
+      spentBudgetUSD: liveMetrics.spentUSD,
+      spentBudgetIQD: liveMetrics.spentIQD,
+      beneficiariesCount: liveMetrics.beneficiariesCount
     };
 
     setProjects(prev => prev.map(p => p.id === updated.id ? projectToSave : p));
@@ -888,9 +1073,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteProject = (id: string) => {
-    const p = projects.find(item => item.id === id);
+    const targetProject = projects.find(item => item.id === id);
+    if (!targetProject) return;
+
+    // 1. Detach donations linked to this project so they aren't orphaned
+    setDonations(prev => prev.map(d =>
+      d.projectId === id ? { ...d, projectId: undefined, projectName: 'سندووقی گشتی (پڕۆژەی سڕاوە)' } : d
+    ));
+
+    // 2. Detach transactions linked to this project
+    setTransactions(prev => prev.map(t =>
+      t.relatedProjectId === id ? { ...t, relatedProjectId: undefined } : t
+    ));
+
+    // 3. Remove project from projects list
     setProjects(prev => prev.filter(item => item.id !== id));
-    logAction('سڕینەوەی پڕۆژە', `پڕۆژەی [${p?.title || id}] لە سیستەم سڕایەوە`, 'delete');
+
+    logAction('سڕینەوەی پڕۆژە', `پڕۆژەی [${targetProject.title}] سڕایەوە و بەخشینە پەیوەندیدارەکان خرانە سندووقی گشتی`, 'delete');
   };
 
   // Inventory
@@ -974,33 +1173,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       convertedAmount,
       id: `tx-${Date.now()}`
     };
-    setTransactions(prev => [newTx, ...prev]);
+    const nextTransactions = [newTx, ...transactions];
+    setTransactions(nextTransactions);
 
-    // Synchronize with related project
+    // Synchronize with related project live metrics
     if (data.relatedProjectId) {
-      const amountUSD = calcItemAmountInUSD(newTx);
-      const amountIQD = calcItemAmountInIQD(newTx);
       setProjects(prev => prev.map(p => {
         if (p.id === data.relatedProjectId) {
-          if (data.type === 'expense') {
-            return {
-              ...p,
-              spentBudgetUSD: Number((p.spentBudgetUSD + amountUSD).toFixed(2)),
-              spentBudgetIQD: (p.spentBudgetIQD || 0) + amountIQD
-            };
-          } else if (data.type === 'income') {
-            return {
-              ...p,
-              raisedBudgetUSD: Number((p.raisedBudgetUSD + amountUSD).toFixed(2)),
-              raisedBudgetIQD: (p.raisedBudgetIQD || 0) + amountIQD
-            };
-          }
+          const m = computeProjectLiveMetrics(p.id, p.title, donations, nextTransactions, beneficiaries);
+          return {
+            ...p,
+            raisedBudgetUSD: m.raisedUSD,
+            raisedBudgetIQD: m.raisedIQD,
+            spentBudgetUSD: m.spentUSD,
+            spentBudgetIQD: m.spentIQD
+          };
         }
         return p;
       }));
     }
 
     logAction('تۆماری ژمێریاری', `${data.type === 'income' ? 'داهات' : 'خەرجی'}: ${data.amount.toLocaleString()} ${data.currency} - ${data.description}`);
+  };
+
+  const deleteTransaction = (id: string) => {
+    const targetTx = transactions.find(t => t.id === id);
+    if (!targetTx) return;
+
+    const nextTransactions = transactions.filter(t => t.id !== id);
+    setTransactions(nextTransactions);
+
+    if (targetTx.relatedProjectId) {
+      setProjects(prev => prev.map(p => {
+        if (p.id === targetTx.relatedProjectId) {
+          const m = computeProjectLiveMetrics(p.id, p.title, donations, nextTransactions, beneficiaries);
+          return {
+            ...p,
+            raisedBudgetUSD: m.raisedUSD,
+            raisedBudgetIQD: m.raisedIQD,
+            spentBudgetUSD: m.spentUSD,
+            spentBudgetIQD: m.spentIQD
+          };
+        }
+        return p;
+      }));
+    }
+
+    logAction('سڕینەوەی تۆماری دارایی', `تۆماری دارایی [${targetTx.description}] سڕایەوە`, 'delete');
   };
 
   // Volunteers
@@ -1216,6 +1435,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         distributeAidFromInventory,
         transactions,
         addTransaction,
+        deleteTransaction,
         currencyView,
         setCurrencyView,
         volunteers,
