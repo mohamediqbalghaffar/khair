@@ -49,7 +49,9 @@ export const GeoMapView: React.FC = () => {
     volunteers,
     setActiveTab,
     updateBeneficiary,
-    addBeneficiary
+    addBeneficiary,
+    mapFocusLocation,
+    setMapFocusLocation
   } = useApp();
 
   const [selectedGov, setSelectedGov] = useState<string>('هەولێر');
@@ -60,9 +62,11 @@ export const GeoMapView: React.FC = () => {
   const [currentZoom, setCurrentZoom] = useState<number>(8);
   const [sidebarTab, setSidebarTab] = useState<'gov' | 'houses'>('gov');
   const [houseSearchQuery, setHouseSearchQuery] = useState<string>('');
+  const [mapReady, setMapReady] = useState<boolean>(false);
 
   // Tagging State
   const [isTaggingMode, setIsTaggingMode] = useState<boolean>(false);
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number; lat: number; lng: number } | null>(null);
   const [selectedLatLng, setSelectedLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [isTagModalOpen, setIsTagModalOpen] = useState<boolean>(false);
   const [tagModalMode, setTagModalMode] = useState<'existing' | 'new'>('existing');
@@ -86,12 +90,23 @@ export const GeoMapView: React.FC = () => {
   const geoJsonLayerRef = useRef<L.GeoJSON | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const houseMarkersLayerRef = useRef<L.LayerGroup | null>(null);
+  const houseMarkersMapRef = useRef<Map<string, L.Marker>>(new Map());
   const baseTileLayerRef = useRef<L.TileLayer | null>(null);
   const overlayTileLayerRef = useRef<L.TileLayer | null>(null);
   const isTaggingModeRef = useRef<boolean>(isTaggingMode);
 
   useEffect(() => {
     isTaggingModeRef.current = isTaggingMode;
+    const container = mapContainerRef.current;
+    if (container) {
+      if (isTaggingMode) {
+        container.classList.add('tagging-mode-active');
+      } else {
+        container.classList.remove('tagging-mode-active');
+        setCursorPos(null);
+      }
+    }
+    mapInstanceRef.current?.invalidateSize();
   }, [isTaggingMode]);
 
   // Beneficiaries with tagged locations
@@ -199,7 +214,26 @@ export const GeoMapView: React.FC = () => {
         });
         setIsTagModalOpen(true);
         setIsTaggingMode(false);
+        setCursorPos(null);
       });
+
+      // Mouse Move Tracking for Precision Reticle HUD
+      map.on('mousemove', (e: L.LeafletMouseEvent) => {
+        if (!isTaggingModeRef.current) return;
+        const containerPoint = map.latLngToContainerPoint(e.latlng);
+        setCursorPos({
+          x: containerPoint.x,
+          y: containerPoint.y,
+          lat: Number(e.latlng.lat.toFixed(6)),
+          lng: Number(e.latlng.lng.toFixed(6))
+        });
+      });
+
+      map.on('mouseout', () => {
+        setCursorPos(null);
+      });
+
+      setMapReady(true);
 
       setTimeout(() => {
         map.invalidateSize();
@@ -210,6 +244,7 @@ export const GeoMapView: React.FC = () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        setMapReady(false);
       }
     };
   }, []);
@@ -286,6 +321,7 @@ export const GeoMapView: React.FC = () => {
       const isZoomedIn = currentZoom >= 13;
 
       const geoJsonLayer = L.geoJSON(KURDISTAN_REGION_GEOJSON as any, {
+        interactive: !isTaggingMode,
         style: (feature) => {
           const name = feature?.properties?.name;
           const isSelected = name === selectedGov;
@@ -304,11 +340,13 @@ export const GeoMapView: React.FC = () => {
           const name = feature?.properties?.name;
           layer.on({
             mouseover: (e) => {
+              if (isTaggingMode) return;
               if (currentZoom < 13 && name !== selectedGov) {
                 e.target.setStyle({ fillOpacity: 0.2, weight: 2 });
               }
             },
             mouseout: (e) => {
+              if (isTaggingMode) return;
               if (currentZoom < 13 && name !== selectedGov) {
                 geoJsonLayer.resetStyle(e.target);
               }
@@ -377,6 +415,7 @@ export const GeoMapView: React.FC = () => {
     if (!map || !houseMarkersLayerRef.current) return;
 
     houseMarkersLayerRef.current.clearLayers();
+    houseMarkersMapRef.current.clear();
 
     taggedBeneficiaries.forEach(ben => {
       if (!ben.location) return;
@@ -440,8 +479,53 @@ export const GeoMapView: React.FC = () => {
 
       marker.bindPopup(popupContent, { maxWidth: 300 });
       houseMarkersLayerRef.current?.addLayer(marker);
+      houseMarkersMapRef.current.set(ben.id, marker);
     });
   }, [taggedBeneficiaries]);
+
+  // 7. Direct Location Referral Effect (handles navigating directly to specific beneficiary's house)
+  useEffect(() => {
+    if (!mapFocusLocation || !mapReady || !mapInstanceRef.current) return;
+
+    const { lat, lng, beneficiaryId } = mapFocusLocation;
+    const map = mapInstanceRef.current;
+
+    // 1. Switch to satellite mode so the user sees the real satellite imagery of the house rooftop!
+    setTileStyle('satellite');
+    // 2. Switch sidebar to 'houses' tab
+    setSidebarTab('houses');
+
+    // 3. Smooth fly to the exact coordinates at maximum rooftop zoom level 19!
+    map.flyTo([lat, lng], 19, {
+      animate: true,
+      duration: 1.2
+    });
+
+    // 4. Open popup after flying finishes
+    const openPopupTimer = setTimeout(() => {
+      if (beneficiaryId && houseMarkersMapRef.current.has(beneficiaryId)) {
+        houseMarkersMapRef.current.get(beneficiaryId)?.openPopup();
+      } else {
+        let closestMarker: L.Marker | null = null;
+        let minDist = Infinity;
+        for (const marker of houseMarkersMapRef.current.values()) {
+          const mLatLng = marker.getLatLng();
+          const dist = Math.hypot(mLatLng.lat - lat, mLatLng.lng - lng);
+          if (dist < minDist) {
+            minDist = dist;
+            closestMarker = marker;
+          }
+        }
+        if (closestMarker && minDist < 0.001) {
+          (closestMarker as L.Marker).openPopup();
+        }
+      }
+    }, 1300);
+
+    setMapFocusLocation(null);
+
+    return () => clearTimeout(openPopupTimer);
+  }, [mapFocusLocation, mapReady]);
 
   // Handle zooming when user selects governorate
   const handleSelectGov = (govName: string) => {
@@ -456,7 +540,11 @@ export const GeoMapView: React.FC = () => {
   const handleFlyToHouse = (ben: Beneficiary) => {
     if (!ben.location) return;
     if (mapInstanceRef.current) {
+      setTileStyle('satellite');
       mapInstanceRef.current.flyTo([ben.location.lat, ben.location.lng], 19, { duration: 1.0 });
+      setTimeout(() => {
+        houseMarkersMapRef.current.get(ben.id)?.openPopup();
+      }, 1100);
     }
   };
 
@@ -481,11 +569,15 @@ export const GeoMapView: React.FC = () => {
   // Start Tagging Mode
   const handleStartTagging = () => {
     setIsTaggingMode(true);
+    if (tileStyle !== 'satellite') {
+      setTileStyle('satellite');
+    }
   };
 
   // Cancel Tagging Mode
   const handleCancelTagging = () => {
     setIsTaggingMode(false);
+    setCursorPos(null);
   };
 
   // Save Tagged House
@@ -987,90 +1079,96 @@ export const GeoMapView: React.FC = () => {
         </div>
       )}
 
-      {/* Main Container */}
-      {isFullScreen ? (
-        /* Fullscreen Layout: Header Toolbar + Full Viewport Flex Body */
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          <MapToolbar inFullScreen={true} />
+      {/* Unified Main Container (Seamless for Normal & Fullscreen views without unmounting Leaflet DOM) */}
+      <div className={isFullScreen ? "flex-1 flex flex-col h-full overflow-hidden" : "grid grid-cols-1 lg:grid-cols-12 gap-6"}>
+        {/* Fullscreen Map Controls Header */}
+        {isFullScreen && <MapToolbar inFullScreen={true} />}
 
-          <div className="flex-1 relative flex overflow-hidden">
-            {/* Slideable Dark Sidebar Drawer */}
-            <div className="w-80 sm:w-96 bg-slate-900/95 border-r border-slate-800 p-4 flex flex-col z-10 text-white backdrop-blur-2xl">
-              <SidebarContent isDark={true} />
-            </div>
+        <div className={isFullScreen ? "flex-1 relative flex overflow-hidden" : "contents"}>
+          {/* Sidebar */}
+          <div className={isFullScreen 
+            ? "w-80 sm:w-96 bg-slate-900/95 border-r border-slate-800 p-4 flex flex-col z-10 text-white backdrop-blur-2xl shrink-0" 
+            : "lg:col-span-4 rounded-3xl bg-white/90 backdrop-blur-2xl p-6 border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[580px]"
+          }>
+            <SidebarContent isDark={isFullScreen} />
+          </div>
 
-            {/* Map Canvas */}
-            <div className="flex-1 h-full relative">
+          {/* Map Area Card */}
+          <div className={isFullScreen 
+            ? "flex-1 h-full relative flex flex-col" 
+            : "lg:col-span-8 rounded-3xl bg-white/90 backdrop-blur-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[580px]"
+          }>
+            {!isFullScreen && <MapToolbar inFullScreen={false} />}
+
+            {/* Leaflet Map Frame */}
+            <div className={isFullScreen ? "flex-1 w-full h-full relative overflow-hidden" : "relative w-full h-[470px] rounded-2xl border border-slate-200 overflow-hidden shadow-inner"}>
               <div
                 ref={mapContainerRef}
-                className={`w-full h-full ${isTaggingMode ? 'cursor-crosshair' : ''}`}
-                style={{ height: '100%', width: '100%' }}
+                className="w-full h-full"
+                style={{ width: '100%', height: '100%', minHeight: isFullScreen ? '100%' : '470px' }}
               />
+
+              {/* High-Precision Aiming Reticle HUD for Rooftop Tagging */}
+              {isTaggingMode && cursorPos && (
+                <div
+                  className="absolute pointer-events-none z-[2000] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none"
+                  style={{ left: cursorPos.x, top: cursorPos.y }}
+                >
+                  {/* Concentric rings and crosshairs */}
+                  <div className="relative flex items-center justify-center w-16 h-16">
+                    {/* Outer rotating dashed ring */}
+                    <div className="absolute inset-0 rounded-full border-2 border-dashed border-cyan-400/80 animate-spin" style={{ animationDuration: '6s' }} />
+                    {/* Inner pulsing red ring */}
+                    <div className="absolute inset-2.5 rounded-full border-2 border-rose-500/90 shadow-sm animate-pulse" />
+                    {/* Precision Crosshair Lines */}
+                    <div className="absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 bg-gradient-to-b from-rose-500 via-transparent to-rose-500" />
+                    <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 bg-gradient-to-r from-rose-500 via-transparent to-rose-500" />
+                    {/* Center pinpoint red dot */}
+                    <div className="w-2.5 h-2.5 rounded-full bg-rose-600 ring-2 ring-white shadow-lg z-10" />
+                  </div>
+
+                  {/* Floating HUD Tag with Live GPS */}
+                  <div className="mt-2 px-3 py-1.5 rounded-xl bg-slate-950/90 text-white backdrop-blur-md border border-cyan-400/40 shadow-2xl text-center space-y-0.5">
+                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-black text-amber-300">
+                      <Crosshair className="w-3 h-3 text-rose-400 animate-spin" />
+                      <span>دیاریکردنی سەربانی ماڵ</span>
+                    </div>
+                    <div className="text-[10px] font-mono text-cyan-300">
+                      GPS: {cursorPos.lat}, {cursorPos.lng}
+                    </div>
+                    <div className="text-[9px] text-slate-300 font-bold">
+                      کلیک بکە بۆ دیاریکردن
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Map Legend Overlay */}
-              <div className="absolute bottom-4 left-4 z-[1000] p-3 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-800 text-white text-[10px] space-y-1.5 shadow-xl pointer-events-none">
+              <div className={`absolute ${isFullScreen ? 'bottom-4 left-4 z-[1000] p-3 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-800 text-white text-[10px] space-y-1.5 shadow-xl' : 'bottom-3 left-3 z-[1000] p-2.5 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-md text-[10px] space-y-1'} pointer-events-none`}>
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-cyan-500 border border-white shadow-sm inline-block" />
-                  <span className="font-bold">ناوچەی هەڵبژێردراو</span>
+                  <span className={isFullScreen ? "font-bold" : "font-bold text-slate-800"}>ناوچەی هەڵبژێردراو</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-emerald-500 border border-white shadow-sm inline-block" />
-                  <span>ماڵی نیشانەکراو</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Normal Layout: 2 Columns Grid */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* Left Details / Tagged Houses Card */}
-          <div className="lg:col-span-4 rounded-3xl bg-white/90 backdrop-blur-2xl p-6 border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[580px]">
-            <SidebarContent isDark={false} />
-          </div>
-
-          {/* Right Leaflet Map Card */}
-          <div className="lg:col-span-8 rounded-3xl bg-white/90 backdrop-blur-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[580px]">
-            
-            {/* Map Controls Header */}
-            <MapToolbar inFullScreen={false} />
-
-            {/* Leaflet Map Canvas */}
-            <div className="relative w-full h-[470px] rounded-2xl border border-slate-200 overflow-hidden shadow-inner">
-              <div
-                ref={mapContainerRef}
-                className={`w-full h-full ${isTaggingMode ? 'cursor-crosshair' : ''}`}
-                style={{ minHeight: '470px' }}
-              />
-
-              {/* Map Legend Overlay in bottom-left */}
-              <div className="absolute bottom-3 left-3 z-[1000] p-2.5 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-md text-[10px] space-y-1 pointer-events-none">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-cyan-500 border border-white shadow-sm inline-block" />
-                  <span className="font-bold text-slate-800">ناوچەی هەڵبژێردراو</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-emerald-500 border border-white shadow-sm inline-block" />
-                  <span className="text-slate-700">ماڵی سوودمەند</span>
+                  <span className={isFullScreen ? "" : "text-slate-700"}>ماڵی سوودمەند</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-slate-300 border border-slate-400 inline-block" />
-                  <span className="text-slate-600">سنووری فەرمی</span>
+                  <span className={isFullScreen ? "text-slate-300" : "text-slate-600"}>سنووری فەرمی</span>
                 </div>
               </div>
             </div>
 
-            {/* Footer note */}
-            <div className="flex items-center justify-between text-[11px] text-slate-500 pt-3 border-t border-slate-100 mt-2">
-              <span>کۆی هاوکاری دابەشکراو لە ناوچەکان: <strong className="text-emerald-700 font-mono">{totalDistributedIQD.toLocaleString()} د.ع</strong></span>
-              <span className="font-bold text-cyan-800">{taggedBeneficiaries.length} ماڵی بەستراو بە پێگەی GPS</span>
-            </div>
-
+            {!isFullScreen && (
+              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-3 border-t border-slate-100 mt-2">
+                <span>کۆی هاوکاری دابەشکراو لە ناوچەکان: <strong className="text-emerald-700 font-mono">{totalDistributedIQD.toLocaleString()} د.ع</strong></span>
+                <span className="font-bold text-cyan-800">{taggedBeneficiaries.length} ماڵی بەستراو بە پێگەی GPS</span>
+              </div>
+            )}
           </div>
-
         </div>
-      )}
+      </div>
 
       {/* Regional Aid Equity Table (Shown in Normal View) */}
       {!isFullScreen && (

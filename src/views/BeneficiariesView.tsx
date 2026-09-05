@@ -53,7 +53,8 @@ export const BeneficiariesView: React.FC = () => {
     addBeneficiaryDocument,
     updateBeneficiaryDocument,
     deleteBeneficiaryDocument,
-    setActiveTab
+    setActiveTab,
+    navigateToLocationOnMap
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -768,7 +769,7 @@ export const BeneficiariesView: React.FC = () => {
                         <div className="flex items-center gap-1.5 mt-1">
                           <button
                             type="button"
-                            onClick={() => setActiveTab('geo')}
+                            onClick={() => navigateToLocationOnMap(ben.location!.lat, ben.location!.lng, ben.location!.label || ben.fullName, ben.id)}
                             className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 transition-colors shadow-xs"
                             title={`GPS: ${ben.location.lat}, ${ben.location.lng}${ben.location.label ? ` (${ben.location.label})` : ''}`}
                           >
@@ -1315,7 +1316,11 @@ export const BeneficiariesView: React.FC = () => {
                         type="button"
                         onClick={() => {
                           setIsAddModalOpen(false);
-                          setActiveTab('geo');
+                          if (formData.location) {
+                            navigateToLocationOnMap(formData.location.lat, formData.location.lng, formData.location.label || formData.fullName || 'ماڵی سوودمەند');
+                          } else {
+                            setActiveTab('geo');
+                          }
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-sm"
                       >
@@ -1744,8 +1749,9 @@ export const BeneficiariesView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
+                      const loc = selectedBeneficiary.location!;
                       setSelectedBeneficiary(null);
-                      setActiveTab('geo');
+                      navigateToLocationOnMap(loc.lat, loc.lng, loc.label || selectedBeneficiary.fullName, selectedBeneficiary.id);
                     }}
                     className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm"
                   >
@@ -2548,7 +2554,16 @@ export const BeneficiariesView: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setIsEditModalOpen(false);
-                      setActiveTab('geo');
+                      if (editingBeneficiary?.location) {
+                        navigateToLocationOnMap(
+                          editingBeneficiary.location.lat,
+                          editingBeneficiary.location.lng,
+                          editingBeneficiary.location.label || editingBeneficiary.fullName,
+                          editingBeneficiary.id
+                        );
+                      } else {
+                        setActiveTab('geo');
+                      }
                     }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-sm"
                   >

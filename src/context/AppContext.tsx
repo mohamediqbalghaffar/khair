@@ -46,9 +46,19 @@ export type NavTab =
   | 'audit'
   | 'settings';
 
+export interface MapFocusLocation {
+  lat: number;
+  lng: number;
+  label?: string;
+  beneficiaryId?: string;
+}
+
 interface AppContextType {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
+  mapFocusLocation: MapFocusLocation | null;
+  setMapFocusLocation: (loc: MapFocusLocation | null) => void;
+  navigateToLocationOnMap: (lat: number, lng: number, label?: string, beneficiaryId?: string) => void;
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
   currentUser: UserProfile;
@@ -162,6 +172,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [mapFocusLocation, setMapFocusLocation] = useState<MapFocusLocation | null>(null);
+
+  const navigateToLocationOnMap = (lat: number, lng: number, label?: string, beneficiaryId?: string) => {
+    setMapFocusLocation({ lat, lng, label, beneficiaryId });
+    setActiveTab('geo');
+  };
+
   const [currentRole, setCurrentRole] = useState<UserRole>('admin');
   const [currencyView, setCurrencyView] = useState<'IQD' | 'USD'>('IQD');
   const [isSpotlightOpen, setIsSpotlightOpen] = useState<boolean>(false);
@@ -1403,6 +1420,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         activeTab,
         setActiveTab,
+        mapFocusLocation,
+        setMapFocusLocation,
+        navigateToLocationOnMap,
         currentRole,
         setCurrentRole,
         currentUser: ROLE_PROFILES[currentRole],

@@ -177,4 +177,15 @@
   .leaflet-popup-tip {
     background: #ffffff !important;
   }
+
+  /* Tagging mode crosshair pointer over map container and tiles */
+  .tagging-mode-active,
+  .tagging-mode-active *,
+  .tagging-mode-active .leaflet-container,
+  .tagging-mode-active .leaflet-pane,
+  .tagging-mode-active .leaflet-tile-pane,
+  .tagging-mode-active .leaflet-grab,
+  .tagging-mode-active .leaflet-interactive {
+    cursor: crosshair !important;
+  }
 }
