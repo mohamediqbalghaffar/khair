@@ -20,7 +20,8 @@ import {
   Check,
   Sparkles,
   Megaphone,
-  User
+  User,
+  Database
 } from 'lucide-react';
 import { DeveloperApiModal } from './DeveloperApiModal';
 import { SecurityModal } from './SecurityModal';
@@ -42,7 +43,9 @@ export const Topbar: React.FC = () => {
     setIsLocked,
     setIsSpotlightOpen,
     exportDataJSON,
-    resetAllData
+    resetAllData,
+    isCloudConnected,
+    isCloudSyncing
   } = useApp();
 
   const [showNotifMenu, setShowNotifMenu] = useState(false);
@@ -117,6 +120,27 @@ export const Topbar: React.FC = () => {
                     خێرخوازی
                   </span>
                 </h1>
+                {isCloudConnected ? (
+                  <span
+                    className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-medium"
+                    title="داتابەیسی هەوری خێرا و پارێزراو (Supabase PostgreSQL) پەیوەستە"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isCloudSyncing ? 'bg-cyan-400' : 'bg-emerald-400'} opacity-75`}></span>
+                      <span className={`relative inline-flex rounded-full h-2 w-2 ${isCloudSyncing ? 'bg-cyan-500' : 'bg-emerald-500'}`}></span>
+                    </span>
+                    <Database className="w-3 h-3 text-emerald-600" />
+                    <span>{isCloudSyncing ? 'هاوکاتکردن...' : 'داتابەیس پەیوەستە'}</span>
+                  </span>
+                ) : (
+                  <span
+                    className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80 text-[11px] font-medium"
+                    title="دۆخی ئۆفلاین (Local Cache)"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+                    <span>ئۆفلاین</span>
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500 hidden sm:block">سیستەمی بەڕێوەبردنی داتابەیس و دابەشکردنی کۆمەک</p>
             </div>

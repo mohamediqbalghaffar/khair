@@ -32,6 +32,28 @@ import {
   INITIAL_REMINDERS
 } from '../data/initialData';
 import { getExchangeRateForDate, calcItemAmountInUSD, calcItemAmountInIQD, aggregateAmountsByDayRate } from '../utils/exchangeRates';
+import {
+  supabase,
+  mapBeneficiaryToDb,
+  mapBeneficiaryFromDb,
+  mapDonorToDb,
+  mapDonorFromDb,
+  mapDonationToDb,
+  mapDonationFromDb,
+  mapProjectToDb,
+  mapProjectFromDb,
+  mapInventoryToDb,
+  mapInventoryFromDb,
+  mapTransactionToDb,
+  mapTransactionFromDb,
+  mapVolunteerToDb,
+  mapVolunteerFromDb,
+  mapDocumentToDb,
+  mapDocumentFromDb,
+  mapAuditLogToDb,
+  mapAuditLogFromDb,
+  safeSupabaseSync
+} from '../services/supabase';
 
 export type NavTab =
   | 'dashboard'
@@ -145,6 +167,8 @@ interface AppContextType {
   importDataJSON: (jsonData: string) => { success: boolean; message: string };
   resetAllData: () => void;
   clearToEmptyDatabase: () => void;
+  isCloudConnected: boolean;
+  isCloudSyncing: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -246,6 +270,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState<boolean>(true);
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
+  const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
+
+  // Initial cloud fetch from Supabase on startup
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCloudData() {
+      try {
+        setIsCloudSyncing(true);
+        const [
+          bensRes,
+          donorsRes,
+          donationsRes,
+          projectsRes,
+          inventoryRes,
+          txRes,
+          volunteersRes,
+          docsRes,
+          logsRes
+        ] = await Promise.all([
+          supabase.from('beneficiaries').select('*'),
+          supabase.from('donors').select('*'),
+          supabase.from('donations').select('*'),
+          supabase.from('projects').select('*'),
+          supabase.from('inventory').select('*'),
+          supabase.from('transactions').select('*'),
+          supabase.from('volunteers').select('*'),
+          supabase.from('documents').select('*'),
+          supabase.from('audit_logs').select('*')
+        ]);
+
+        if (!isMounted) return;
+
+        if (!bensRes.error && !donorsRes.error) {
+          setIsCloudConnected(true);
+        }
+
+        if (bensRes.data && bensRes.data.length > 0) {
+          setBeneficiaries(bensRes.data.map(mapBeneficiaryFromDb));
+        }
+        if (donorsRes.data && donorsRes.data.length > 0) {
+          setDonors(donorsRes.data.map(mapDonorFromDb));
+        }
+        if (donationsRes.data && donationsRes.data.length > 0) {
+          setDonations(donationsRes.data.map(mapDonationFromDb));
+        }
+        if (projectsRes.data && projectsRes.data.length > 0) {
+          setProjects(projectsRes.data.map(mapProjectFromDb));
+        }
+        if (inventoryRes.data && inventoryRes.data.length > 0) {
+          setInventory(inventoryRes.data.map(mapInventoryFromDb));
+        }
+        if (txRes.data && txRes.data.length > 0) {
+          setTransactions(txRes.data.map(mapTransactionFromDb));
+        }
+        if (volunteersRes.data && volunteersRes.data.length > 0) {
+          setVolunteers(volunteersRes.data.map(mapVolunteerFromDb));
+        }
+        if (docsRes.data && docsRes.data.length > 0) {
+          setDocuments(docsRes.data.map(mapDocumentFromDb));
+        }
+        if (logsRes.data && logsRes.data.length > 0) {
+          setAuditLogs(logsRes.data.map(mapAuditLogFromDb));
+        }
+      } catch (err) {
+        console.warn('Supabase fetch error, running on local cache:', err);
+      } finally {
+        if (isMounted) setIsCloudSyncing(false);
+      }
+    }
+
+    loadCloudData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Save changes to LocalStorage
   useEffect(() => {
@@ -463,6 +563,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       type
     };
     setAuditLogs(prev => [newLog, ...prev]);
+    safeSupabaseSync(supabase.from('audit_logs').insert(mapAuditLogToDb(newLog)));
   };
 
   // Check for duplicate beneficiary by nationalId or phone
@@ -508,6 +609,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setBeneficiaries(prev => [newBen, ...prev]);
+    safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(newBen)));
     logAction('تۆمارکردنی سوودمەند', `سوودمەند [${newBen.fullName}] بە دۆخی [${newBen.status === 'pending' ? 'لەژێر لێکۆڵینەوە' : 'پەسەندکراوە'}] تۆمارکرا`);
     return { success: true };
   };
@@ -546,6 +648,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (newItems.length > 0) {
       setBeneficiaries(prev => [...newItems, ...prev]);
+      safeSupabaseSync(supabase.from('beneficiaries').upsert(newItems.map(mapBeneficiaryToDb)));
       logAction('هاوردەکردنی بەکۆمەڵ', `ژمارەی (${addedCount}) سوودمەند بە فایلی ئێکسڵ هاوردەکران بۆ سیستەم`, 'create');
     }
 
@@ -554,6 +657,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateBeneficiary = (updated: Beneficiary) => {
     setBeneficiaries(prev => prev.map(b => b.id === updated.id ? { ...updated, documents: updated.documents || [] } : b));
+    safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updated)));
     logAction('نوێکردنەوەی سوودمەند', `زانیارییەکانی [${updated.fullName}] و دۆسیەکەی دەستکاری کرا`, 'update');
   };
 
@@ -589,6 +693,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTransactions(nextTransactions);
     setProjects(nextProjects);
 
+    safeSupabaseSync(supabase.from('beneficiaries').delete().eq('id', id));
     logAction('سڕینەوەی سوودمەند', `دۆسیەی [${target.fullName}] لە سیستەم سڕایەوە و هاوسەنگیی دارایی پڕۆژەکان نوێکرانەوە`, 'delete');
   };
 
@@ -599,13 +704,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       uploadDate: new Date().toISOString().split('T')[0]
     };
 
+    let updatedBeneficiary: Beneficiary | undefined;
     setBeneficiaries(prev => prev.map(b => {
       if (b.id === beneficiaryId) {
         const currentDocs = b.documents || [];
-        return { ...b, documents: [newDoc, ...currentDocs] };
+        updatedBeneficiary = { ...b, documents: [newDoc, ...currentDocs] };
+        return updatedBeneficiary;
       }
       return b;
     }));
+
+    if (updatedBeneficiary) {
+      safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedBeneficiary)));
+    }
 
     const targetBen = beneficiaries.find(b => b.id === beneficiaryId);
     // Mirror in global documents list
@@ -621,24 +732,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateBeneficiaryDocument = (beneficiaryId: string, doc: BeneficiaryDocument) => {
+    let updatedBeneficiary: Beneficiary | undefined;
     setBeneficiaries(prev => prev.map(b => {
       if (b.id === beneficiaryId) {
         const updatedDocs = (b.documents || []).map(d => d.id === doc.id ? doc : d);
-        return { ...b, documents: updatedDocs };
+        updatedBeneficiary = { ...b, documents: updatedDocs };
+        return updatedBeneficiary;
       }
       return b;
     }));
+    if (updatedBeneficiary) {
+      safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedBeneficiary)));
+    }
     logAction('دەستکاریکردنی بەڵگەنامە', `زانیاری بەڵگەنامەی [${doc.title}] دەستکاری کرا`, 'update');
   };
 
   const deleteBeneficiaryDocument = (beneficiaryId: string, docId: string) => {
+    let updatedBeneficiary: Beneficiary | undefined;
     setBeneficiaries(prev => prev.map(b => {
       if (b.id === beneficiaryId) {
         const filteredDocs = (b.documents || []).filter(d => d.id !== docId);
-        return { ...b, documents: filteredDocs };
+        updatedBeneficiary = { ...b, documents: filteredDocs };
+        return updatedBeneficiary;
       }
       return b;
     }));
+    if (updatedBeneficiary) {
+      safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedBeneficiary)));
+    }
     logAction('سڕینەوەی بەڵگەنامە', `بەڵگەنامە لە دۆسیەی سوودمەند سڕایەوە`, 'delete');
   };
 
@@ -648,17 +769,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `aid-${Date.now()}`
     };
 
+    let updatedTargetBen: Beneficiary | undefined;
     const nextBeneficiaries = beneficiaries.map(b => {
       if (b.id === beneficiaryId) {
-        return {
+        updatedTargetBen = {
           ...b,
           status: 'aided' as const,
           aidHistory: [newRecord, ...b.aidHistory]
         };
+        return updatedTargetBen;
       }
       return b;
     });
     setBeneficiaries(nextBeneficiaries);
+    if (updatedTargetBen) {
+      safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedTargetBen)));
+    }
 
     const ben = beneficiaries.find(b => b.id === beneficiaryId);
 
@@ -689,17 +815,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       nextTransactions = [aidTx, ...transactions];
       setTransactions(nextTransactions);
+      safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(aidTx)));
     }
 
     // Reconcile projects live metrics
     setProjects(prevProjects => prevProjects.map(p => {
       const m = computeProjectLiveMetrics(p.id, p.title, donations, nextTransactions, nextBeneficiaries);
-      return {
+      const updatedP = {
         ...p,
         beneficiariesCount: m.beneficiariesCount,
         spentBudgetUSD: m.spentUSD,
         spentBudgetIQD: m.spentIQD
       };
+      safeSupabaseSync(supabase.from('projects').upsert(mapProjectToDb(updatedP)));
+      return updatedP;
     }));
 
     logAction('دابەشکردنی هاوکاری', `هاوکاری لە پڕۆژەی [${record.projectTitle}] بەخشرا بە [${ben?.fullName}]`);
@@ -716,6 +845,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       joinedDate: new Date().toISOString().split('T')[0]
     };
     setDonors(prev => [newDonor, ...prev]);
+    safeSupabaseSync(supabase.from('donors').upsert(mapDonorToDb(newDonor)));
     logAction('تۆمارکردنی بەخشەر', `بەخشەری نوێ [${newDonor.fullName}] زیادکرا`);
   };
 
@@ -731,6 +861,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setDonations(prev => [newDonation, ...prev]);
+    safeSupabaseSync(supabase.from('donations').upsert(mapDonationToDb(newDonation)));
 
     // Update Donor total
     const itemIQD = calcItemAmountInIQD(newDonation);
@@ -738,11 +869,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setDonors(prev => prev.map(d => {
       if (d.id === data.donorId) {
-        return {
+        const updatedDonor = {
           ...d,
           totalDonationsIQD: d.totalDonationsIQD + itemIQD,
           totalDonationsUSD: Number((d.totalDonationsUSD + itemUSD).toFixed(2))
         };
+        safeSupabaseSync(supabase.from('donors').upsert(mapDonorToDb(updatedDonor)));
+        return updatedDonor;
       }
       return d;
     }));
@@ -763,6 +896,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       receiptNumber
     };
     setTransactions(prev => [newTx, ...prev]);
+    safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(newTx)));
 
     // Synchronize with Project raised budget
     if (data.projectId) {
@@ -812,6 +946,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       setInventory(prev => [newInvItem, ...prev]);
+      safeSupabaseSync(supabase.from('inventory').upsert(mapInventoryToDb(newInvItem)));
       logAction('تۆمار لە کۆگا', `کەرەستەی بەخشراو [${newInvItem.name}] بە بڕی (${newInvItem.quantity} ${newInvItem.unit}) لە پسوولەی ${receiptNumber} خرایە کۆگاوە`, 'create');
     }
 
@@ -823,6 +958,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDonors(prev => prev.map(d => d.id === updated.id ? updated : d));
     setDonations(prev => prev.map(don => don.donorId === updated.id ? { ...don, donorName: updated.fullName } : don));
     setInventory(prev => prev.map(inv => inv.donorId === updated.id ? { ...inv, sourceDonorName: updated.fullName } : inv));
+    safeSupabaseSync(supabase.from('donors').upsert(mapDonorToDb(updated)));
     logAction('نوێکردنەوەی بەخشەر', `زانیارییەکانی بەخشەر [${updated.fullName}] نوێکرایەوە`, 'update');
   };
 
@@ -871,6 +1007,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInventory(nextInventory);
     setProjects(nextProjects);
 
+    safeSupabaseSync(supabase.from('donors').delete().eq('id', id));
+    safeSupabaseSync(supabase.from('donations').delete().eq('donor_id', id));
+
     logAction('سڕینەوەی بەخشەر', `بەخشەر [${targetDonor.fullName}] و (${donorDonations.length}) پسوولەی بەخشین لە سیستەم سڕانەوە و بودجەی پڕۆژەکان نوێکرانەوە`, 'delete');
   };
 
@@ -880,11 +1019,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const nextDonations = donations.map(d => d.id === updated.id ? updated : d);
     setDonations(nextDonations);
+    safeSupabaseSync(supabase.from('donations').upsert(mapDonationToDb(updated)));
 
     // Update Financial Transaction if exists
+    let updatedTx: FinancialTransaction | undefined;
     const nextTransactions = transactions.map(tx => {
       if (tx.receiptNumber === updated.receiptNumber) {
-        return {
+        updatedTx = {
           ...tx,
           amount: updated.amount,
           currency: updated.currency,
@@ -895,25 +1036,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           description: `بەخشینی فەرمی لەلایەن [${updated.donorName}] بە پسوولەی ${updated.receiptNumber}`,
           relatedProjectId: updated.projectId
         };
+        return updatedTx;
       }
       return tx;
     });
     setTransactions(nextTransactions);
+    if (updatedTx) {
+      safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(updatedTx)));
+    }
 
     // Synchronize Donors
     setDonors(prev => prev.map(d => {
       const m = computeDonorLiveMetrics(d.id, nextDonations);
-      return {
+      const updatedDonor = {
         ...d,
         totalDonationsIQD: m.totalDonationsIQD,
         totalDonationsUSD: m.totalDonationsUSD
       };
+      if (d.id === updated.donorId || d.id === oldDonation.donorId) {
+        safeSupabaseSync(supabase.from('donors').upsert(mapDonorToDb(updatedDonor)));
+      }
+      return updatedDonor;
     }));
 
     // Synchronize Projects
     setProjects(prev => prev.map(p => {
       const m = computeProjectLiveMetrics(p.id, p.title, nextDonations, nextTransactions, beneficiaries);
-      return {
+      const updatedP = {
         ...p,
         raisedBudgetUSD: m.raisedUSD,
         raisedBudgetIQD: m.raisedIQD,
@@ -921,6 +1070,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         spentBudgetIQD: m.spentIQD,
         beneficiariesCount: m.beneficiariesCount
       };
+      if (p.id === updated.projectId || p.id === oldDonation.projectId) {
+        safeSupabaseSync(supabase.from('projects').upsert(mapProjectToDb(updatedP)));
+      }
+      return updatedP;
     }));
 
     // Synchronize with Inventory
@@ -944,7 +1097,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const existingIndex = prev.findIndex(i => i.sourceReceiptNumber === updated.receiptNumber || i.sourceDonationId === updated.id);
         if (existingIndex >= 0) {
           const updatedInv = [...prev];
-          updatedInv[existingIndex] = {
+          const itemToSave: InventoryItem = {
             ...updatedInv[existingIndex],
             name: updated.categoryLabel || 'کۆمەکی بەخشراو',
             category: invCategory,
@@ -958,6 +1111,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             contentsDescription: updated.itemDetails?.contentsDescription,
             notes: updated.notes
           };
+          updatedInv[existingIndex] = itemToSave;
+          safeSupabaseSync(supabase.from('inventory').upsert(mapInventoryToDb(itemToSave)));
           return updatedInv;
         } else {
           const newInvItem: InventoryItem = {
@@ -977,11 +1132,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             contentsDescription: updated.itemDetails?.contentsDescription,
             notes: updated.notes
           };
+          safeSupabaseSync(supabase.from('inventory').upsert(mapInventoryToDb(newInvItem)));
           return [newInvItem, ...prev];
         }
       });
     } else if (wasInKind && !isInKind) {
       setInventory(prev => prev.filter(i => i.sourceReceiptNumber !== updated.receiptNumber && i.sourceDonationId !== updated.id));
+      safeSupabaseSync(supabase.from('inventory').delete().or(`source_receipt_number.eq.${updated.receiptNumber},source_donation_id.eq.${updated.id}`));
     }
 
     logAction('دەستکاریکردنی بەخشین', `پسوولەی [${updated.receiptNumber}] دەستکاری کرا`, 'update');
@@ -1003,17 +1160,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 4. Recalculate donors
     const nextDonors = donors.map(d => {
       const m = computeDonorLiveMetrics(d.id, nextDonations);
-      return {
+      const updatedDonor = {
         ...d,
         totalDonationsIQD: m.totalDonationsIQD,
         totalDonationsUSD: m.totalDonationsUSD
       };
+      if (d.id === target.donorId) {
+        safeSupabaseSync(supabase.from('donors').upsert(mapDonorToDb(updatedDonor)));
+      }
+      return updatedDonor;
     });
 
     // 5. Recalculate projects
     const nextProjects = projects.map(p => {
       const m = computeProjectLiveMetrics(p.id, p.title, nextDonations, nextTransactions, beneficiaries);
-      return {
+      const updatedP = {
         ...p,
         raisedBudgetUSD: m.raisedUSD,
         raisedBudgetIQD: m.raisedIQD,
@@ -1021,6 +1182,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         spentBudgetIQD: m.spentIQD,
         beneficiariesCount: m.beneficiariesCount
       };
+      if (p.id === target.projectId) {
+        safeSupabaseSync(supabase.from('projects').upsert(mapProjectToDb(updatedP)));
+      }
+      return updatedP;
     });
 
     // Apply updates
@@ -1029,6 +1194,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInventory(nextInventory);
     setDonors(nextDonors);
     setProjects(nextProjects);
+
+    // Supabase deletes
+    safeSupabaseSync(supabase.from('donations').delete().eq('id', id));
+    if (target.receiptNumber) {
+      safeSupabaseSync(supabase.from('transactions').delete().eq('receipt_number', target.receiptNumber));
+      safeSupabaseSync(supabase.from('inventory').delete().eq('source_receipt_number', target.receiptNumber));
+    }
 
     logAction('سڕینەوەی پسوولەی بەخشین', `پسوولەی بەخشینی [${target.receiptNumber}] لە سیستەم سڕایەوە و بودجەی پڕۆژە نوێکرایەوە`, 'delete');
   };
@@ -1058,6 +1230,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       volunteersCount: 0
     };
     setProjects(prev => [newProject, ...prev]);
+    safeSupabaseSync(supabase.from('projects').upsert(mapProjectToDb(newProject)));
     logAction('دروستکردنی پڕۆژە', `پڕۆژەی نوێ بە ناوی [${newProject.title}] دەستیپێکرد`, 'create');
   };
 
@@ -1086,6 +1259,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setProjects(prev => prev.map(p => p.id === updated.id ? projectToSave : p));
+    safeSupabaseSync(supabase.from('projects').upsert(mapProjectToDb(projectToSave)));
     logAction('نوێکردنەوەی پڕۆژە', `پڕۆژەی [${updated.title}] دەستکاری کرا`, 'update');
   };
 
@@ -1106,6 +1280,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 3. Remove project from projects list
     setProjects(prev => prev.filter(item => item.id !== id));
 
+    safeSupabaseSync(supabase.from('projects').delete().eq('id', id));
     logAction('سڕینەوەی پڕۆژە', `پڕۆژەی [${targetProject.title}] سڕایەوە و بەخشینە پەیوەندیدارەکان خرانە سندووقی گشتی`, 'delete');
   };
 
@@ -1117,16 +1292,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       lastUpdated: new Date().toISOString().split('T')[0]
     };
     setInventory(prev => [newItem, ...prev]);
+    safeSupabaseSync(supabase.from('inventory').upsert(mapInventoryToDb(newItem)));
     logAction('زیادکردنی کاڵا بۆ کۆگا', `کاڵای [${newItem.name}] بە بڕی (${newItem.quantity} ${newItem.unit}) لە کۆگای ${newItem.location} زیادکرا`, 'create');
   };
 
   const deleteInventoryItem = (id: string) => {
     const item = inventory.find(i => i.id === id);
     setInventory(prev => prev.filter(i => i.id !== id));
+    safeSupabaseSync(supabase.from('inventory').delete().eq('id', id));
     logAction('سڕینەوەی کاڵا', `کاڵای [${item?.name || id}] لە کۆگا سڕایەوە`, 'delete');
   };
 
   const updateInventoryQuantity = (id: string, delta: number) => {
+    let itemToSave: InventoryItem | undefined;
     setInventory(prev => prev.map(item => {
       if (item.id === id) {
         const newQty = Math.max(0, item.quantity + delta);
@@ -1143,10 +1321,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           setNotifications(n => [notif, ...n]);
         }
-        return { ...item, quantity: newQty, lastUpdated: new Date().toISOString().split('T')[0] };
+        itemToSave = { ...item, quantity: newQty, lastUpdated: new Date().toISOString().split('T')[0] };
+        return itemToSave;
       }
       return item;
     }));
+    if (itemToSave) {
+      safeSupabaseSync(supabase.from('inventory').upsert(mapInventoryToDb(itemToSave)));
+    }
     logAction('دەستکاری کۆگا', `بڕی کاڵا بە ڕێژەی (${delta}) گۆڕدرا`, 'update');
   };
 
@@ -1192,19 +1374,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     const nextTransactions = [newTx, ...transactions];
     setTransactions(nextTransactions);
+    safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(newTx)));
 
     // Synchronize with related project live metrics
     if (data.relatedProjectId) {
       setProjects(prev => prev.map(p => {
         if (p.id === data.relatedProjectId) {
           const m = computeProjectLiveMetrics(p.id, p.title, donations, nextTransactions, beneficiaries);
-          return {
+          const updatedP = {
             ...p,
             raisedBudgetUSD: m.raisedUSD,
             raisedBudgetIQD: m.raisedIQD,
             spentBudgetUSD: m.spentUSD,
             spentBudgetIQD: m.spentIQD
           };
+          safeSupabaseSync(supabase.from('projects').upsert(mapProjectToDb(updatedP)));
+          return updatedP;
         }
         return p;
       }));
@@ -1219,18 +1404,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const nextTransactions = transactions.filter(t => t.id !== id);
     setTransactions(nextTransactions);
+    safeSupabaseSync(supabase.from('transactions').delete().eq('id', id));
 
     if (targetTx.relatedProjectId) {
       setProjects(prev => prev.map(p => {
         if (p.id === targetTx.relatedProjectId) {
           const m = computeProjectLiveMetrics(p.id, p.title, donations, nextTransactions, beneficiaries);
-          return {
+          const updatedP = {
             ...p,
             raisedBudgetUSD: m.raisedUSD,
             raisedBudgetIQD: m.raisedIQD,
             spentBudgetUSD: m.spentUSD,
             spentBudgetIQD: m.spentIQD
           };
+          safeSupabaseSync(supabase.from('projects').upsert(mapProjectToDb(updatedP)));
+          return updatedP;
         }
         return p;
       }));
@@ -1250,11 +1438,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       badgeNumber: `VOL-${100 + count}`
     };
     setVolunteers(prev => [newVol, ...prev]);
+    safeSupabaseSync(supabase.from('volunteers').upsert(mapVolunteerToDb(newVol)));
     logAction('تۆمارکردنی خۆبەخش', `خۆبەخشی نوێ [${newVol.fullName}] بە ناسنامەی ${newVol.badgeNumber} تۆمارکرا`);
   };
 
   const logVolunteerHours = (id: string, hours: number) => {
-    setVolunteers(prev => prev.map(v => v.id === id ? { ...v, hoursLogged: v.hoursLogged + hours } : v));
+    let updatedVol: Volunteer | undefined;
+    setVolunteers(prev => prev.map(v => {
+      if (v.id === id) {
+        updatedVol = { ...v, hoursLogged: v.hoursLogged + hours };
+        return updatedVol;
+      }
+      return v;
+    }));
+    if (updatedVol) {
+      safeSupabaseSync(supabase.from('volunteers').upsert(mapVolunteerToDb(updatedVol)));
+    }
     const vol = volunteers.find(v => v.id === id);
     logAction('تۆمارکردنی کاتژمێری خۆبەخش', `${hours} کاتژمێری خزمەت بۆ [${vol?.fullName}] تۆمارکرا`);
   };
@@ -1262,6 +1461,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteVolunteer = (id: string) => {
     const vol = volunteers.find(v => v.id === id);
     setVolunteers(prev => prev.filter(v => v.id !== id));
+    safeSupabaseSync(supabase.from('volunteers').delete().eq('id', id));
     logAction('سڕینەوەی خۆبەخش', `خۆبەخش [${vol?.fullName || id}] سڕایەوە`, 'delete');
   };
 
@@ -1273,12 +1473,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       uploadDate: new Date().toISOString().split('T')[0]
     };
     setDocuments(prev => [newDoc, ...prev]);
+    safeSupabaseSync(supabase.from('documents').upsert(mapDocumentToDb(newDoc)));
     logAction('بارکردنی بەڵگەنامە', `بەڵگەنامەی [${newDoc.title}] بە قەبارەی ${newDoc.fileSize} بارکرا`);
   };
 
   const deleteDocument = (id: string) => {
     const doc = documents.find(d => d.id === id);
     setDocuments(prev => prev.filter(d => d.id !== id));
+    safeSupabaseSync(supabase.from('documents').delete().eq('id', id));
     logAction('سڕینەوەی بەڵگەنامە', `بەڵگەنامەی [${doc?.title || id}] سڕایەوە`, 'delete');
   };
 
@@ -1328,18 +1530,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('هەناردەکردنی داتا', 'یەدەگی تەواوی داتابەیسەکە بە فۆرماتی JSON دابەزێندرا', 'export');
   };
 
+  // Helper to purge Supabase data on reset
+  const purgeSupabaseData = () => {
+    safeSupabaseSync(Promise.all([
+      supabase.from('beneficiaries').delete().neq('id', 'placeholder_guard'),
+      supabase.from('donors').delete().neq('id', 'placeholder_guard'),
+      supabase.from('donations').delete().neq('id', 'placeholder_guard'),
+      supabase.from('projects').delete().neq('id', 'placeholder_guard'),
+      supabase.from('inventory').delete().neq('id', 'placeholder_guard'),
+      supabase.from('transactions').delete().neq('id', 'placeholder_guard'),
+      supabase.from('volunteers').delete().neq('id', 'placeholder_guard'),
+      supabase.from('documents').delete().neq('id', 'placeholder_guard'),
+      supabase.from('audit_logs').delete().neq('id', 'placeholder_guard')
+    ]));
+  };
+
   // Import Data JSON
   const importDataJSON = (jsonData: string): { success: boolean; message: string } => {
     try {
       const data = JSON.parse(jsonData);
-      if (data.beneficiaries && Array.isArray(data.beneficiaries)) setBeneficiaries(data.beneficiaries);
-      if (data.donors && Array.isArray(data.donors)) setDonors(data.donors);
-      if (data.donations && Array.isArray(data.donations)) setDonations(data.donations);
-      if (data.projects && Array.isArray(data.projects)) setProjects(data.projects);
-      if (data.inventory && Array.isArray(data.inventory)) setInventory(data.inventory);
-      if (data.transactions && Array.isArray(data.transactions)) setTransactions(data.transactions);
-      if (data.volunteers && Array.isArray(data.volunteers)) setVolunteers(data.volunteers);
-      if (data.documents && Array.isArray(data.documents)) setDocuments(data.documents);
+      if (data.beneficiaries && Array.isArray(data.beneficiaries)) {
+        setBeneficiaries(data.beneficiaries);
+        safeSupabaseSync(supabase.from('beneficiaries').upsert(data.beneficiaries.map(mapBeneficiaryToDb)));
+      }
+      if (data.donors && Array.isArray(data.donors)) {
+        setDonors(data.donors);
+        safeSupabaseSync(supabase.from('donors').upsert(data.donors.map(mapDonorToDb)));
+      }
+      if (data.donations && Array.isArray(data.donations)) {
+        setDonations(data.donations);
+        safeSupabaseSync(supabase.from('donations').upsert(data.donations.map(mapDonationToDb)));
+      }
+      if (data.projects && Array.isArray(data.projects)) {
+        setProjects(data.projects);
+        safeSupabaseSync(supabase.from('projects').upsert(data.projects.map(mapProjectToDb)));
+      }
+      if (data.inventory && Array.isArray(data.inventory)) {
+        setInventory(data.inventory);
+        safeSupabaseSync(supabase.from('inventory').upsert(data.inventory.map(mapInventoryToDb)));
+      }
+      if (data.transactions && Array.isArray(data.transactions)) {
+        setTransactions(data.transactions);
+        safeSupabaseSync(supabase.from('transactions').upsert(data.transactions.map(mapTransactionToDb)));
+      }
+      if (data.volunteers && Array.isArray(data.volunteers)) {
+        setVolunteers(data.volunteers);
+        safeSupabaseSync(supabase.from('volunteers').upsert(data.volunteers.map(mapVolunteerToDb)));
+      }
+      if (data.documents && Array.isArray(data.documents)) {
+        setDocuments(data.documents);
+        safeSupabaseSync(supabase.from('documents').upsert(data.documents.map(mapDocumentToDb)));
+      }
       logAction('هاوردەکردنی داتا', 'داتابەیسەکە لە فایلی یەدەگی JSON بە سەرکەوتوویی نوێکرایەوە', 'create');
       return { success: true, message: 'داتاکان بە سەرکەوتوویی هاوردەکران و تەواوی بەشەکان نوێکرانەوە.' };
     } catch (err) {
@@ -1394,6 +1635,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuditLogs(INITIAL_AUDIT_LOGS);
     setAnnouncements([]);
     setReminders([]);
+    purgeSupabaseData();
     logAction('دەستپێکردنی سیستەم لە سفرەوە', 'سەرجەم داتاکان خاوێنکرانەوە بۆ دەستپێکی نوێ لە سفرەوە', 'update');
   };
 
@@ -1412,6 +1654,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAnnouncements([]);
     setReminders([]);
     setAuditLogs(INITIAL_AUDIT_LOGS);
+    purgeSupabaseData();
     logAction('پاککردنەوەی تەواوی داتابەیس', 'داتابەیسەکە بە سەرکەوتوویی پاککرایەوە بۆ سفر تۆمار بۆ دەستپێکی فەرمی', 'delete');
   };
 
@@ -1484,7 +1727,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         exportDataJSON,
         importDataJSON,
         resetAllData,
-        clearToEmptyDatabase
+        clearToEmptyDatabase,
+        isCloudConnected,
+        isCloudSyncing
       }}
     >
       {children}
