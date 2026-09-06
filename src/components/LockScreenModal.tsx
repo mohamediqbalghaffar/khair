@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Lock, Fingerprint, ShieldCheck, Delete, Sparkles } from 'lucide-react';
+import { Lock, Fingerprint, ShieldCheck, Delete, Sparkles, LogOut, User } from 'lucide-react';
 
 export const LockScreenModal: React.FC = () => {
-  const { isLocked, setIsLocked, currentUser } = useApp();
+  const { isLocked, setIsLocked, currentUser, logout } = useApp();
   const [pin, setPin] = useState<string>('');
   const [currentTime, setCurrentTime] = useState<string>('');
   const [currentDate, setCurrentDate] = useState<string>('');
@@ -67,19 +67,25 @@ export const LockScreenModal: React.FC = () => {
       {/* Center: User and PIN Dots */}
       <div className="flex flex-col items-center space-y-4 my-auto">
         <div className="relative">
-          <img
-            src={currentUser.avatar}
-            alt={currentUser.name}
-            className="w-20 h-20 rounded-3xl object-cover ring-4 ring-cyan-400/40 shadow-2xl"
-          />
+          {currentUser?.avatar ? (
+            <img
+              src={currentUser.avatar}
+              alt={currentUser?.name || 'بەکارهێنەر'}
+              className="w-20 h-20 rounded-3xl object-cover ring-4 ring-cyan-400/40 shadow-2xl"
+            />
+          ) : (
+            <div className="w-20 h-20 rounded-3xl bg-cyan-600 flex items-center justify-center text-white ring-4 ring-cyan-400/40 shadow-2xl">
+              <User className="w-10 h-10" />
+            </div>
+          )}
           <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center text-white border-2 border-slate-900 shadow">
             <Lock className="w-3.5 h-3.5" />
           </div>
         </div>
 
         <div className="text-center">
-          <h3 className="text-lg font-bold text-white">{currentUser.name}</h3>
-          <p className="text-xs text-cyan-300">{currentUser.roleTitleKurdish}</p>
+          <h3 className="text-lg font-bold text-white">{currentUser?.name || 'محمد ئیقبال'}</h3>
+          <p className="text-xs text-cyan-300">{currentUser?.roleTitleKurdish || 'بەڕێوەبەری گشتی'}</p>
         </div>
 
         {/* 4 PIN Dots */}
@@ -146,6 +152,17 @@ export const LockScreenModal: React.FC = () => {
         >
           <Sparkles className="w-4 h-4" />
           کردنەوەی خێرا بە ناسینەوەی ڕووخسار / پەنجەمۆر
+        </button>
+
+        <button
+          onClick={() => {
+            setIsLocked(false);
+            logout();
+          }}
+          className="w-full py-2 rounded-2xl bg-white/10 hover:bg-white/15 text-slate-300 hover:text-white text-xs font-medium border border-white/10 flex items-center justify-center gap-1.5 transition-all"
+        >
+          <LogOut className="w-3.5 h-3.5 text-rose-400" />
+          <span>دەرچوون / گۆڕینی هەژمار</span>
         </button>
       </div>
 

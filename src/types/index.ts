@@ -1,11 +1,31 @@
-export type UserRole = 'admin';
+export type UserRole = 'admin' | 'finance' | 'field_officer' | 'volunteer' | 'auditor';
 
 export interface UserProfile {
   id: string;
   name: string;
+  email: string;
   role: UserRole;
   roleTitleKurdish: string;
   avatar: string;
+  phone?: string;
+  status?: 'active' | 'pending' | 'suspended';
+  lastLogin?: string;
+  createdAt?: string;
+}
+
+export interface AppUserRecord {
+  id: string;
+  email: string;
+  full_name: string;
+  password_hash: string;
+  role: UserRole;
+  role_title_kurdish: string;
+  phone?: string;
+  status: 'active' | 'pending' | 'suspended';
+  avatar?: string;
+  last_login?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export type NeedCategory = 'poor' | 'orphan' | 'sick' | 'disabled' | 'displaced' | 'student';

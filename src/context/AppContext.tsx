@@ -54,6 +54,12 @@ import {
   mapAuditLogFromDb,
   safeSupabaseSync
 } from '../services/supabase';
+import {
+  INITIAL_ADMIN_USER,
+  ROLE_LABELS,
+  authenticateUser,
+  registerNewUser
+} from '../services/auth';
 
 export type NavTab =
   | 'dashboard'
@@ -83,7 +89,12 @@ interface AppContextType {
   navigateToLocationOnMap: (lat: number, lng: number, label?: string, beneficiaryId?: string) => void;
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
-  currentUser: UserProfile;
+  currentUser: UserProfile | null;
+  setCurrentUser: (user: UserProfile | null) => void;
+  isAuthenticated: boolean;
+  login: (identifier: string, passwordPlain: string) => Promise<{ success: boolean; user?: UserProfile; message?: string }>;
+  signup: (fullName: string, email: string, passwordPlain: string, phone?: string, role?: UserRole) => Promise<{ success: boolean; user?: UserProfile; message?: string }>;
+  logout: () => void;
 
   // Beneficiaries
   beneficiaries: Beneficiary[];
@@ -175,16 +186,6 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const SYSTEM_VERSION = 'v5_clean_zero_production';
 
-const ROLE_PROFILES: Record<UserRole, UserProfile> = {
-  admin: {
-    id: 'user-admin',
-    name: 'ئەحمەد محمد قادر',
-    role: 'admin',
-    roleTitleKurdish: 'بەڕێوەبەری گشتی (Admin)',
-    avatar: ''
-  }
-};
-
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Clear legacy mock records from browser LocalStorage if version upgraded
   if (typeof window !== 'undefined') {
@@ -195,6 +196,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }
 
+  // Active authenticated user (Requires Log-in unless valid active session)
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ngo_auth_user');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.id && parsed.id !== 'user-admin' && parsed.name !== 'ئەحمەد محمد قادر') {
+            return parsed;
+          }
+          localStorage.removeItem('ngo_auth_user');
+        } catch (e) {
+          localStorage.removeItem('ngo_auth_user');
+        }
+      }
+    }
+    return null;
+  });
+
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => currentUser?.role || 'admin');
+
+  // Keep currentRole in sync with active user
+  useEffect(() => {
+    if (currentUser) {
+      setCurrentRole(currentUser.role);
+    }
+  }, [currentUser]);
+
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [mapFocusLocation, setMapFocusLocation] = useState<MapFocusLocation | null>(null);
 
@@ -203,7 +232,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTab('geo');
   };
 
-  const [currentRole, setCurrentRole] = useState<UserRole>('admin');
   const [currencyView, setCurrencyView] = useState<'IQD' | 'USD'>('IQD');
   const [isSpotlightOpen, setIsSpotlightOpen] = useState<boolean>(false);
 
@@ -556,7 +584,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newLog: AuditLog = {
       id: `log-${Date.now()}`,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      userName: ROLE_PROFILES[currentRole].name,
+      userName: currentUser ? currentUser.name : 'محمد ئیقبال',
       userRole: currentRole,
       action,
       details,
@@ -810,7 +838,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         category: 'هاوکاری نەختینەیی سوودمەند',
         date: aidDate,
         description: `هاوکاری نەختینەیی بۆ [${ben?.fullName || 'سوودمەند'}] - ${record.projectTitle}`,
-        recordedBy: record.distributedBy || ROLE_PROFILES[currentRole].name,
+        recordedBy: record.distributedBy || (currentUser ? currentUser.name : 'محمد ئیقبال'),
         relatedProjectId: matchedProjectId
       };
       nextTransactions = [aidTx, ...transactions];
@@ -891,7 +919,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: `بەخشینی ${data.method}`,
       date: data.date,
       description: `بەخشینی فەرمی لەلایەن [${data.donorName}] بە پسوولەی ${receiptNumber}`,
-      recordedBy: ROLE_PROFILES[currentRole].name,
+      recordedBy: currentUser ? currentUser.name : 'محمد ئیقبال',
       relatedProjectId: data.projectId,
       receiptNumber
     };
@@ -1347,7 +1375,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       itemName: item.name,
       quantity,
       projectTitle,
-      distributedBy: ROLE_PROFILES[currentRole].name,
+      distributedBy: currentUser ? currentUser.name : 'محمد ئیقبال',
       receiptNumber: item.sourceReceiptNumber,
       donorName: item.sourceDonorName,
       notes: `دابەشکردن لە کۆگای ${item.location}${item.sourceReceiptNumber ? ` (پسوولەی ${item.sourceReceiptNumber}${item.sourceDonorName ? ` - ${item.sourceDonorName}` : ''})` : ''}`
@@ -1594,7 +1622,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `ann-${Date.now()}`,
       title,
       content,
-      author: ROLE_PROFILES[currentRole].name,
+      author: currentUser ? currentUser.name : 'محمد ئیقبال',
       date: new Date().toISOString().split('T')[0],
       tag
     };
@@ -1619,10 +1647,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('بیرخەرەوەی نوێ', `بیرخەرەوە زیادکرا: ${title}`, 'create');
   };
 
+  // Authentication System (Log-in, Sign-up, Logout)
+  const login = async (identifier: string, passwordPlain: string) => {
+    const res = await authenticateUser(identifier, passwordPlain);
+    if (res.success && res.user) {
+      setCurrentUser(res.user);
+      setCurrentRole(res.user.role);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ngo_auth_user', JSON.stringify(res.user));
+      }
+      logAction('چوونەژوورەوەی سیستم', `بەکارهێنەر [${res.user.name}] بە سەرکەوتوویی چووە ژوورەوە`, 'update');
+    }
+    return res;
+  };
+
+  const signup = async (
+    fullName: string,
+    email: string,
+    passwordPlain: string,
+    phone?: string,
+    role?: UserRole
+  ) => {
+    const res = await registerNewUser({
+      fullName,
+      email,
+      password: passwordPlain,
+      phone,
+      role
+    });
+    if (res.success && res.user) {
+      setCurrentUser(res.user);
+      setCurrentRole(res.user.role);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ngo_auth_user', JSON.stringify(res.user));
+      }
+      logAction('تۆمارکردنی هەژماری نوێ', `هەژماری نوێ بۆ [${res.user.name}] بە ڕۆڵی [${res.user.roleTitleKurdish}] دروستکرا`, 'create');
+    }
+    return res;
+  };
+
+  const logout = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ngo_auth_user');
+    }
+    const loggedOutName = currentUser ? currentUser.name : 'بەکارهێنەر';
+    logAction('دەرچوون لە سیستم', `بەکارهێنەر [${loggedOutName}] لە سیستم چووە دەرەوە`, 'update');
+    setCurrentUser(null);
+  };
+
   // Reset Data to Clean Zero
   const resetAllData = () => {
+    const activeAuth = currentUser ? JSON.stringify(currentUser) : null;
     localStorage.clear();
     localStorage.setItem('ngo_system_version', SYSTEM_VERSION);
+    if (activeAuth) {
+      localStorage.setItem('ngo_auth_user', activeAuth);
+    }
     setBeneficiaries([]);
     setDonors([]);
     setDonations([]);
@@ -1640,8 +1720,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const clearToEmptyDatabase = () => {
+    const activeAuth = currentUser ? JSON.stringify(currentUser) : null;
     localStorage.clear();
     localStorage.setItem('ngo_system_version', SYSTEM_VERSION);
+    if (activeAuth) {
+      localStorage.setItem('ngo_auth_user', activeAuth);
+    }
     setBeneficiaries([]);
     setDonors([]);
     setDonations([]);
@@ -1668,7 +1752,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         navigateToLocationOnMap,
         currentRole,
         setCurrentRole,
-        currentUser: ROLE_PROFILES[currentRole],
+        currentUser,
+        setCurrentUser,
+        isAuthenticated: !!currentUser,
+        login,
+        signup,
+        logout,
         beneficiaries,
         addBeneficiary,
         addBeneficiariesBulk,

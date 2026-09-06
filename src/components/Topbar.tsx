@@ -21,7 +21,8 @@ import {
   Sparkles,
   Megaphone,
   User,
-  Database
+  Database,
+  LogOut
 } from 'lucide-react';
 import { DeveloperApiModal } from './DeveloperApiModal';
 import { SecurityModal } from './SecurityModal';
@@ -32,6 +33,7 @@ export const Topbar: React.FC = () => {
     currentRole,
     setCurrentRole,
     currentUser,
+    logout,
     currencyView,
     setCurrencyView,
     notifications,
@@ -70,7 +72,11 @@ export const Topbar: React.FC = () => {
   const pendingRemindersCount = reminders.filter(r => !r.completed).length;
 
   const rolesList: { role: UserRole; title: string; desc: string; icon: string }[] = [
-    { role: 'admin', title: 'بەڕێوەبەری گشتی', desc: 'دەسەڵاتی تەواوی سیستەم', icon: '👑' }
+    { role: 'admin', title: 'بەڕێوەبەری گشتی (Admin)', desc: 'دەسەڵاتی تەواوی سیستەم و بەڕێوەبردن', icon: '👑' },
+    { role: 'finance', title: 'بەرپرسی دارایی و ژمێریاری', desc: 'تۆماری خەرجی، بەخشین و وردبینی دارایی', icon: '💳' },
+    { role: 'field_officer', title: 'کارمەندی مەیدانی و دابەشکردن', desc: 'تۆماری هاوکاری، سوودمەندان و سەردانی مەیدانی', icon: '🚚' },
+    { role: 'volunteer', title: 'خۆبەخش (Volunteer)', desc: 'چالاکییەکان و کاتژمێرەکانی خزمەت', icon: '🤝' },
+    { role: 'auditor', title: 'وردبین و چاودێری (Auditor)', desc: 'بینینی ڕاپۆرتەکان و چاودێری شاردراوە', icon: '🔍' }
   ];
 
   // Close dropdowns on outside click
@@ -406,10 +412,10 @@ export const Topbar: React.FC = () => {
                 onClick={() => setShowRoleMenu(!showRoleMenu)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-100 hover:bg-slate-200/70 border border-slate-200 transition-all text-right group shadow-sm"
               >
-                {currentUser.avatar ? (
+                {currentUser?.avatar ? (
                   <img
                     src={currentUser.avatar}
-                    alt={currentUser.name}
+                    alt={currentUser?.name || 'بەکارهێنەر'}
                     className="w-8 h-8 rounded-xl object-cover ring-1 ring-slate-300"
                   />
                 ) : (
@@ -418,16 +424,40 @@ export const Topbar: React.FC = () => {
                   </div>
                 )}
                 <div className="hidden sm:block text-right">
-                  <p className="text-xs font-bold text-slate-900 leading-tight">{currentUser.name}</p>
-                  <p className="text-[10px] text-cyan-700 font-bold">{currentUser.roleTitleKurdish}</p>
+                  <p className="text-xs font-bold text-slate-900 leading-tight">{currentUser?.name || 'محمد ئیقبال'}</p>
+                  <p className="text-[10px] text-cyan-700 font-bold">{currentUser?.roleTitleKurdish || 'بەڕێوەبەری گشتی'}</p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-slate-500 group-hover:text-slate-900 transition-transform" />
               </button>
 
               {/* Role selection menu - 100% Opaque Solid Liquid Card to prevent any corruption */}
               {showRoleMenu && (
-                <div className="absolute left-0 mt-3 w-72 rounded-3xl liquid-glass-dropdown p-2.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
-                  <div className="px-3 py-2 border-b border-slate-200 mb-1">
+                <div className="absolute left-0 mt-3 w-80 rounded-3xl liquid-glass-dropdown p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+                  {/* Active User Card Header */}
+                  <div className="p-3 bg-gradient-to-br from-cyan-50 to-blue-50/50 rounded-2xl border border-cyan-200/70 mb-2.5">
+                    <div className="flex items-center gap-2.5">
+                      {currentUser?.avatar ? (
+                        <img
+                          src={currentUser.avatar}
+                          alt={currentUser?.name}
+                          className="w-10 h-10 rounded-2xl object-cover ring-2 ring-white shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-2xl bg-cyan-600 text-white flex items-center justify-center shadow-sm">
+                          <User className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-slate-900 truncate">{currentUser?.name || 'محمد ئیقبال'}</p>
+                        <p className="text-[10px] text-slate-600 font-mono truncate">{currentUser?.email || 'mohammed.iqbal@halabjagroup'}</p>
+                        <span className="inline-block mt-0.5 text-[10px] font-bold px-2 py-0.2 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
+                          {currentUser?.roleTitleKurdish || 'بەڕێوەبەری گشتی (Admin)'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-2 py-1 border-b border-slate-200 mb-1">
                     <p className="text-xs font-bold text-slate-800">گۆڕینی ڕۆڵی بەکارهێنەر</p>
                     <p className="text-[10px] text-slate-500">دیاریکردنی دەسەڵات و بەرپرسیارێتییەکان لە سیستەمدا</p>
                   </div>
@@ -457,7 +487,7 @@ export const Topbar: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Lock Screen Button (Feature 14) */}
+                  {/* Lock Screen Button */}
                   <div className="pt-2 mt-2 border-t border-slate-200 px-1">
                     <button
                       onClick={() => {
@@ -495,6 +525,20 @@ export const Topbar: React.FC = () => {
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       داتای سفر
+                    </button>
+                  </div>
+
+                  {/* Sign Out Button */}
+                  <div className="pt-2 mt-1 border-t border-slate-200 px-1">
+                    <button
+                      onClick={() => {
+                        setShowRoleMenu(false);
+                        logout();
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors border border-rose-200 shadow-sm"
+                    >
+                      <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                      <span>دەرچوون لە هەژمار (Log Out)</span>
                     </button>
                   </div>
                 </div>
