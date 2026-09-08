@@ -47,7 +47,9 @@ export const Topbar: React.FC = () => {
     exportDataJSON,
     resetAllData,
     isCloudConnected,
-    isCloudSyncing
+    isCloudSyncing,
+    syncLocalDataToCloud,
+    checkConnectionHealth
   } = useApp();
 
   const [showNotifMenu, setShowNotifMenu] = useState(false);
@@ -127,25 +129,52 @@ export const Topbar: React.FC = () => {
                   </span>
                 </h1>
                 {isCloudConnected ? (
-                  <span
-                    className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-medium"
-                    title="داتابەیسی هەوری خێرا و پارێزراو (Supabase PostgreSQL) پەیوەستە"
-                  >
-                    <span className="relative flex h-2 w-2">
-                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isCloudSyncing ? 'bg-cyan-400' : 'bg-emerald-400'} opacity-75`}></span>
-                      <span className={`relative inline-flex rounded-full h-2 w-2 ${isCloudSyncing ? 'bg-cyan-500' : 'bg-emerald-500'}`}></span>
+                  <div className="hidden sm:inline-flex items-center gap-1.5">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold"
+                      title="داتابەیسی هەوری سەرهێڵ (Supabase) پەیوەستە و چاودێری دەکرێت"
+                    >
+                      <span className="relative flex h-2 w-2">
+                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isCloudSyncing ? 'bg-cyan-400' : 'bg-emerald-400'} opacity-75`}></span>
+                        <span className={`relative inline-flex rounded-full h-2 w-2 ${isCloudSyncing ? 'bg-cyan-500' : 'bg-emerald-500'}`}></span>
+                      </span>
+                      <Database className="w-3 h-3 text-emerald-600" />
+                      <span>{isCloudSyncing ? 'هاوکاتکردن...' : 'داتابەیسی سەرهێڵ'}</span>
                     </span>
-                    <Database className="w-3 h-3 text-emerald-600" />
-                    <span>{isCloudSyncing ? 'هاوکاتکردن...' : 'داتابەیس پەیوەستە'}</span>
-                  </span>
+                    <button
+                      onClick={async () => {
+                        const res = await syncLocalDataToCloud();
+                        alert(res.message);
+                      }}
+                      disabled={isCloudSyncing}
+                      className="p-1 text-slate-400 hover:text-cyan-600 rounded-lg hover:bg-slate-100 transition-colors"
+                      title="هاوکاتکردنی داتاکان لەگەڵ هەور (Force Sync)"
+                    >
+                      <RotateCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin text-cyan-600' : ''}`} />
+                    </button>
+                  </div>
                 ) : (
-                  <span
-                    className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80 text-[11px] font-medium"
-                    title="دۆخی ئۆفلاین (Local Cache)"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-                    <span>ئۆفلاین</span>
-                  </span>
+                  <div className="hidden sm:inline-flex items-center gap-1.5">
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold"
+                      title="داتابەیس ناپەیوەستە - داخڵکردن بەربەستکراوە تا ئینتەرنێت دەگەڕێتەوە"
+                    >
+                      <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
+                      <AlertTriangle className="w-3 h-3 text-rose-600" />
+                      <span>داتابەیس ناپەیوەستە</span>
+                    </span>
+                    <button
+                      onClick={async () => {
+                        const res = await syncLocalDataToCloud();
+                        alert(res.message);
+                      }}
+                      disabled={isCloudSyncing}
+                      className="p-1 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-50 transition-colors"
+                      title="پشکنینەوەی پەیوەندی"
+                    >
+                      <RotateCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
                 )}
               </div>
               <p className="text-xs text-slate-500 hidden sm:block">سیستەمی بەڕێوەبردنی داتابەیس و دابەشکردنی کۆمەک</p>

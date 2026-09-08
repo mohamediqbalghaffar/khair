@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   UserRole,
   UserProfile,
@@ -34,6 +34,8 @@ import {
 import { getExchangeRateForDate, calcItemAmountInUSD, calcItemAmountInIQD, aggregateAmountsByDayRate } from '../utils/exchangeRates';
 import {
   supabase,
+  checkSupabaseConnection,
+  strictSupabaseMutation,
   mapBeneficiaryToDb,
   mapBeneficiaryFromDb,
   mapDonorToDb,
@@ -98,10 +100,10 @@ interface AppContextType {
 
   // Beneficiaries
   beneficiaries: Beneficiary[];
-  addBeneficiary: (ben: Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>) => { success: boolean; duplicate?: Beneficiary; message?: string };
-  addBeneficiariesBulk: (bens: Array<Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>>) => { added: number; skippedDuplicates: number; total: number };
-  updateBeneficiary: (ben: Beneficiary) => void;
-  deleteBeneficiary: (id: string) => void;
+  addBeneficiary: (ben: Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>) => Promise<{ success: boolean; duplicate?: Beneficiary; message?: string }>;
+  addBeneficiariesBulk: (bens: Array<Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>>) => Promise<{ added: number; skippedDuplicates: number; total: number; success: boolean; message?: string }>;
+  updateBeneficiary: (ben: Beneficiary) => Promise<{ success: boolean; message?: string }>;
+  deleteBeneficiary: (id: string) => Promise<{ success: boolean; message?: string }>;
   checkDuplicate: (nationalId: string, phone: string, excludeId?: string) => Beneficiary | undefined;
   addAidRecord: (beneficiaryId: string, record: Omit<AidRecord, 'id'>) => void;
   addBeneficiaryDocument: (beneficiaryId: string, doc: Omit<BeneficiaryDocument, 'id' | 'uploadDate'>) => void;
@@ -180,6 +182,8 @@ interface AppContextType {
   clearToEmptyDatabase: () => void;
   isCloudConnected: boolean;
   isCloudSyncing: boolean;
+  syncLocalDataToCloud: () => Promise<{ success: boolean; syncedCount: number; message: string }>;
+  checkConnectionHealth: () => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -298,80 +302,360 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState<boolean>(true);
-  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
 
-  // Initial cloud fetch from Supabase on startup
+  /**
+   * Health check to test Supabase reachability
+   */
+  const checkConnectionHealth = useCallback(async (): Promise<boolean> => {
+    const isOnline = await checkSupabaseConnection();
+    setIsCloudConnected(isOnline);
+    return isOnline;
+  }, []);
+
+  /**
+   * Comprehensive cloud data synchronizer & local cache reconciler:
+   * - Pulls latest records from Supabase
+   * - Uploads any local records that were stored on this device but missing in Supabase (e.g. initial 53 beneficiaries)
+   * - Keeps state and localStorage in perfect parity
+   */
+  const syncLocalDataToCloud = useCallback(async (): Promise<{ success: boolean; syncedCount: number; message: string }> => {
+    try {
+      setIsCloudSyncing(true);
+      const isOnline = await checkSupabaseConnection();
+      setIsCloudConnected(isOnline);
+      if (!isOnline) {
+        return {
+          success: false,
+          syncedCount: 0,
+          message: 'پەیوەندی لەگەڵ داتابەیسی سەرهێڵ (Supabase) بەردەست نییە.'
+        };
+      }
+
+      // 1. Fetch remote data from all tables
+      const [
+        bensRes,
+        donorsRes,
+        donationsRes,
+        projectsRes,
+        inventoryRes,
+        txRes,
+        volunteersRes,
+        docsRes,
+        logsRes
+      ] = await Promise.all([
+        supabase.from('beneficiaries').select('*'),
+        supabase.from('donors').select('*'),
+        supabase.from('donations').select('*'),
+        supabase.from('projects').select('*'),
+        supabase.from('inventory').select('*'),
+        supabase.from('transactions').select('*'),
+        supabase.from('volunteers').select('*'),
+        supabase.from('documents').select('*'),
+        supabase.from('audit_logs').select('*')
+      ]);
+
+      let pushedBeneficiariesCount = 0;
+
+      // 2. Beneficiaries Reconciliation
+      if (!bensRes.error) {
+        const remoteBens = (bensRes.data || []).map(mapBeneficiaryFromDb);
+        const remoteIds = new Set(remoteBens.map(b => b.id));
+        const remoteNationalIds = new Set(remoteBens.map(b => (b.nationalId || '').trim()).filter(Boolean));
+
+        // Read directly from current localStorage to ensure we capture any unsynced records on this device
+        const savedBensRaw = typeof window !== 'undefined' ? localStorage.getItem('ngo_beneficiaries') : null;
+        const currentLocalBens: Beneficiary[] = savedBensRaw ? JSON.parse(savedBensRaw) : [];
+
+        const missingInCloud = currentLocalBens.filter(
+          lb => !remoteIds.has(lb.id) && (!lb.nationalId || !remoteNationalIds.has(lb.nationalId.trim()))
+        );
+
+        if (missingInCloud.length > 0) {
+          console.log(`[Reconciliation]: Pushing ${missingInCloud.length} local beneficiaries to Supabase...`);
+          for (let i = 0; i < missingInCloud.length; i += 50) {
+            const batch = missingInCloud.slice(i, i + 50);
+            const uploadRes = await supabase.from('beneficiaries').upsert(batch.map(mapBeneficiaryToDb));
+            if (uploadRes.error) {
+              console.error('Batch upload error:', uploadRes.error);
+            } else {
+              pushedBeneficiariesCount += batch.length;
+            }
+          }
+          const merged = [...remoteBens, ...missingInCloud];
+          setBeneficiaries(merged);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('ngo_beneficiaries', JSON.stringify(merged));
+          }
+        } else {
+          if (remoteBens.length > 0) {
+            setBeneficiaries(remoteBens);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('ngo_beneficiaries', JSON.stringify(remoteBens));
+            }
+          }
+        }
+      }
+
+      // 3. Donors Reconciliation
+      if (!donorsRes.error) {
+        const remoteDonors = (donorsRes.data || []).map(mapDonorFromDb);
+        const remoteIds = new Set(remoteDonors.map(d => d.id));
+        const savedDonorsRaw = typeof window !== 'undefined' ? localStorage.getItem('ngo_donors') : null;
+        const localDonors: Donor[] = savedDonorsRaw ? JSON.parse(savedDonorsRaw) : [];
+        const missingInCloud = localDonors.filter(d => !remoteIds.has(d.id));
+
+        if (missingInCloud.length > 0) {
+          await supabase.from('donors').upsert(missingInCloud.map(mapDonorToDb));
+          const merged = [...remoteDonors, ...missingInCloud];
+          setDonors(merged);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_donors', JSON.stringify(merged));
+        } else if (remoteDonors.length > 0) {
+          setDonors(remoteDonors);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_donors', JSON.stringify(remoteDonors));
+        }
+      }
+
+      // 4. Donations Reconciliation
+      if (!donationsRes.error) {
+        const remoteDonations = (donationsRes.data || []).map(mapDonationFromDb);
+        const remoteIds = new Set(remoteDonations.map(d => d.id));
+        const savedDonationsRaw = typeof window !== 'undefined' ? localStorage.getItem('ngo_donations') : null;
+        const localDonations: Donation[] = savedDonationsRaw ? JSON.parse(savedDonationsRaw) : [];
+        const missingInCloud = localDonations.filter(d => !remoteIds.has(d.id));
+
+        if (missingInCloud.length > 0) {
+          await supabase.from('donations').upsert(missingInCloud.map(mapDonationToDb));
+          const merged = [...remoteDonations, ...missingInCloud];
+          setDonations(merged);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_donations', JSON.stringify(merged));
+        } else if (remoteDonations.length > 0) {
+          setDonations(remoteDonations);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_donations', JSON.stringify(remoteDonations));
+        }
+      }
+
+      // 5. Projects Reconciliation
+      if (!projectsRes.error) {
+        const remoteProjects = (projectsRes.data || []).map(mapProjectFromDb);
+        const remoteIds = new Set(remoteProjects.map(p => p.id));
+        const savedProjectsRaw = typeof window !== 'undefined' ? localStorage.getItem('ngo_projects') : null;
+        const localProjects: Project[] = savedProjectsRaw ? JSON.parse(savedProjectsRaw) : [];
+        const missingInCloud = localProjects.filter(p => !remoteIds.has(p.id));
+
+        if (missingInCloud.length > 0) {
+          await supabase.from('projects').upsert(missingInCloud.map(mapProjectToDb));
+          const merged = [...remoteProjects, ...missingInCloud];
+          setProjects(merged);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_projects', JSON.stringify(merged));
+        } else if (remoteProjects.length > 0) {
+          setProjects(remoteProjects);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_projects', JSON.stringify(remoteProjects));
+        }
+      }
+
+      // 6. Inventory Reconciliation
+      if (!inventoryRes.error) {
+        const remoteInv = (inventoryRes.data || []).map(mapInventoryFromDb);
+        const remoteIds = new Set(remoteInv.map(i => i.id));
+        const savedInvRaw = typeof window !== 'undefined' ? localStorage.getItem('ngo_inventory') : null;
+        const localInv: InventoryItem[] = savedInvRaw ? JSON.parse(savedInvRaw) : [];
+        const missingInCloud = localInv.filter(i => !remoteIds.has(i.id));
+
+        if (missingInCloud.length > 0) {
+          await supabase.from('inventory').upsert(missingInCloud.map(mapInventoryToDb));
+          const merged = [...remoteInv, ...missingInCloud];
+          setInventory(merged);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_inventory', JSON.stringify(merged));
+        } else if (remoteInv.length > 0) {
+          setInventory(remoteInv);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_inventory', JSON.stringify(remoteInv));
+        }
+      }
+
+      // 7. Transactions Reconciliation
+      if (!txRes.error) {
+        const remoteTx = (txRes.data || []).map(mapTransactionFromDb);
+        const remoteIds = new Set(remoteTx.map(t => t.id));
+        const savedTxRaw = typeof window !== 'undefined' ? localStorage.getItem('ngo_transactions') : null;
+        const localTx: FinancialTransaction[] = savedTxRaw ? JSON.parse(savedTxRaw) : [];
+        const missingInCloud = localTx.filter(t => !remoteIds.has(t.id));
+
+        if (missingInCloud.length > 0) {
+          await supabase.from('transactions').upsert(missingInCloud.map(mapTransactionToDb));
+          const merged = [...remoteTx, ...missingInCloud];
+          setTransactions(merged);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_transactions', JSON.stringify(merged));
+        } else if (remoteTx.length > 0) {
+          setTransactions(remoteTx);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_transactions', JSON.stringify(remoteTx));
+        }
+      }
+
+      // 8. Volunteers Reconciliation
+      if (!volunteersRes.error) {
+        const remoteVols = (volunteersRes.data || []).map(mapVolunteerFromDb);
+        const remoteIds = new Set(remoteVols.map(v => v.id));
+        const savedVolsRaw = typeof window !== 'undefined' ? localStorage.getItem('ngo_volunteers') : null;
+        const localVols: Volunteer[] = savedVolsRaw ? JSON.parse(savedVolsRaw) : [];
+        const missingInCloud = localVols.filter(v => !remoteIds.has(v.id));
+
+        if (missingInCloud.length > 0) {
+          await supabase.from('volunteers').upsert(missingInCloud.map(mapVolunteerToDb));
+          const merged = [...remoteVols, ...missingInCloud];
+          setVolunteers(merged);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_volunteers', JSON.stringify(merged));
+        } else if (remoteVols.length > 0) {
+          setVolunteers(remoteVols);
+          if (typeof window !== 'undefined') localStorage.setItem('ngo_volunteers', JSON.stringify(remoteVols));
+        }
+      }
+
+      // 9. Documents & Logs
+      if (!docsRes.error && docsRes.data && docsRes.data.length > 0) {
+        setDocuments(docsRes.data.map(mapDocumentFromDb));
+      }
+      if (!logsRes.error && logsRes.data && logsRes.data.length > 0) {
+        setAuditLogs(logsRes.data.map(mapAuditLogFromDb));
+      }
+
+      return {
+        success: true,
+        syncedCount: pushedBeneficiariesCount,
+        message: pushedBeneficiariesCount > 0
+          ? `سەرکەوتووانە (${pushedBeneficiariesCount}) دۆسیەی سوودمەند لەم ئامێرەوە ڕەوانەی داتابەیسی سەرهێڵ (Supabase) کران.`
+          : 'هەموو داتاکان لەگەڵ داتابەیسی سەرهێڵ (Supabase) هاوکات و یەکخراون.'
+      };
+    } catch (err: any) {
+      console.error('[Cloud Sync Error]:', err);
+      return {
+        success: false,
+        syncedCount: 0,
+        message: err?.message || 'هەڵە ڕوویدا لە کاتی هاوکاتکردن بە داتابەیس'
+      };
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  }, []);
+
+  // Launch initial cloud fetch, network status listeners, and heartbeat
   useEffect(() => {
     let isMounted = true;
-    async function loadCloudData() {
-      try {
-        setIsCloudSyncing(true);
-        const [
-          bensRes,
-          donorsRes,
-          donationsRes,
-          projectsRes,
-          inventoryRes,
-          txRes,
-          volunteersRes,
-          docsRes,
-          logsRes
-        ] = await Promise.all([
-          supabase.from('beneficiaries').select('*'),
-          supabase.from('donors').select('*'),
-          supabase.from('donations').select('*'),
-          supabase.from('projects').select('*'),
-          supabase.from('inventory').select('*'),
-          supabase.from('transactions').select('*'),
-          supabase.from('volunteers').select('*'),
-          supabase.from('documents').select('*'),
-          supabase.from('audit_logs').select('*')
-        ]);
+    checkConnectionHealth().then(online => {
+      if (isMounted) setIsCloudConnected(online);
+    });
+    syncLocalDataToCloud();
 
-        if (!isMounted) return;
+    const handleOnline = () => {
+      checkConnectionHealth();
+      syncLocalDataToCloud();
+    };
+    const handleOffline = () => {
+      setIsCloudConnected(false);
+    };
 
-        if (!bensRes.error && !donorsRes.error) {
-          setIsCloudConnected(true);
-        }
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', checkConnectionHealth);
 
-        if (bensRes.data && bensRes.data.length > 0) {
-          setBeneficiaries(bensRes.data.map(mapBeneficiaryFromDb));
-        }
-        if (donorsRes.data && donorsRes.data.length > 0) {
-          setDonors(donorsRes.data.map(mapDonorFromDb));
-        }
-        if (donationsRes.data && donationsRes.data.length > 0) {
-          setDonations(donationsRes.data.map(mapDonationFromDb));
-        }
-        if (projectsRes.data && projectsRes.data.length > 0) {
-          setProjects(projectsRes.data.map(mapProjectFromDb));
-        }
-        if (inventoryRes.data && inventoryRes.data.length > 0) {
-          setInventory(inventoryRes.data.map(mapInventoryFromDb));
-        }
-        if (txRes.data && txRes.data.length > 0) {
-          setTransactions(txRes.data.map(mapTransactionFromDb));
-        }
-        if (volunteersRes.data && volunteersRes.data.length > 0) {
-          setVolunteers(volunteersRes.data.map(mapVolunteerFromDb));
-        }
-        if (docsRes.data && docsRes.data.length > 0) {
-          setDocuments(docsRes.data.map(mapDocumentFromDb));
-        }
-        if (logsRes.data && logsRes.data.length > 0) {
-          setAuditLogs(logsRes.data.map(mapAuditLogFromDb));
-        }
-      } catch (err) {
-        console.warn('Supabase fetch error, running on local cache:', err);
-      } finally {
-        if (isMounted) setIsCloudSyncing(false);
-      }
-    }
+    const interval = setInterval(() => {
+      checkConnectionHealth();
+    }, 20000);
 
-    loadCloudData();
     return () => {
       isMounted = false;
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', checkConnectionHealth);
+      clearInterval(interval);
+    };
+  }, [checkConnectionHealth, syncLocalDataToCloud]);
+
+  // Realtime multi-client subscription across all open devices and tabs
+  useEffect(() => {
+    const channel = supabase
+      .channel('app_realtime_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'beneficiaries' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const row = mapBeneficiaryFromDb(payload.new);
+          setBeneficiaries(prev => (prev.some(b => b.id === row.id) ? prev : [row, ...prev]));
+        } else if (payload.eventType === 'UPDATE') {
+          const row = mapBeneficiaryFromDb(payload.new);
+          setBeneficiaries(prev => prev.map(b => b.id === row.id ? row : b));
+        } else if (payload.eventType === 'DELETE') {
+          const delId = payload.old?.id;
+          if (delId) setBeneficiaries(prev => prev.filter(b => b.id !== delId));
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'donors' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const row = mapDonorFromDb(payload.new);
+          setDonors(prev => (prev.some(d => d.id === row.id) ? prev : [row, ...prev]));
+        } else if (payload.eventType === 'UPDATE') {
+          const row = mapDonorFromDb(payload.new);
+          setDonors(prev => prev.map(d => d.id === row.id ? row : d));
+        } else if (payload.eventType === 'DELETE') {
+          const delId = payload.old?.id;
+          if (delId) setDonors(prev => prev.filter(d => d.id !== delId));
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const row = mapDonationFromDb(payload.new);
+          setDonations(prev => (prev.some(d => d.id === row.id) ? prev : [row, ...prev]));
+        } else if (payload.eventType === 'UPDATE') {
+          const row = mapDonationFromDb(payload.new);
+          setDonations(prev => prev.map(d => d.id === row.id ? row : d));
+        } else if (payload.eventType === 'DELETE') {
+          const delId = payload.old?.id;
+          if (delId) setDonations(prev => prev.filter(d => d.id !== delId));
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const row = mapProjectFromDb(payload.new);
+          setProjects(prev => (prev.some(p => p.id === row.id) ? prev : [row, ...prev]));
+        } else if (payload.eventType === 'UPDATE') {
+          const row = mapProjectFromDb(payload.new);
+          setProjects(prev => prev.map(p => p.id === row.id ? row : p));
+        } else if (payload.eventType === 'DELETE') {
+          const delId = payload.old?.id;
+          if (delId) setProjects(prev => prev.filter(p => p.id !== delId));
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const row = mapInventoryFromDb(payload.new);
+          setInventory(prev => (prev.some(i => i.id === row.id) ? prev : [row, ...prev]));
+        } else if (payload.eventType === 'UPDATE') {
+          const row = mapInventoryFromDb(payload.new);
+          setInventory(prev => prev.map(i => i.id === row.id ? row : i));
+        } else if (payload.eventType === 'DELETE') {
+          const delId = payload.old?.id;
+          if (delId) setInventory(prev => prev.filter(i => i.id !== delId));
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const row = mapTransactionFromDb(payload.new);
+          setTransactions(prev => (prev.some(t => t.id === row.id) ? prev : [row, ...prev]));
+        } else if (payload.eventType === 'UPDATE') {
+          const row = mapTransactionFromDb(payload.new);
+          setTransactions(prev => prev.map(t => t.id === row.id ? row : t));
+        } else if (payload.eventType === 'DELETE') {
+          const delId = payload.old?.id;
+          if (delId) setTransactions(prev => prev.filter(t => t.id !== delId));
+        }
+      })
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED') {
+          setIsCloudConnected(true);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -604,11 +888,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // Add Beneficiary with Duplicate Detection
-  const addBeneficiary = (data: Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>) => {
+  // Add Beneficiary with Strict Online Validation and Duplicate Detection
+  const addBeneficiary = async (data: Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>) => {
+    // 1. Strict connectivity check
+    const isOnline = await checkConnectionHealth();
+    if (!isOnline) {
+      return {
+        success: false,
+        message: 'داخڵکردن ڕاگیراوە: پەیوەندی بە داتابەیسی سەرهێڵ (Supabase) نییە. بۆ ڕێگریکردن لە ونبوونی داتا لە نێوان ئامێرەکان، پێویستە ئینتەرنێت پەیوەست بێت.'
+      };
+    }
+
     const duplicate = checkDuplicate(data.nationalId, data.phone);
     if (duplicate) {
-      // Add warning notification
       const alertNotif: AppNotification = {
         id: `notif-${Date.now()}`,
         title: 'ئاگاداری ساختەکاری: ناسنامەی دووبارە!',
@@ -629,20 +921,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newBen: Beneficiary = {
       ...data,
-      id: `ben-${Date.now()}`,
+      id: `ben-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       status: data.status || 'pending',
       documents: data.documents || [],
       registeredDate: new Date().toISOString().split('T')[0],
       aidHistory: []
     };
 
+    // 2. Strict mutation to Supabase first
+    const dbRes = await strictSupabaseMutation(
+      supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(newBen)),
+      'سوودمەند'
+    );
+
+    if (!dbRes.success) {
+      return {
+        success: false,
+        message: dbRes.error || 'هەڵە لە تۆمارکردنی سوودمەند لە داتابەیسی سەرهێڵ'
+      };
+    }
+
+    // 3. Only on confirmed Supabase success, update local state
     setBeneficiaries(prev => [newBen, ...prev]);
-    safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(newBen)));
-    logAction('تۆمارکردنی سوودمەند', `سوودمەند [${newBen.fullName}] بە دۆخی [${newBen.status === 'pending' ? 'لەژێر لێکۆڵینەوە' : 'پەسەندکراوە'}] تۆمارکرا`);
+    logAction('تۆمارکردنی سوودمەند', `سوودمەند [${newBen.fullName}] لە داتابەیسی سەرهێڵ تۆمارکرا`);
     return { success: true };
   };
 
-  const addBeneficiariesBulk = (items: Array<Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>>) => {
+  const addBeneficiariesBulk = async (items: Array<Omit<Beneficiary, 'id' | 'registeredDate' | 'aidHistory'>>) => {
+    const isOnline = await checkConnectionHealth();
+    if (!isOnline) {
+      return {
+        added: 0,
+        skippedDuplicates: 0,
+        total: items.length,
+        success: false,
+        message: 'داخڵکردنی بەکۆمەڵ ڕاگیراوە: پەیوەندی بە داتابەیسی سەرهێڵ (Supabase) بەردەست نییە.'
+      };
+    }
+
     let addedCount = 0;
     let skippedCount = 0;
     const newItems: Beneficiary[] = [];
@@ -664,7 +980,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const newBen: Beneficiary = {
         ...data,
-        id: `ben-${Date.now()}-${index}`,
+        id: `ben-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
         status: data.status || 'pending',
         documents: data.documents || [],
         registeredDate: new Date().toISOString().split('T')[0],
@@ -675,30 +991,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (newItems.length > 0) {
+      // Chunked strict upload
+      for (let i = 0; i < newItems.length; i += 50) {
+        const chunk = newItems.slice(i, i + 50);
+        const dbRes = await strictSupabaseMutation(
+          supabase.from('beneficiaries').upsert(chunk.map(mapBeneficiaryToDb)),
+          'هاوردەکردنی بەکۆمەڵ'
+        );
+        if (!dbRes.success) {
+          return {
+            added: 0,
+            skippedDuplicates: skippedCount,
+            total: items.length,
+            success: false,
+            message: dbRes.error
+          };
+        }
+      }
+
       setBeneficiaries(prev => [...newItems, ...prev]);
-      safeSupabaseSync(supabase.from('beneficiaries').upsert(newItems.map(mapBeneficiaryToDb)));
-      logAction('هاوردەکردنی بەکۆمەڵ', `ژمارەی (${addedCount}) سوودمەند بە فایلی ئێکسڵ هاوردەکران بۆ سیستەم`, 'create');
+      logAction('هاوردەکردنی بەکۆمەڵ', `ژمارەی (${addedCount}) سوودمەند لە داتابەیسی سەرهێڵ تۆمارکران`, 'create');
     }
 
-    return { added: addedCount, skippedDuplicates: skippedCount, total: items.length };
+    return { added: addedCount, skippedDuplicates: skippedCount, total: items.length, success: true };
   };
 
-  const updateBeneficiary = (updated: Beneficiary) => {
+  const updateBeneficiary = async (updated: Beneficiary) => {
+    const isOnline = await checkConnectionHealth();
+    if (!isOnline) {
+      return { success: false, message: 'دەستکاریکردن ڕاگیراوە: پەیوەندی بە داتابەیسی سەرهێڵ بەردەست نییە.' };
+    }
+    const dbRes = await strictSupabaseMutation(
+      supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updated)),
+      'دەستکاری سوودمەند'
+    );
+    if (!dbRes.success) {
+      return { success: false, message: dbRes.error };
+    }
     setBeneficiaries(prev => prev.map(b => b.id === updated.id ? { ...updated, documents: updated.documents || [] } : b));
-    safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updated)));
-    logAction('نوێکردنەوەی سوودمەند', `زانیارییەکانی [${updated.fullName}] و دۆسیەکەی دەستکاری کرا`, 'update');
+    logAction('نوێکردنەوەی سوودمەند', `زانیارییەکانی [${updated.fullName}] لە داتابەیسی سەرهێڵ نوێکرایەوە`, 'update');
+    return { success: true };
   };
 
-  const deleteBeneficiary = (id: string) => {
+  const deleteBeneficiary = async (id: string) => {
+    const isOnline = await checkConnectionHealth();
+    if (!isOnline) {
+      return { success: false, message: 'سڕینەوە ڕاگیراوە: پەیوەندی بە داتابەیسی سەرهێڵ بەردەست نییە.' };
+    }
     const target = beneficiaries.find(b => b.id === id);
-    if (!target) return;
+    if (!target) return { success: false, message: 'سوودمەند نەدۆزرایەوە' };
+
+    const dbRes = await strictSupabaseMutation(
+      supabase.from('beneficiaries').delete().eq('id', id),
+      'سڕینەوەی سوودمەند'
+    );
+    if (!dbRes.success) {
+      return { success: false, message: dbRes.error };
+    }
 
     const targetName = target.fullName;
-
-    // 1. Remove beneficiary from beneficiaries list
     const nextBeneficiaries = beneficiaries.filter(b => b.id !== id);
-
-    // 2. Remove financial transactions associated with this beneficiary's aid
     const nextTransactions = transactions.filter(t => {
       if (t.id.startsWith('tx-aid-') && (t.description.includes(targetName) || (target.id && t.description.includes(target.id)))) {
         return false;
@@ -706,7 +1058,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     });
 
-    // 3. Recalculate affected projects' spent budgets and beneficiary counts
     const nextProjects = projects.map(p => {
       const m = computeProjectLiveMetrics(p.id, p.title, donations, nextTransactions, nextBeneficiaries);
       return {
@@ -721,8 +1072,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTransactions(nextTransactions);
     setProjects(nextProjects);
 
-    safeSupabaseSync(supabase.from('beneficiaries').delete().eq('id', id));
-    logAction('سڕینەوەی سوودمەند', `دۆسیەی [${target.fullName}] لە سیستەم سڕایەوە و هاوسەنگیی دارایی پڕۆژەکان نوێکرانەوە`, 'delete');
+    logAction('سڕینەوەی سوودمەند', `دۆسیەی [${target.fullName}] لە داتابەیسی سەرهێڵ سڕایەوە`, 'delete');
+    return { success: true };
   };
 
   const addBeneficiaryDocument = (beneficiaryId: string, doc: Omit<BeneficiaryDocument, 'id' | 'uploadDate'>) => {
@@ -1818,7 +2169,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetAllData,
         clearToEmptyDatabase,
         isCloudConnected,
-        isCloudSyncing
+        isCloudSyncing,
+        syncLocalDataToCloud,
+        checkConnectionHealth
       }}
     >
       {children}

@@ -26,7 +26,49 @@ const supabaseAnonKey =
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Safe background sync executor that gracefully handles PromiseLike Postgrest builders
+/**
+ * Health check to verify live connectivity to Supabase
+ */
+export const checkSupabaseConnection = async (): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from('beneficiaries').select('id').limit(1);
+    return !error;
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
+ * Strict database mutation helper:
+ * Guarantees that mutations MUST succeed on the cloud PostgreSQL database.
+ * If Supabase is unreachable or returns an error, this will return { success: false, error }.
+ */
+export const strictSupabaseMutation = async (
+  promiseLike: PromiseLike<any>,
+  entityName: string = 'داتا'
+): Promise<{ success: boolean; error?: string; data?: any }> => {
+  try {
+    const res = await promiseLike;
+    if (res?.error) {
+      const errMsg = res.error.message || JSON.stringify(res.error);
+      console.error(`[Supabase Strict Mutation Error - ${entityName}]:`, errMsg);
+      return {
+        success: false,
+        error: `هەڵە لە تۆمارکردن لە داتابەیسی سەرهێڵ (${entityName}): ${errMsg}`
+      };
+    }
+    return { success: true, data: res?.data };
+  } catch (err: any) {
+    const errMsg = err?.message || 'پەیوەندی بە داتابەیسی هەورەوە پچڕاوە';
+    console.error(`[Supabase Network Failure - ${entityName}]:`, errMsg);
+    return {
+      success: false,
+      error: `پەیوەندی لەگەڵ سێرڤەری هەور نەبەسترا (${entityName}): ${errMsg}`
+    };
+  }
+};
+
+// Background sync executor that logs warnings (for secondary/audit sync)
 export const safeSupabaseSync = async (promiseLike: PromiseLike<any>) => {
   try {
     const res = await promiseLike;
@@ -61,7 +103,7 @@ export const mapBeneficiaryToDb = (b: Beneficiary) => ({
   need_category: b.needCategory || 'poor',
   status: b.status || 'pending',
   notes: b.notes || '',
-  registered_date: b.registeredDate,
+  registered_date: b.registeredDate || new Date().toISOString().split('T')[0],
   aid_history: b.aidHistory || [],
   documents: b.documents || [],
   location: b.location || {},
@@ -107,7 +149,7 @@ export const mapDonorToDb = (d: Donor) => ({
   total_donations_usd: d.totalDonationsUSD || 0,
   status: d.status || 'active',
   notes: d.notes || '',
-  joined_date: d.joinedDate,
+  joined_date: d.joinedDate || new Date().toISOString().split('T')[0],
   updated_at: new Date().toISOString()
 });
 
@@ -128,27 +170,35 @@ export const mapDonorFromDb = (row: any): Donor => ({
 // ==========================================
 // Donations Mapper & API
 // ==========================================
-export const mapDonationToDb = (don: Donation) => ({
-  id: don.id,
-  donor_id: don.donorId || '',
-  donor_name: don.donorName,
-  amount: don.amount,
-  currency: don.currency || 'IQD',
-  exchange_rate_at_date: don.exchangeRateAtDate || 150000,
-  converted_amount: don.convertedAmount || 0,
-  exchange_rate_source: don.exchangeRateSource || '',
-  date: don.date,
-  method: don.method,
-  project_id: don.projectId || '',
-  project_name: don.projectName || '',
-  receipt_number: don.receiptNumber,
-  category: don.category || 'cash',
-  category_label: don.categoryLabel || '',
-  item_details: don.itemDetails || {},
-  status: don.status || 'completed',
-  notes: don.notes || '',
-  updated_at: new Date().toISOString()
-});
+export const mapDonationToDb = (don: Donation) => {
+  const isIQD = (don.currency || 'IQD') === 'IQD';
+  const rawRate = Number(don.exchangeRateAtDate) || 150000;
+  const ratePerDollar = rawRate > 10000 ? rawRate / 100 : rawRate; // normalize 150000 -> 1500
+  const amtIQD = isIQD ? don.amount : Math.round(don.amount * ratePerDollar);
+  const amtUSD = isIQD ? (ratePerDollar > 0 ? Number((don.amount / ratePerDollar).toFixed(2)) : 0) : don.amount;
+
+  return {
+    id: don.id,
+    donor_id: don.donorId || '',
+    donor_name: don.donorName,
+    amount: don.amount,
+    currency: don.currency || 'IQD',
+    amount_iqd: amtIQD,
+    amount_usd: amtUSD,
+    exchange_rate: rawRate,
+    destination: don.projectName || 'خێرخوازی گشتی',
+    date: don.date || new Date().toISOString().split('T')[0],
+    method: don.method,
+    project_id: don.projectId || '',
+    project_name: don.projectName || '',
+    receipt_number: don.receiptNumber,
+    category: don.category || 'cash',
+    item_details: don.itemDetails || {},
+    status: don.status || 'completed',
+    notes: don.notes || '',
+    updated_at: new Date().toISOString()
+  };
+};
 
 export const mapDonationFromDb = (row: any): Donation => ({
   id: row.id,
@@ -156,16 +206,15 @@ export const mapDonationFromDb = (row: any): Donation => ({
   donorName: row.donor_name,
   amount: Number(row.amount) || 0,
   currency: row.currency || 'IQD',
-  exchangeRateAtDate: row.exchange_rate_at_date ? Number(row.exchange_rate_at_date) : undefined,
-  convertedAmount: row.converted_amount ? Number(row.converted_amount) : undefined,
-  exchangeRateSource: row.exchange_rate_source || undefined,
+  exchangeRateAtDate: row.exchange_rate ? Number(row.exchange_rate) : undefined,
+  convertedAmount: row.currency === 'USD' ? Number(row.amount_iqd) : Number(row.amount_usd),
   date: row.date,
   method: row.method,
   projectId: row.project_id || undefined,
   projectName: row.project_name || undefined,
   receiptNumber: row.receipt_number,
   category: row.category || 'cash',
-  categoryLabel: row.category_label || undefined,
+  categoryLabel: row.category === 'cash' ? 'نەختینەیی' : 'کەلوپەل و هاوکاری',
   itemDetails: row.item_details || undefined,
   status: row.status || 'completed',
   notes: row.notes || ''
@@ -181,7 +230,7 @@ export const mapProjectToDb = (p: Project) => ({
   description: p.description,
   target_budget_usd: p.targetBudgetUSD || 0,
   target_budget_iqd: p.targetBudgetIQD || 0,
-  budget_currency: p.budgetCurrency || 'USD',
+  preferred_currency: p.budgetCurrency || 'USD',
   raised_budget_usd: p.raisedBudgetUSD || 0,
   raised_budget_iqd: p.raisedBudgetIQD || 0,
   spent_budget_usd: p.spentBudgetUSD || 0,
@@ -204,7 +253,7 @@ export const mapProjectFromDb = (row: any): Project => ({
   description: row.description,
   targetBudgetUSD: Number(row.target_budget_usd) || 0,
   targetBudgetIQD: row.target_budget_iqd ? Number(row.target_budget_iqd) : undefined,
-  budgetCurrency: row.budget_currency || 'USD',
+  budgetCurrency: (row.preferred_currency || row.budget_currency || 'USD') as 'USD' | 'IQD',
   raisedBudgetUSD: Number(row.raised_budget_usd) || 0,
   raisedBudgetIQD: row.raised_budget_iqd ? Number(row.raised_budget_iqd) : undefined,
   spentBudgetUSD: Number(row.spent_budget_usd) || 0,
@@ -229,15 +278,9 @@ export const mapInventoryToDb = (item: InventoryItem) => ({
   quantity: item.quantity,
   unit: item.unit,
   location: item.location,
-  min_alert_threshold: item.minAlertThreshold,
-  last_updated: item.lastUpdated,
-  source_receipt_number: item.sourceReceiptNumber || null,
-  source_donor_name: item.sourceDonorName || null,
-  source_donation_id: item.sourceDonationId || null,
-  donor_id: item.donorId || null,
-  estimated_market_value: item.estimatedMarketValue || 0,
-  contents_description: item.contentsDescription || '',
-  notes: item.notes || '',
+  min_alert_threshold: item.minAlertThreshold || 10,
+  last_updated: item.lastUpdated || new Date().toISOString().split('T')[0],
+  distributions_count: 0,
   updated_at: new Date().toISOString()
 });
 
@@ -249,48 +292,51 @@ export const mapInventoryFromDb = (row: any): InventoryItem => ({
   unit: row.unit,
   location: row.location,
   minAlertThreshold: Number(row.min_alert_threshold) || 10,
-  lastUpdated: row.last_updated,
-  sourceReceiptNumber: row.source_receipt_number || undefined,
-  sourceDonorName: row.source_donor_name || undefined,
-  sourceDonationId: row.source_donation_id || undefined,
-  donorId: row.donor_id || undefined,
-  estimatedMarketValue: row.estimated_market_value ? Number(row.estimated_market_value) : undefined,
-  contentsDescription: row.contents_description || undefined,
-  notes: row.notes || undefined
+  lastUpdated: row.last_updated
 });
 
 // ==========================================
 // Financial Transactions Mapper & API
 // ==========================================
-export const mapTransactionToDb = (tx: FinancialTransaction) => ({
-  id: tx.id,
-  type: tx.type,
-  amount: tx.amount,
-  currency: tx.currency,
-  exchange_rate_at_date: tx.exchangeRateAtDate || 150000,
-  converted_amount: tx.convertedAmount || 0,
-  category: tx.category,
-  description: tx.description,
-  date: tx.date,
-  recorded_by: tx.recordedBy,
-  receipt_number: tx.receiptNumber || '',
-  related_project_id: tx.relatedProjectId || '',
-  updated_at: new Date().toISOString()
-});
+export const mapTransactionToDb = (tx: FinancialTransaction) => {
+  const isIQD = tx.currency === 'IQD';
+  const rawRate = Number(tx.exchangeRateAtDate) || 150000;
+  const ratePerDollar = rawRate > 10000 ? rawRate / 100 : rawRate;
+  const amtIQD = isIQD ? tx.amount : Math.round(tx.amount * ratePerDollar);
+  const amtUSD = isIQD ? (ratePerDollar > 0 ? Number((tx.amount / ratePerDollar).toFixed(2)) : 0) : tx.amount;
+
+  return {
+    id: tx.id,
+    type: tx.type,
+    amount: tx.amount,
+    currency: tx.currency,
+    amount_iqd: amtIQD,
+    amount_usd: amtUSD,
+    exchange_rate: rawRate,
+    category: tx.category,
+    description: tx.description,
+    date: tx.date || new Date().toISOString().split('T')[0],
+    recorded_by: tx.recordedBy,
+    receipt_number: tx.receiptNumber || '',
+    project_id: tx.relatedProjectId || '',
+    project_title: '',
+    updated_at: new Date().toISOString()
+  };
+};
 
 export const mapTransactionFromDb = (row: any): FinancialTransaction => ({
   id: row.id,
   type: row.type,
   amount: Number(row.amount) || 0,
   currency: row.currency,
-  exchangeRateAtDate: row.exchange_rate_at_date ? Number(row.exchange_rate_at_date) : undefined,
-  convertedAmount: row.converted_amount ? Number(row.converted_amount) : undefined,
+  exchangeRateAtDate: row.exchange_rate ? Number(row.exchange_rate) : undefined,
+  convertedAmount: row.currency === 'USD' ? Number(row.amount_iqd) : Number(row.amount_usd),
   category: row.category,
   description: row.description,
   date: row.date,
   recordedBy: row.recorded_by,
   receiptNumber: row.receipt_number || undefined,
-  relatedProjectId: row.related_project_id || undefined
+  relatedProjectId: row.project_id || undefined
 });
 
 // ==========================================
@@ -300,16 +346,13 @@ export const mapVolunteerToDb = (v: Volunteer) => ({
   id: v.id,
   full_name: v.fullName,
   phone: v.phone,
-  email: v.email || '',
   governorate: v.governorate,
   skills: v.skills || [],
   hours_logged: v.hoursLogged || 0,
   availability: v.availability,
   blood_type: v.bloodType,
   badge_number: v.badgeNumber,
-  assigned_project_id: v.assignedProjectId || '',
-  status: v.status || 'active',
-  joined_date: v.joinedDate,
+  joined_date: v.joinedDate || new Date().toISOString().split('T')[0],
   updated_at: new Date().toISOString()
 });
 
@@ -324,8 +367,7 @@ export const mapVolunteerFromDb = (row: any): Volunteer => ({
   availability: row.availability,
   bloodType: row.blood_type,
   badgeNumber: row.badge_number,
-  assignedProjectId: row.assigned_project_id || undefined,
-  status: row.status || 'active',
+  status: 'active',
   joinedDate: row.joined_date
 });
 
@@ -337,10 +379,10 @@ export const mapDocumentToDb = (doc: DocumentItem) => ({
   title: doc.title,
   category: doc.category,
   file_type: doc.fileType,
-  file_size: doc.fileSize,
-  upload_date: doc.uploadDate,
+  file_size: parseFloat(doc.fileSize) || 0,
+  upload_date: doc.uploadDate || new Date().toISOString().split('T')[0],
   related_entity: doc.relatedEntity,
-  url: doc.url || '',
+  file_data: doc.url || '',
   updated_at: new Date().toISOString()
 });
 
@@ -349,10 +391,10 @@ export const mapDocumentFromDb = (row: any): DocumentItem => ({
   title: row.title,
   category: row.category,
   fileType: row.file_type,
-  fileSize: row.file_size,
+  fileSize: row.file_size ? `${row.file_size} KB` : '0 KB',
   uploadDate: row.upload_date,
   relatedEntity: row.related_entity,
-  url: row.url || undefined
+  url: row.file_data || undefined
 });
 
 // ==========================================
@@ -362,7 +404,6 @@ export const mapAuditLogToDb = (log: AuditLog) => ({
   id: log.id,
   timestamp: log.timestamp,
   user_name: log.userName,
-  user_role: log.userRole || 'admin',
   action: log.action,
   details: log.details,
   type: log.type
@@ -372,7 +413,7 @@ export const mapAuditLogFromDb = (row: any): AuditLog => ({
   id: row.id,
   timestamp: row.timestamp,
   userName: row.user_name,
-  userRole: row.user_role || 'admin',
+  userRole: 'admin',
   action: row.action,
   details: row.details,
   type: row.type
