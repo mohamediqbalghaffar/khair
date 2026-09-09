@@ -10,7 +10,7 @@ interface Props {
 }
 
 export const OnlinePaymentModal: React.FC<Props> = ({ isOpen, onClose, onReceiptGenerated }) => {
-  const { addDonation, addTransaction, donors, projects } = useApp();
+  const { addDonation, donors, projects } = useApp();
 
   const [gateway, setGateway] = useState<'fib' | 'fastpay' | 'zaincash' | 'card'>('fib');
   const [amount, setAmount] = useState<number>(50000);
@@ -29,30 +29,17 @@ export const OnlinePaymentModal: React.FC<Props> = ({ isOpen, onClose, onReceipt
     setIsProcessing(true);
 
     setTimeout(() => {
-      // 1. Add donation
+      // 1. Add donation (automatically creates transaction, updates donor and project)
       const newDonation = addDonation({
         donorId: donors[0]?.id || 'donor-anon',
-        donorName,
+        donorName: donorName || 'بەخشەری ئۆنلاین',
         amount,
         currency,
         date: new Date().toISOString().split('T')[0],
         method: gateway === 'fib' ? 'FIB' : gateway === 'fastpay' ? 'FastPay' : gateway === 'zaincash' ? 'ZainCash' : 'حەواڵەی بانکی',
         projectId: selectedProjectId || undefined,
         projectName: projects.find(p => p.id === selectedProjectId)?.title || 'سندووقی گشتی هاوکاری',
-        notes
-      });
-
-      // 2. Add income transaction
-      addTransaction({
-        type: 'income',
-        amount,
-        currency,
-        category: 'بەخشینی ئۆنلاین',
-        date: new Date().toISOString().split('T')[0],
-        description: `بەخشینی ئەلیکترۆنی لەلایەن (${donorName}) لە ڕێگەی ${gateway.toUpperCase()}`,
-        recordedBy: 'دەروازەی پارەدانی ئۆنلاین',
-        relatedProjectId: selectedProjectId || undefined,
-        receiptNumber: newDonation.receiptNumber
+        notes: notes ? `بەخشینی ئەلیکترۆنی لە ڕێگەی ${gateway.toUpperCase()} - ${notes}` : `بەخشینی ئەلیکترۆنی لە ڕێگەی ${gateway.toUpperCase()}`
       });
 
       setIsProcessing(false);

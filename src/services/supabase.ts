@@ -281,6 +281,13 @@ export const mapInventoryToDb = (item: InventoryItem) => ({
   min_alert_threshold: item.minAlertThreshold || 10,
   last_updated: item.lastUpdated || new Date().toISOString().split('T')[0],
   distributions_count: 0,
+  source_receipt_number: item.sourceReceiptNumber || null,
+  source_donor_name: item.sourceDonorName || null,
+  source_donation_id: item.sourceDonationId || null,
+  donor_id: item.donorId || null,
+  estimated_market_value: item.estimatedMarketValue || 0,
+  contents_description: item.contentsDescription || null,
+  notes: item.notes || null,
   updated_at: new Date().toISOString()
 });
 
@@ -292,7 +299,14 @@ export const mapInventoryFromDb = (row: any): InventoryItem => ({
   unit: row.unit,
   location: row.location,
   minAlertThreshold: Number(row.min_alert_threshold) || 10,
-  lastUpdated: row.last_updated
+  lastUpdated: row.last_updated,
+  sourceReceiptNumber: row.source_receipt_number || undefined,
+  sourceDonorName: row.source_donor_name || undefined,
+  sourceDonationId: row.source_donation_id || undefined,
+  donorId: row.donor_id || undefined,
+  estimatedMarketValue: row.estimated_market_value ? Number(row.estimated_market_value) : undefined,
+  contentsDescription: row.contents_description || undefined,
+  notes: row.notes || undefined
 });
 
 // ==========================================

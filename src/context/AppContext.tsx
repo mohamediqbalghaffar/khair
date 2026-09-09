@@ -421,9 +421,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!donationsRes.error) {
         const remoteDonations = (donationsRes.data || []).map(mapDonationFromDb);
         const remoteIds = new Set(remoteDonations.map(d => d.id));
+        const remoteReceipts = new Set(remoteDonations.map(d => d.receiptNumber).filter(Boolean));
         const savedDonationsRaw = typeof window !== 'undefined' ? localStorage.getItem('ngo_donations') : null;
         const localDonations: Donation[] = savedDonationsRaw ? JSON.parse(savedDonationsRaw) : [];
-        const missingInCloud = localDonations.filter(d => !remoteIds.has(d.id));
+        
+        const missingInCloud = localDonations.filter(
+          d => !remoteIds.has(d.id) && (!d.receiptNumber || !remoteReceipts.has(d.receiptNumber))
+        );
 
         if (missingInCloud.length > 0) {
           await supabase.from('donations').upsert(missingInCloud.map(mapDonationToDb));
@@ -458,29 +462,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // 6. Inventory Reconciliation
       if (!inventoryRes.error) {
         const remoteInv = (inventoryRes.data || []).map(mapInventoryFromDb);
-        const remoteIds = new Set(remoteInv.map(i => i.id));
         const savedInvRaw = typeof window !== 'undefined' ? localStorage.getItem('ngo_inventory') : null;
         const localInv: InventoryItem[] = savedInvRaw ? JSON.parse(savedInvRaw) : [];
-        const missingInCloud = localInv.filter(i => !remoteIds.has(i.id));
+
+        const mergedMap = new Map<string, InventoryItem>();
+        const seenReceipts = new Set<string>();
+        const seenDonationIds = new Set<string>();
+
+        // Remote inventory takes primary precedence
+        for (const item of remoteInv) {
+          if (item.sourceReceiptNumber && seenReceipts.has(item.sourceReceiptNumber)) continue;
+          if (item.sourceDonationId && seenDonationIds.has(item.sourceDonationId)) continue;
+          
+          mergedMap.set(item.id, item);
+          if (item.sourceReceiptNumber) seenReceipts.add(item.sourceReceiptNumber);
+          if (item.sourceDonationId) seenDonationIds.add(item.sourceDonationId);
+        }
+
+        const missingInCloud: InventoryItem[] = [];
+        for (const item of localInv) {
+          if (mergedMap.has(item.id)) continue;
+          if (item.sourceReceiptNumber && seenReceipts.has(item.sourceReceiptNumber)) continue;
+          if (item.sourceDonationId && seenDonationIds.has(item.sourceDonationId)) continue;
+
+          mergedMap.set(item.id, item);
+          if (item.sourceReceiptNumber) seenReceipts.add(item.sourceReceiptNumber);
+          if (item.sourceDonationId) seenDonationIds.add(item.sourceDonationId);
+          missingInCloud.push(item);
+        }
 
         if (missingInCloud.length > 0) {
           await supabase.from('inventory').upsert(missingInCloud.map(mapInventoryToDb));
-          const merged = [...remoteInv, ...missingInCloud];
-          setInventory(merged);
-          if (typeof window !== 'undefined') localStorage.setItem('ngo_inventory', JSON.stringify(merged));
-        } else if (remoteInv.length > 0) {
-          setInventory(remoteInv);
-          if (typeof window !== 'undefined') localStorage.setItem('ngo_inventory', JSON.stringify(remoteInv));
         }
+
+        const finalMerged = Array.from(mergedMap.values());
+        setInventory(finalMerged);
+        if (typeof window !== 'undefined') localStorage.setItem('ngo_inventory', JSON.stringify(finalMerged));
       }
 
       // 7. Transactions Reconciliation
       if (!txRes.error) {
         const remoteTx = (txRes.data || []).map(mapTransactionFromDb);
         const remoteIds = new Set(remoteTx.map(t => t.id));
+        const remoteReceipts = new Set(remoteTx.filter(t => t.type === 'income').map(t => t.receiptNumber).filter(Boolean));
         const savedTxRaw = typeof window !== 'undefined' ? localStorage.getItem('ngo_transactions') : null;
         const localTx: FinancialTransaction[] = savedTxRaw ? JSON.parse(savedTxRaw) : [];
-        const missingInCloud = localTx.filter(t => !remoteIds.has(t.id));
+        
+        const missingInCloud = localTx.filter(
+          t => !remoteIds.has(t.id) && (t.type !== 'income' || !t.receiptNumber || !remoteReceipts.has(t.receiptNumber))
+        );
 
         if (missingInCloud.length > 0) {
           await supabase.from('transactions').upsert(missingInCloud.map(mapTransactionToDb));
@@ -685,10 +715,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (donations.length === 0) return;
     setInventory(prevInv => {
       const existingReceipts = new Set(prevInv.map(i => i.sourceReceiptNumber).filter(Boolean));
+      const existingDonationIds = new Set(prevInv.map(i => i.sourceDonationId).filter(Boolean));
+      const existingIds = new Set(prevInv.map(i => i.id));
       const missingItems: InventoryItem[] = [];
 
       donations.forEach(don => {
-        if (don.category && don.category !== 'cash' && !existingReceipts.has(don.receiptNumber)) {
+        if (
+          don.category &&
+          don.category !== 'cash' &&
+          !existingReceipts.has(don.receiptNumber) &&
+          !existingDonationIds.has(don.id) &&
+          !existingIds.has(`inv-don-${don.id}`)
+        ) {
           const invCategory =
             don.category === 'food_basket' ? 'خۆراک' :
             don.category === 'clothes' ? 'پۆشاک' :
@@ -701,7 +739,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ? don.projectName
             : 'هەولێر - کۆگای سەرەکی ڕێکخراو';
 
-          missingItems.push({
+          const newItem: InventoryItem = {
             id: `inv-don-${don.id}`,
             name: don.categoryLabel || 'کۆمەکی بەخشراو',
             category: invCategory,
@@ -717,7 +755,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             estimatedMarketValue: don.itemDetails?.estimatedMarketValue || don.amount,
             contentsDescription: don.itemDetails?.contentsDescription,
             notes: don.notes
-          });
+          };
+          missingItems.push(newItem);
+          safeSupabaseSync(supabase.from('inventory').upsert(mapInventoryToDb(newItem)));
         }
       });
 
@@ -819,20 +859,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTransactions(sanitizedTransactions);
     }
 
-    // 2. Purge orphaned inventory items (items created from donations that were deleted)
+    // 2. Purge orphaned inventory items & de-duplicate inventory
     const validDonationIds = new Set(donations.map(d => d.id));
-    const sanitizedInventory = inventory.filter(i => {
-      if (i.sourceDonationId && !validDonationIds.has(i.sourceDonationId)) {
-        return false;
-      }
-      if (i.sourceReceiptNumber && !validReceiptNumbers.has(i.sourceReceiptNumber)) {
-        return false;
-      }
-      return true;
-    });
+    const seenInvIds = new Set<string>();
+    const seenReceipts = new Set<string>();
+    const seenDonationIds = new Set<string>();
+    const sanitizedInventory: InventoryItem[] = [];
+
+    for (const item of inventory) {
+      // Purge orphaned items
+      if (item.sourceDonationId && !validDonationIds.has(item.sourceDonationId)) continue;
+      if (item.sourceReceiptNumber && !validReceiptNumbers.has(item.sourceReceiptNumber)) continue;
+
+      // De-duplicate
+      if (seenInvIds.has(item.id)) continue;
+      if (item.sourceReceiptNumber && seenReceipts.has(item.sourceReceiptNumber)) continue;
+      if (item.sourceDonationId && seenDonationIds.has(item.sourceDonationId)) continue;
+
+      seenInvIds.add(item.id);
+      if (item.sourceReceiptNumber) seenReceipts.add(item.sourceReceiptNumber);
+      if (item.sourceDonationId) seenDonationIds.add(item.sourceDonationId);
+      sanitizedInventory.push(item);
+    }
 
     if (sanitizedInventory.length !== inventory.length) {
       setInventory(sanitizedInventory);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ngo_inventory', JSON.stringify(sanitizedInventory));
+      }
     }
 
     // 3. Reconcile all projects' raised/spent budgets and beneficiary counts
@@ -1307,7 +1361,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         : 'هەولێر - کۆگای سەرەکی ڕێکخراو';
 
       const newInvItem: InventoryItem = {
-        id: `inv-don-${Date.now()}`,
+        id: `inv-don-${newDonation.id}`,
         name: data.categoryLabel || 'کۆمەکی بەخشراو',
         category: invCategory,
         quantity: data.itemDetails?.quantity || 1,
@@ -1324,7 +1378,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notes: data.notes
       };
 
-      setInventory(prev => [newInvItem, ...prev]);
+      setInventory(prev => {
+        if (prev.some(i => i.id === newInvItem.id || i.sourceDonationId === newDonation.id || (i.sourceReceiptNumber && i.sourceReceiptNumber === receiptNumber))) {
+          return prev;
+        }
+        return [newInvItem, ...prev];
+      });
       safeSupabaseSync(supabase.from('inventory').upsert(mapInventoryToDb(newInvItem)));
       logAction('تۆمار لە کۆگا', `کەرەستەی بەخشراو [${newInvItem.name}] بە بڕی (${newInvItem.quantity} ${newInvItem.unit}) لە پسوولەی ${receiptNumber} خرایە کۆگاوە`, 'create');
     }
@@ -1495,7 +1554,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return updatedInv;
         } else {
           const newInvItem: InventoryItem = {
-            id: `inv-don-${Date.now()}`,
+            id: `inv-don-${updated.id}`,
             name: updated.categoryLabel || 'کۆمەکی بەخشراو',
             category: invCategory,
             quantity: updated.itemDetails?.quantity || 1,
