@@ -65,6 +65,7 @@ export const DonorsView: React.FC = () => {
 
   // New Donation Form State with Rich Categories & Details
   const [donationAmountStr, setDonationAmountStr] = useState('100000');
+  const [donationUnitPriceStr, setDonationUnitPriceStr] = useState('');
   const [donationEstValueStr, setDonationEstValueStr] = useState('');
   const [donationForm, setDonationForm] = useState({
     donorId: '',
@@ -98,6 +99,7 @@ export const DonorsView: React.FC = () => {
   const [editingDonation, setEditingDonation] = useState<Donation | null>(null);
   const [isEditDonationModalOpen, setIsEditDonationModalOpen] = useState(false);
   const [editAmountStr, setEditAmountStr] = useState('');
+  const [editUnitPriceStr, setEditUnitPriceStr] = useState('');
   const [editEstValueStr, setEditEstValueStr] = useState('');
   const [editDonationForm, setEditDonationForm] = useState({
     donorId: '',
@@ -180,6 +182,7 @@ export const DonorsView: React.FC = () => {
   // Reset donation form
   const resetDonationForm = (donorId?: string) => {
     setDonationAmountStr('100000');
+    setDonationUnitPriceStr('');
     setDonationEstValueStr('');
     setDonationForm({
       donorId: donorId || (donors.length > 0 ? donors[0].id : ''),
@@ -200,6 +203,82 @@ export const DonorsView: React.FC = () => {
     });
     setCustomAddRate(null);
     setIsCustomAddRateOpen(false);
+  };
+
+  // Linked unit price & total value calculations for Add Donation
+  const handleAddDonationUnitPriceChange = (val: string) => {
+    const clean = val.replace(/[^0-9]/g, '');
+    setDonationUnitPriceStr(clean);
+    const unitP = clean ? parseInt(clean, 10) : 0;
+    const qty = Number(donationForm.quantity) || 1;
+    if (unitP > 0) {
+      setDonationEstValueStr((unitP * qty).toString());
+    } else {
+      setDonationEstValueStr('');
+    }
+  };
+
+  const handleAddDonationTotalValueChange = (val: string) => {
+    const clean = val.replace(/[^0-9]/g, '');
+    setDonationEstValueStr(clean);
+    const totalV = clean ? parseInt(clean, 10) : 0;
+    const qty = Number(donationForm.quantity) || 1;
+    if (totalV > 0 && qty > 0) {
+      setDonationUnitPriceStr(Math.round(totalV / qty).toString());
+    } else {
+      setDonationUnitPriceStr('');
+    }
+  };
+
+  const handleAddDonationQuantityChange = (newQty: number) => {
+    setDonationForm(prev => ({ ...prev, quantity: newQty }));
+    const unitP = donationUnitPriceStr ? parseInt(donationUnitPriceStr.replace(/[^0-9]/g, ''), 10) : 0;
+    if (unitP > 0) {
+      setDonationEstValueStr((unitP * newQty).toString());
+    } else {
+      const totalV = donationEstValueStr ? parseInt(donationEstValueStr.replace(/[^0-9]/g, ''), 10) : 0;
+      if (totalV > 0 && newQty > 0) {
+        setDonationUnitPriceStr(Math.round(totalV / newQty).toString());
+      }
+    }
+  };
+
+  // Linked unit price & total value calculations for Edit Donation
+  const handleEditDonationUnitPriceChange = (val: string) => {
+    const clean = val.replace(/[^0-9]/g, '');
+    setEditUnitPriceStr(clean);
+    const unitP = clean ? parseInt(clean, 10) : 0;
+    const qty = Number(editDonationForm.quantity) || 1;
+    if (unitP > 0) {
+      setEditEstValueStr((unitP * qty).toString());
+    } else {
+      setEditEstValueStr('');
+    }
+  };
+
+  const handleEditDonationTotalValueChange = (val: string) => {
+    const clean = val.replace(/[^0-9]/g, '');
+    setEditEstValueStr(clean);
+    const totalV = clean ? parseInt(clean, 10) : 0;
+    const qty = Number(editDonationForm.quantity) || 1;
+    if (totalV > 0 && qty > 0) {
+      setEditUnitPriceStr(Math.round(totalV / qty).toString());
+    } else {
+      setEditUnitPriceStr('');
+    }
+  };
+
+  const handleEditDonationQuantityChange = (newQty: number) => {
+    setEditDonationForm(prev => ({ ...prev, quantity: newQty }));
+    const unitP = editUnitPriceStr ? parseInt(editUnitPriceStr.replace(/[^0-9]/g, ''), 10) : 0;
+    if (unitP > 0) {
+      setEditEstValueStr((unitP * newQty).toString());
+    } else {
+      const totalV = editEstValueStr ? parseInt(editEstValueStr.replace(/[^0-9]/g, ''), 10) : 0;
+      if (totalV > 0 && newQty > 0) {
+        setEditUnitPriceStr(Math.round(totalV / newQty).toString());
+      }
+    }
   };
 
   // Handle Category Change with smart defaults
@@ -328,15 +407,20 @@ export const DonorsView: React.FC = () => {
     const isCash = donationForm.category === 'cash';
     const cleanAmount = donationAmountStr.replace(/[^0-9]/g, '');
     const cleanEstValue = donationEstValueStr.replace(/[^0-9]/g, '');
+    const cleanUnitP = donationUnitPriceStr.replace(/[^0-9]/g, '');
     const finalAmount = isCash
       ? (cleanAmount ? parseInt(cleanAmount, 10) : 0)
       : (cleanEstValue ? parseInt(cleanEstValue, 10) : 0);
+    const donQty = Number(donationForm.quantity) || 1;
+    const finalUnitP = cleanUnitP ? parseInt(cleanUnitP, 10) : (finalAmount > 0 && donQty > 0 ? Math.round(finalAmount / donQty) : 0);
 
     let itemDetails: DonationItemDetails | undefined = undefined;
     if (!isCash) {
       itemDetails = {
-        quantity: Number(donationForm.quantity) || 1,
+        quantity: donQty,
         unit: donationForm.unit,
+        unitPrice: finalUnitP,
+        estimatedMarketValue: finalAmount,
         weightKgPerUnit:
           donationForm.category === 'food_basket'
             ? Number(donationForm.weightKgPerUnit)
@@ -346,8 +430,7 @@ export const DonorsView: React.FC = () => {
             ? `${donationForm.contentsDescription} (قۆناغ: ${donationForm.educationStage})`
             : donationForm.category === 'clothes'
             ? `${donationForm.clothingType} - ${donationForm.contentsDescription}`
-            : donationForm.contentsDescription,
-        estimatedMarketValue: Number(donationForm.estimatedMarketValue || 0)
+            : donationForm.contentsDescription
       };
     }
 
@@ -399,19 +482,34 @@ export const DonorsView: React.FC = () => {
       destType = 'general_fund';
     }
 
+    const donQty = don.itemDetails?.quantity || 1;
+    let donUnitP = don.itemDetails?.unitPrice || 0;
+    let donTotalV = don.itemDetails?.estimatedMarketValue || don.amount || 0;
+    if (!donUnitP) {
+      if (donTotalV > 0 && donQty > 0) {
+        if (don.amount > donTotalV && don.amount === donQty * donTotalV) {
+          donUnitP = donTotalV;
+          donTotalV = don.amount;
+        } else {
+          donUnitP = Math.round(donTotalV / donQty);
+        }
+      }
+    }
+
     setEditAmountStr(don.amount ? don.amount.toString() : '');
-    setEditEstValueStr(don.itemDetails?.estimatedMarketValue ? don.itemDetails.estimatedMarketValue.toString() : '');
+    setEditUnitPriceStr(donUnitP > 0 ? donUnitP.toString() : '');
+    setEditEstValueStr(donTotalV > 0 ? donTotalV.toString() : '');
 
     setEditDonationForm({
       donorId: don.donorId,
       category: don.category || 'cash',
       amount: don.amount,
       currency: don.currency,
-      quantity: don.itemDetails?.quantity || 1,
+      quantity: donQty,
       unit: don.itemDetails?.unit || 'دانە',
       weightKgPerUnit: don.itemDetails?.weightKgPerUnit || 0,
       contentsDescription: don.itemDetails?.contentsDescription || '',
-      estimatedMarketValue: don.itemDetails?.estimatedMarketValue || don.amount,
+      estimatedMarketValue: donTotalV,
       educationStage: 'سەرەتایی',
       clothingType: 'جلوبەرگی زستانە',
       method: don.method,
@@ -449,15 +547,19 @@ export const DonorsView: React.FC = () => {
       defaultMethod = 'کەرەستە و کاڵا';
     } else if (cat === 'medical') {
       defaultUnit = 'دانە / پاکەت';
-      defaultContents = 'ویلچێری خاوەن پێداویستی، پێداویستی نەشتەرگەری، دەرمانی درێژخایەن';
+      defaultContents = '';
       defaultMethod = 'کەرەستە و کاڵا';
     } else if (cat === 'heating_appliances') {
-      defaultUnit = 'دانە';
-      defaultContents = 'سۆپای نەوت، بەتانی زستانە، فەرش';
+      defaultUnit = 'ئامێر / دانە';
+      defaultContents = 'سۆپای نەوت، بەتانی گەرم، سۆپای غاز';
       defaultMethod = 'کەرەستە و کاڵا';
     } else if (cat === 'qurbani_meat') {
-      defaultUnit = 'کیلۆگرام / سەر ئاژەڵ';
-      defaultContents = 'گۆشتی قوربانی دابەشکراو بە پاکێجی تەندروست';
+      defaultUnit = 'کیلۆگرام / پاکێج';
+      defaultContents = 'گۆشتی قوربانی فرێش لە ناو کیسی بەستراودا';
+      defaultMethod = 'کەرەستە و کاڵا';
+    } else {
+      defaultUnit = 'دانە';
+      defaultContents = '';
       defaultMethod = 'کەرەستە و کاڵا';
     }
 
@@ -466,7 +568,7 @@ export const DonorsView: React.FC = () => {
       category: cat,
       unit: defaultUnit,
       weightKgPerUnit: defaultWeight,
-      contentsDescription: defaultContents || prev.contentsDescription,
+      contentsDescription: defaultContents,
       method: defaultMethod
     }));
   };
@@ -482,11 +584,11 @@ export const DonorsView: React.FC = () => {
 
     const destNames: Record<string, string> = {
       warehouse: 'کۆگای سەرەکی ڕێکخراو (پاشەکەوتکردن بۆ کاتی پێویست)',
-      direct_distribution: 'دابەشکردنی دەستبەجێ و ڕاستەوخۆ بەسەر خێزانە هەژارەکاندا',
-      general_fund: 'سندووقی گشتی خێرخوازی و فریاگوزاری خێرا',
-      orphan_fund: 'سندووقی چاودێری و کەفالەتی مانگانەی هەتیوان',
-      medical_fund: 'سندووقی نەشتەرگەری و دەرمانی کتوپڕ',
-      students_fund: 'سندووقی خوێندکاران و پشتیوانی پەروەردە',
+      direct_distribution: 'دابەشکردنی دەستبەجێ بەسەر خێزانە هەژارەکاندا',
+      orphan_fund: 'سندووقی پشتگیری هەتیوان و بێسەرپەرشتان',
+      medical_fund: 'سندووقی چارەسەری نەخۆش و دەرمان',
+      students_fund: 'سندووقی هاوکاری خوێندکارانی کەمدەرامەت',
+      general_fund: 'سندووقی گشتی خێرخوازی',
       winter_campaign: 'سندووقی کەمپەینی زستانە و سوتەمەنی'
     };
 
@@ -516,6 +618,7 @@ export const DonorsView: React.FC = () => {
     const isCash = editDonationForm.category === 'cash';
     const cleanAmount = editAmountStr.replace(/[^0-9]/g, '');
     const cleanEstValue = editEstValueStr.replace(/[^0-9]/g, '');
+    const cleanUnitP = editUnitPriceStr.replace(/[^0-9]/g, '');
     const finalAmount = isCash
       ? (cleanAmount ? parseInt(cleanAmount, 10) : 0)
       : (cleanEstValue ? parseInt(cleanEstValue, 10) : 0);
@@ -528,9 +631,13 @@ export const DonorsView: React.FC = () => {
         return;
       }
 
+      const finalUnitP = cleanUnitP ? parseInt(cleanUnitP, 10) : (finalAmount > 0 && requestedQty > 0 ? Math.round(finalAmount / requestedQty) : 0);
+
       itemDetails = {
         quantity: requestedQty,
         unit: editDonationForm.unit,
+        unitPrice: finalUnitP,
+        estimatedMarketValue: finalAmount,
         weightKgPerUnit:
           editDonationForm.category === 'food_basket'
             ? Number(editDonationForm.weightKgPerUnit)
@@ -540,8 +647,7 @@ export const DonorsView: React.FC = () => {
             ? `${editDonationForm.contentsDescription} (قۆناغ: ${editDonationForm.educationStage})`
             : editDonationForm.category === 'clothes'
             ? `${editDonationForm.clothingType} - ${editDonationForm.contentsDescription}`
-            : editDonationForm.contentsDescription,
-        estimatedMarketValue: Number(editDonationForm.estimatedMarketValue || 0)
+            : editDonationForm.contentsDescription
       };
     }
 
@@ -1394,56 +1500,103 @@ export const DonorsView: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Estimated Value (Optional for in-kind) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">
-                          بەهای خەمڵێنراوی تەواوی کۆمەکەکە (ئارەزوومەندانە):
+                    {/* Linked Pricing: Unit Price OR Total Price with Auto-Distribution */}
+                    <div className="pt-3 border-t border-slate-200/80 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-slate-800 font-bold text-xs flex items-center gap-1.5">
+                          <Coins className="w-4 h-4 text-amber-600" />
+                          بەها و نرخی کۆمەک (نرخی تاک یان کۆی گشتی):
                         </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={donationEstValueStr}
-                            onChange={(e) => {
-                              const clean = e.target.value.replace(/[^0-9]/g, '');
-                              setDonationEstValueStr(clean);
-                            }}
-                            placeholder="نموونە: 250,000"
-                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono"
-                          />
-                          <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
-                            {donationForm.currency === 'IQD' ? 'د.ع' : '$ USD'}
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          دەتوانیت نرخی یەک دانە یان کۆی گشتی بنووسیت؛ سیستەم ئۆتۆماتیکی دابەشی دەکات
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Unit Price */}
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1 text-[11px]">
+                            نرخی هەر یەک دانەیەک / کارتۆنێک:
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={donationUnitPriceStr ? parseInt(donationUnitPriceStr, 10).toLocaleString() : ''}
+                              onChange={(e) => handleAddDonationUnitPriceChange(e.target.value)}
+                              placeholder="نموونە: 50,000"
+                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
+                            />
+                            <span className="absolute left-3 top-2.5 text-[11px] font-bold text-slate-400">
+                              {donationForm.currency === 'IQD' ? 'د.ع' : '$'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Total Value */}
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1 text-[11px]">
+                            کۆی گشتی بەهای بەخشینەکە:
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={donationEstValueStr ? parseInt(donationEstValueStr, 10).toLocaleString() : ''}
+                              onChange={(e) => handleAddDonationTotalValueChange(e.target.value)}
+                              placeholder="نموونە: 3,000,000"
+                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
+                            />
+                            <span className="absolute left-3 top-2.5 text-[11px] font-bold text-slate-400">
+                              {donationForm.currency === 'IQD' ? 'د.ع' : '$'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Currency Toggle */}
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1 text-[11px]">دراوی بەها:</label>
+                          <div className="grid grid-cols-2 gap-1 mt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => handleAddDonationCurrencySwitch('IQD')}
+                              className={`py-2 rounded-xl font-bold border transition-all text-xs ${
+                                donationForm.currency === 'IQD'
+                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                  : 'bg-slate-50 text-slate-600 border-slate-200'
+                              }`}
+                            >
+                              دینار (IQD)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAddDonationCurrencySwitch('USD')}
+                              className={`py-2 rounded-xl font-bold border transition-all text-xs ${
+                                donationForm.currency === 'USD'
+                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                  : 'bg-slate-50 text-slate-600 border-slate-200'
+                              }`}
+                            >
+                              دۆلار (USD)
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Formula Visual Pill */}
+                      {(donationUnitPriceStr || donationEstValueStr) && (
+                        <div className="p-2.5 rounded-xl bg-cyan-50/90 border border-cyan-200/90 text-cyan-950 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <span className="font-bold text-cyan-800">هەژمارکردنی ئۆتۆماتیکی:</span>
+                            <span className="font-mono font-bold">
+                              {donationForm.quantity || 1} {donationForm.unit} × {Number(donationUnitPriceStr || 0).toLocaleString()} {donationForm.currency === 'IQD' ? 'د.ع' : '$'}
+                            </span>
+                          </span>
+                          <span className="font-mono font-black text-xs text-cyan-900 bg-white px-2.5 py-1 rounded-lg border border-cyan-200 shadow-xs">
+                            کۆی بەها: {Number(donationEstValueStr || 0).toLocaleString()} {donationForm.currency === 'IQD' ? 'د.ع' : '$'}
                           </span>
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">دراوی خەمڵاندن:</label>
-                        <div className="grid grid-cols-2 gap-1.5 mt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => handleAddDonationCurrencySwitch('IQD')}
-                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
-                              donationForm.currency === 'IQD'
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                                : 'bg-slate-50 text-slate-600 border-slate-200'
-                            }`}
-                          >
-                            دینار (IQD)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleAddDonationCurrencySwitch('USD')}
-                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
-                              donationForm.currency === 'USD'
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                                : 'bg-slate-50 text-slate-600 border-slate-200'
-                            }`}
-                          >
-                            دۆلار (USD $)
-                          </button>
-                        </div>
-                      </div>
+                      )}
                     </div>
 
                   </div>
@@ -1943,56 +2096,103 @@ export const DonorsView: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Estimated Value */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">
-                          بەهای خەمڵێنراوی تەواوی کۆمەکەکە (ئارەزوومەندانە):
+                    {/* Linked Pricing: Unit Price OR Total Price with Auto-Distribution */}
+                    <div className="pt-3 border-t border-slate-200/80 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-slate-800 font-bold text-xs flex items-center gap-1.5">
+                          <Coins className="w-4 h-4 text-amber-600" />
+                          بەها و نرخی کۆمەک (نرخی تاک یان کۆی گشتی):
                         </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={editEstValueStr}
-                            onChange={(e) => {
-                              const clean = e.target.value.replace(/[^0-9]/g, '');
-                              setEditEstValueStr(clean);
-                            }}
-                            placeholder="نموونە: 250,000"
-                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono"
-                          />
-                          <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
-                            {editDonationForm.currency === 'IQD' ? 'د.ع' : '$ USD'}
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          دەتوانیت نرخی یەک دانە یان کۆی گشتی بنووسیت؛ سیستەم ئۆتۆماتیکی دابەشی دەکات
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Unit Price */}
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1 text-[11px]">
+                            نرخی هەر یەک دانەیەک / کارتۆنێک:
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={editUnitPriceStr ? parseInt(editUnitPriceStr, 10).toLocaleString() : ''}
+                              onChange={(e) => handleEditDonationUnitPriceChange(e.target.value)}
+                              placeholder="نموونە: 50,000"
+                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
+                            />
+                            <span className="absolute left-3 top-2.5 text-[11px] font-bold text-slate-400">
+                              {editDonationForm.currency === 'IQD' ? 'د.ع' : '$'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Total Value */}
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1 text-[11px]">
+                            کۆی گشتی بەهای بەخشینەکە:
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={editEstValueStr ? parseInt(editEstValueStr, 10).toLocaleString() : ''}
+                              onChange={(e) => handleEditDonationTotalValueChange(e.target.value)}
+                              placeholder="نموونە: 3,000,000"
+                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
+                            />
+                            <span className="absolute left-3 top-2.5 text-[11px] font-bold text-slate-400">
+                              {editDonationForm.currency === 'IQD' ? 'د.ع' : '$'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Currency Toggle */}
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1 text-[11px]">دراوی بەها:</label>
+                          <div className="grid grid-cols-2 gap-1 mt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => handleEditDonationCurrencySwitch('IQD')}
+                              className={`py-2 rounded-xl font-bold border transition-all text-xs ${
+                                editDonationForm.currency === 'IQD'
+                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                  : 'bg-slate-50 text-slate-600 border-slate-200'
+                              }`}
+                            >
+                              دینار (IQD)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEditDonationCurrencySwitch('USD')}
+                              className={`py-2 rounded-xl font-bold border transition-all text-xs ${
+                                editDonationForm.currency === 'USD'
+                                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                  : 'bg-slate-50 text-slate-600 border-slate-200'
+                              }`}
+                            >
+                              دۆلار (USD)
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Formula Visual Pill */}
+                      {(editUnitPriceStr || editEstValueStr) && (
+                        <div className="p-2.5 rounded-xl bg-cyan-50/90 border border-cyan-200/90 text-cyan-950 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <span className="font-bold text-cyan-800">هەژمارکردنی ئۆتۆماتیکی:</span>
+                            <span className="font-mono font-bold">
+                              {editDonationForm.quantity || 1} {editDonationForm.unit} × {Number(editUnitPriceStr || 0).toLocaleString()} {editDonationForm.currency === 'IQD' ? 'د.ع' : '$'}
+                            </span>
+                          </span>
+                          <span className="font-mono font-black text-xs text-cyan-900 bg-white px-2.5 py-1 rounded-lg border border-cyan-200 shadow-xs">
+                            کۆی بەها: {Number(editEstValueStr || 0).toLocaleString()} {editDonationForm.currency === 'IQD' ? 'د.ع' : '$'}
                           </span>
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1">دراوی خەمڵاندن:</label>
-                        <div className="grid grid-cols-2 gap-1.5 mt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => handleEditDonationCurrencySwitch('IQD')}
-                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
-                              editDonationForm.currency === 'IQD'
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                                : 'bg-slate-50 text-slate-600 border-slate-200'
-                            }`}
-                          >
-                            دینار (IQD)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEditDonationCurrencySwitch('USD')}
-                            className={`py-2 rounded-xl font-bold border transition-all text-xs ${
-                              editDonationForm.currency === 'USD'
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                                : 'bg-slate-50 text-slate-600 border-slate-200'
-                            }`}
-                          >
-                            دۆلار (USD $)
-                          </button>
-                        </div>
-                      </div>
+                      )}
                     </div>
 
                   </div>

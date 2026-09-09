@@ -135,7 +135,8 @@ export interface DonationItemDetails {
   unit?: string;
   weightKgPerUnit?: number;
   contentsDescription?: string;
-  estimatedMarketValue?: number;
+  unitPrice?: number; // نرخی یەکە (بۆ هەر دانەیەک/سەبەتەیەک)
+  estimatedMarketValue?: number; // کۆی بەهای گشتی
 }
 
 export interface Donation {
@@ -211,7 +212,8 @@ export interface InventoryItem {
   sourceDonorName?: string;
   sourceDonationId?: string;
   donorId?: string;
-  estimatedMarketValue?: number;
+  unitPrice?: number; // نرخی یەکە
+  estimatedMarketValue?: number; // کۆی بەهای ماوە لە کۆگا
   contentsDescription?: string;
   notes?: string;
 }
@@ -229,6 +231,10 @@ export interface FinancialTransaction {
   recordedBy: string;
   relatedProjectId?: string;
   receiptNumber?: string;
+  isCash?: boolean; // ئایا نەختینەییە یان کەرەستە و عەینی
+  itemQuantity?: number; // بڕی دانە لە بەخشینی عەینی
+  itemUnit?: string; // یەکە
+  itemUnitPrice?: number; // نرخی هەر یەکەیەک
 }
 
 export interface Volunteer {

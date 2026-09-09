@@ -1331,6 +1331,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     // Auto-create income transaction in financial ledger
+    const isInKind = data.category && data.category !== 'cash';
+    const donQty = data.itemDetails?.quantity || 1;
+    const unitPrice = data.itemDetails?.unitPrice || (isInKind && donQty > 0 ? Math.round(data.amount / donQty) : undefined);
+
     const newTx: FinancialTransaction = {
       id: `tx-${Date.now()}`,
       type: 'income',
@@ -1338,12 +1342,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currency: data.currency,
       exchangeRateAtDate: newDonation.exchangeRateAtDate || getExchangeRateForDate(data.date).rate,
       convertedAmount: newDonation.convertedAmount,
-      category: `بەخشینی ${data.method}`,
+      category: isInKind ? 'بەخشینی کەرەستە و کاڵا (عەینی)' : `بەخشینی ${data.method}`,
       date: data.date,
-      description: `بەخشینی فەرمی لەلایەن [${data.donorName}] بە پسوولەی ${receiptNumber}`,
+      description: isInKind && data.itemDetails
+        ? `بەخشینی فەرمی [${data.categoryLabel || 'کۆمەک'}] لەلایەن [${data.donorName}] - ${data.itemDetails.quantity} ${data.itemDetails.unit || 'دانە'} (هەر دانەیەک ${(unitPrice || 0).toLocaleString()} ${data.currency === 'IQD' ? 'د.ع' : '$'}) بە پسوولەی ${receiptNumber}`
+        : `بەخشینی فەرمی لەلایەن [${data.donorName}] بە پسوولەی ${receiptNumber}`,
       recordedBy: currentUser ? currentUser.name : 'محمد ئیقبال',
       relatedProjectId: data.projectId,
-      receiptNumber
+      receiptNumber,
+      isCash: !isInKind,
+      itemQuantity: isInKind ? data.itemDetails?.quantity : undefined,
+      itemUnit: isInKind ? data.itemDetails?.unit : undefined,
+      itemUnitPrice: unitPrice
     };
     setTransactions(prev => [newTx, ...prev]);
     safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(newTx)));
@@ -1364,7 +1374,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Auto-create inventory item for in-kind donations
-    if (data.category && data.category !== 'cash') {
+    if (isInKind) {
       const invCategory =
         data.category === 'food_basket' ? 'خۆراک' :
         data.category === 'clothes' ? 'پۆشاک' :
@@ -1381,7 +1391,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         id: `inv-don-${newDonation.id}`,
         name: data.categoryLabel || 'کۆمەکی بەخشراو',
         category: invCategory,
-        quantity: data.itemDetails?.quantity || 1,
+        quantity: donQty,
         unit: data.itemDetails?.unit || 'دانە',
         minAlertThreshold: 5,
         location: warehouseLocation,
@@ -1390,7 +1400,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sourceDonorName: data.donorName,
         sourceDonationId: newDonation.id,
         donorId: data.donorId,
-        estimatedMarketValue: data.itemDetails?.estimatedMarketValue || data.amount,
+        unitPrice: unitPrice,
+        estimatedMarketValue: data.amount || (donQty * (unitPrice || 0)),
         contentsDescription: data.itemDetails?.contentsDescription,
         notes: data.notes
       };
@@ -1477,9 +1488,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     safeSupabaseSync(supabase.from('donations').upsert(mapDonationToDb(updated)));
 
     // Update Financial Transaction if exists
+    const isInKind = updated.category && updated.category !== 'cash';
+    const wasInKind = oldDonation.category && oldDonation.category !== 'cash';
+    const newDonationQty = updated.itemDetails?.quantity || 1;
+    const unitPrice = updated.itemDetails?.unitPrice || (isInKind && newDonationQty > 0 ? Math.round(updated.amount / newDonationQty) : undefined);
+
     let updatedTx: FinancialTransaction | undefined;
     const nextTransactions = transactions.map(tx => {
-      if (tx.receiptNumber === updated.receiptNumber) {
+      if (tx.receiptNumber === updated.receiptNumber && tx.type === 'income') {
         updatedTx = {
           ...tx,
           amount: updated.amount,
@@ -1487,9 +1503,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           exchangeRateAtDate: updated.exchangeRateAtDate || getExchangeRateForDate(updated.date).rate,
           convertedAmount: updated.convertedAmount,
           date: updated.date,
-          category: `بەخشینی ${updated.method}`,
-          description: `بەخشینی فەرمی لەلایەن [${updated.donorName}] بە پسوولەی ${updated.receiptNumber}`,
-          relatedProjectId: updated.projectId
+          category: isInKind ? 'بەخشینی کەرەستە و کاڵا (عەینی)' : `بەخشینی ${updated.method}`,
+          description: isInKind && updated.itemDetails
+            ? `بەخشینی فەرمی [${updated.categoryLabel || 'کۆمەک'}] لەلایەن [${updated.donorName}] - ${updated.itemDetails.quantity} ${updated.itemDetails.unit || 'دانە'} (هەر دانەیەک ${(unitPrice || 0).toLocaleString()} ${updated.currency === 'IQD' ? 'د.ع' : '$'}) بە پسوولەی ${updated.receiptNumber}`
+            : `بەخشینی فەرمی لەلایەن [${updated.donorName}] بە پسوولەی ${updated.receiptNumber}`,
+          relatedProjectId: updated.projectId,
+          isCash: !isInKind,
+          itemQuantity: isInKind ? updated.itemDetails?.quantity : undefined,
+          itemUnit: isInKind ? updated.itemDetails?.unit : undefined,
+          itemUnitPrice: unitPrice
         };
         return updatedTx;
       }
@@ -1532,9 +1554,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     // Synchronize with Inventory
-    const isInKind = updated.category && updated.category !== 'cash';
-    const wasInKind = oldDonation.category && oldDonation.category !== 'cash';
-
     if (isInKind) {
       const invCategory =
         updated.category === 'food_basket' ? 'خۆراک' :
@@ -1561,16 +1580,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .reduce((sum, aid) => sum + (Number(aid.quantity) || 0), 0);
       }, 0);
 
-      const newDonationQty = updated.itemDetails?.quantity || 1;
-
       setInventory(prev => {
         const existingIndex = prev.findIndex(i => i.sourceReceiptNumber === updated.receiptNumber || i.sourceDonationId === updated.id);
         if (existingIndex >= 0) {
           const updatedInv = [...prev];
           // Preserve distributed amounts: new stock = new donation qty - already distributed
-          // If the new donation qty was changed (e.g. 60 → 70), remaining adjusts accordingly
-          // If the donation qty is unchanged, remaining stays untouched
           const correctQuantity = Math.max(0, newDonationQty - totalAlreadyDistributed);
+          const remainingStockValue = correctQuantity * (unitPrice || 0);
           const itemToSave: InventoryItem = {
             ...updatedInv[existingIndex],
             name: updated.categoryLabel || 'کۆمەکی بەخشراو',
@@ -1581,7 +1597,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             lastUpdated: updated.date,
             sourceDonorName: updated.donorName,
             donorId: updated.donorId,
-            estimatedMarketValue: updated.itemDetails?.estimatedMarketValue || updated.amount,
+            unitPrice: unitPrice,
+            estimatedMarketValue: remainingStockValue,
             contentsDescription: updated.itemDetails?.contentsDescription,
             notes: updated.notes
           };
@@ -1590,8 +1607,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return updatedInv;
         } else {
           // No existing inventory item: this is a new in-kind donation or category was changed to in-kind
-          // Still account for any distributions that may have been recorded under the old receipt number
           const correctQuantity = Math.max(0, newDonationQty - totalAlreadyDistributed);
+          const remainingStockValue = correctQuantity * (unitPrice || 0);
           const newInvItem: InventoryItem = {
             id: `inv-don-${updated.id}`,
             name: updated.categoryLabel || 'کۆمەکی بەخشراو',
@@ -1605,7 +1622,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             sourceDonorName: updated.donorName,
             sourceDonationId: updated.id,
             donorId: updated.donorId,
-            estimatedMarketValue: updated.itemDetails?.estimatedMarketValue || updated.amount,
+            unitPrice: unitPrice,
+            estimatedMarketValue: remainingStockValue,
             contentsDescription: updated.itemDetails?.contentsDescription,
             notes: updated.notes
           };
@@ -1817,18 +1835,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Deduct stock
     updateInventoryQuantity(itemId, -quantity);
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const distributorName = currentUser ? currentUser.name : 'محمد ئیقبال';
+
     // Add aid record
     addAidRecord(beneficiaryId, {
-      date: new Date().toISOString().split('T')[0],
+      date: todayStr,
       type: 'in-kind',
       itemName: item.name,
       quantity,
       projectTitle,
-      distributedBy: currentUser ? currentUser.name : 'محمد ئیقبال',
+      distributedBy: distributorName,
       receiptNumber: item.sourceReceiptNumber,
       donorName: item.sourceDonorName,
       notes: `دابەشکردن لە کۆگای ${item.location}${item.sourceReceiptNumber ? ` (پسوولەی ${item.sourceReceiptNumber}${item.sourceDonorName ? ` - ${item.sourceDonorName}` : ''})` : ''}`
     });
+
+    // Auto-deduct financial value in transactions
+    const sourceDonation = donations.find(
+      d => (item.sourceReceiptNumber && d.receiptNumber === item.sourceReceiptNumber) ||
+           (item.sourceDonationId && d.id === item.sourceDonationId)
+    );
+    const donCurr = sourceDonation?.currency || 'IQD';
+    const donQty = sourceDonation?.itemDetails?.quantity || 1;
+    let unitPrice = item.unitPrice || sourceDonation?.itemDetails?.unitPrice || 0;
+    if (!unitPrice && sourceDonation && sourceDonation.amount > 0 && donQty > 0) {
+      unitPrice = Math.round(sourceDonation.amount / donQty);
+    } else if (!unitPrice && item.estimatedMarketValue && item.quantity > 0) {
+      unitPrice = Math.round(item.estimatedMarketValue / item.quantity);
+    }
+
+    const deductedAmount = Math.round(quantity * unitPrice);
+    if (deductedAmount > 0) {
+      const dayRate = getExchangeRateForDate(todayStr).rate;
+      const convertedDeducted = donCurr === 'IQD'
+        ? Number((deductedAmount / dayRate).toFixed(2))
+        : Math.round(deductedAmount * dayRate);
+
+      const expenseTx: FinancialTransaction = {
+        id: `tx-dist-${Date.now()}`,
+        type: 'expense',
+        amount: deductedAmount,
+        currency: donCurr,
+        exchangeRateAtDate: dayRate,
+        convertedAmount: convertedDeducted,
+        category: 'دابەشکردنی هاوکاری و کۆمەکی عەینی',
+        date: todayStr,
+        description: `دابەشکردنی ${quantity} ${item.unit} لە [${item.name}] (هەر دانەیەک ${unitPrice.toLocaleString()} ${donCurr === 'IQD' ? 'د.ع' : '$'}) بۆ [${beneficiary.fullName}]${item.sourceReceiptNumber ? ` - پسوولەی ${item.sourceReceiptNumber}` : ''}`,
+        recordedBy: distributorName,
+        relatedProjectId: sourceDonation?.projectId,
+        receiptNumber: item.sourceReceiptNumber,
+        isCash: false,
+        itemQuantity: quantity,
+        itemUnit: item.unit,
+        itemUnitPrice: unitPrice
+      };
+
+      setTransactions(prev => [expenseTx, ...prev]);
+      safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(expenseTx)));
+
+      if (sourceDonation?.projectId) {
+        setProjects(prev => prev.map(p => {
+          if (p.id === sourceDonation.projectId) {
+            const m = computeProjectLiveMetrics(p.id, p.title, donations, [expenseTx, ...transactions], beneficiaries);
+            return {
+              ...p,
+              spentBudgetUSD: m.spentUSD,
+              spentBudgetIQD: m.spentIQD
+            };
+          }
+          return p;
+        }));
+      }
+    }
 
     logAction('دابەشکردنی کۆگا', `${quantity} ${item.unit} لە [${item.name}] درا بە [${beneficiary.fullName}]`);
     return true;
@@ -1855,7 +1934,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Add aid records to all target beneficiaries
     validDists.forEach(({ beneficiaryId, quantity }) => {
-      const ben = beneficiaries.find(b => b.id === beneficiaryId);
       addAidRecord(beneficiaryId, {
         date: todayStr,
         type: 'in-kind',
@@ -1869,9 +1947,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     });
 
+    // Auto-deduct financial value in transactions
+    const sourceDonation = donations.find(
+      d => (item.sourceReceiptNumber && d.receiptNumber === item.sourceReceiptNumber) ||
+           (item.sourceDonationId && d.id === item.sourceDonationId)
+    );
+    const donCurr = sourceDonation?.currency || 'IQD';
+    const donQty = sourceDonation?.itemDetails?.quantity || 1;
+    let unitPrice = item.unitPrice || sourceDonation?.itemDetails?.unitPrice || 0;
+    if (!unitPrice && sourceDonation && sourceDonation.amount > 0 && donQty > 0) {
+      unitPrice = Math.round(sourceDonation.amount / donQty);
+    } else if (!unitPrice && item.estimatedMarketValue && item.quantity > 0) {
+      unitPrice = Math.round(item.estimatedMarketValue / item.quantity);
+    }
+
+    const deductedAmount = Math.round(totalNeeded * unitPrice);
+    if (deductedAmount > 0) {
+      const dayRate = getExchangeRateForDate(todayStr).rate;
+      const convertedDeducted = donCurr === 'IQD'
+        ? Number((deductedAmount / dayRate).toFixed(2))
+        : Math.round(deductedAmount * dayRate);
+
+      const expenseTx: FinancialTransaction = {
+        id: `tx-dist-${Date.now()}`,
+        type: 'expense',
+        amount: deductedAmount,
+        currency: donCurr,
+        exchangeRateAtDate: dayRate,
+        convertedAmount: convertedDeducted,
+        category: 'دابەشکردنی هاوکاری و کۆمەکی عەینی',
+        date: todayStr,
+        description: `دابەشکردنی ${totalNeeded} ${item.unit} لە [${item.name}] (هەر دانەیەک ${unitPrice.toLocaleString()} ${donCurr === 'IQD' ? 'د.ع' : '$'}) بەسەر ${validDists.length} خێزانی سوودمەنددا${item.sourceReceiptNumber ? ` - پسوولەی ${item.sourceReceiptNumber}` : ''}`,
+        recordedBy: distributorName,
+        relatedProjectId: sourceDonation?.projectId,
+        receiptNumber: item.sourceReceiptNumber,
+        isCash: false,
+        itemQuantity: totalNeeded,
+        itemUnit: item.unit,
+        itemUnitPrice: unitPrice
+      };
+
+      setTransactions(prev => [expenseTx, ...prev]);
+      safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(expenseTx)));
+
+      if (sourceDonation?.projectId) {
+        setProjects(prev => prev.map(p => {
+          if (p.id === sourceDonation.projectId) {
+            const m = computeProjectLiveMetrics(p.id, p.title, donations, [expenseTx, ...transactions], beneficiaries);
+            return {
+              ...p,
+              spentBudgetUSD: m.spentUSD,
+              spentBudgetIQD: m.spentIQD
+            };
+          }
+          return p;
+        }));
+      }
+    }
+
     logAction(
       'دابەشکردنی بەکۆمەڵی کۆگا',
-      `کۆی (${totalNeeded} ${item.unit}) لە [${item.name}] دابەشکرا بەسەر ${validDists.length} خێزانی سوودمەنددا`,
+      `کۆی (${totalNeeded} ${item.unit}) لە [${item.name}] (بە بەهای ${deductedAmount.toLocaleString()} ${donCurr === 'IQD' ? 'د.ع' : '$'}) دابەشکرا بەسەر ${validDists.length} خێزانی سوودمەنددا`,
       'update'
     );
     return true;

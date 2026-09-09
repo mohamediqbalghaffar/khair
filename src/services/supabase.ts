@@ -285,6 +285,7 @@ export const mapInventoryToDb = (item: InventoryItem) => ({
   source_donor_name: item.sourceDonorName || null,
   source_donation_id: item.sourceDonationId || null,
   donor_id: item.donorId || null,
+  unit_price: item.unitPrice || 0,
   estimated_market_value: item.estimatedMarketValue || 0,
   contents_description: item.contentsDescription || null,
   notes: item.notes || null,
@@ -304,6 +305,7 @@ export const mapInventoryFromDb = (row: any): InventoryItem => ({
   sourceDonorName: row.source_donor_name || undefined,
   sourceDonationId: row.source_donation_id || undefined,
   donorId: row.donor_id || undefined,
+  unitPrice: row.unit_price ? Number(row.unit_price) : undefined,
   estimatedMarketValue: row.estimated_market_value ? Number(row.estimated_market_value) : undefined,
   contentsDescription: row.contents_description || undefined,
   notes: row.notes || undefined
@@ -334,6 +336,10 @@ export const mapTransactionToDb = (tx: FinancialTransaction) => {
     receipt_number: tx.receiptNumber || '',
     project_id: tx.relatedProjectId || '',
     project_title: '',
+    is_cash: tx.isCash ?? true,
+    item_quantity: tx.itemQuantity || null,
+    item_unit: tx.itemUnit || null,
+    item_unit_price: tx.itemUnitPrice || null,
     updated_at: new Date().toISOString()
   };
 };
@@ -350,7 +356,11 @@ export const mapTransactionFromDb = (row: any): FinancialTransaction => ({
   date: row.date,
   recordedBy: row.recorded_by,
   receiptNumber: row.receipt_number || undefined,
-  relatedProjectId: row.project_id || undefined
+  relatedProjectId: row.project_id || undefined,
+  isCash: row.is_cash !== undefined ? Boolean(row.is_cash) : !(row.category?.includes('عەینی') || row.category?.includes('کۆمەک')),
+  itemQuantity: row.item_quantity ? Number(row.item_quantity) : undefined,
+  itemUnit: row.item_unit || undefined,
+  itemUnitPrice: row.item_unit_price ? Number(row.item_unit_price) : undefined
 });
 
 // ==========================================
