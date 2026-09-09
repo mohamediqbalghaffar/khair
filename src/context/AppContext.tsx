@@ -132,6 +132,12 @@ interface AppContextType {
   deleteInventoryItem: (id: string) => void;
   updateInventoryQuantity: (id: string, delta: number) => void;
   distributeAidFromInventory: (itemId: string, beneficiaryId: string, quantity: number, projectTitle: string) => boolean;
+  distributeAidBulkFromInventory: (
+    itemId: string,
+    distributions: { beneficiaryId: string; quantity: number }[],
+    projectTitle: string,
+    notes?: string
+  ) => boolean;
 
   // Finance
   transactions: FinancialTransaction[];
@@ -1795,6 +1801,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  const distributeAidBulkFromInventory = (
+    itemId: string,
+    distributions: { beneficiaryId: string; quantity: number }[],
+    projectTitle: string,
+    notes?: string
+  ): boolean => {
+    const item = inventory.find(i => i.id === itemId);
+    if (!item || distributions.length === 0) return false;
+
+    const validDists = distributions.filter(d => (Number(d.quantity) || 0) > 0);
+    const totalNeeded = validDists.reduce((sum, b) => sum + Number(b.quantity), 0);
+    if (totalNeeded <= 0 || item.quantity < totalNeeded) return false;
+
+    // Deduct stock in one atomic update
+    updateInventoryQuantity(itemId, -totalNeeded);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const distributorName = currentUser ? currentUser.name : 'محمد ئیقبال';
+
+    // Add aid records to all target beneficiaries
+    validDists.forEach(({ beneficiaryId, quantity }) => {
+      const ben = beneficiaries.find(b => b.id === beneficiaryId);
+      addAidRecord(beneficiaryId, {
+        date: todayStr,
+        type: 'in-kind',
+        itemName: item.name,
+        quantity,
+        projectTitle: projectTitle || 'دابەشکردنی کۆمەکی بەخشراو',
+        distributedBy: distributorName,
+        receiptNumber: item.sourceReceiptNumber,
+        donorName: item.sourceDonorName,
+        notes: notes || `دابەشکردن لە کۆگای ${item.location}${item.sourceReceiptNumber ? ` (پسوولەی ${item.sourceReceiptNumber}${item.sourceDonorName ? ` - ${item.sourceDonorName}` : ''})` : ''}`
+      });
+    });
+
+    logAction(
+      'دابەشکردنی بەکۆمەڵی کۆگا',
+      `کۆی (${totalNeeded} ${item.unit}) لە [${item.name}] دابەشکرا بەسەر ${validDists.length} خێزانی سوودمەنددا`,
+      'update'
+    );
+    return true;
+  };
+
   // Finance
   const addTransaction = (data: Omit<FinancialTransaction, 'id'>) => {
     const dayRate = data.exchangeRateAtDate || getExchangeRateForDate(data.date).rate;
@@ -2195,6 +2244,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteInventoryItem,
         updateInventoryQuantity,
         distributeAidFromInventory,
+        distributeAidBulkFromInventory,
         transactions,
         addTransaction,
         deleteTransaction,

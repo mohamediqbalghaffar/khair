@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { InventoryItem, Donation } from '../types';
+import { InventoryItem, Donation, NeedCategory } from '../types';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 import { getExchangeRateForDate } from '../utils/exchangeRates';
+import confetti from 'canvas-confetti';
 import {
   PackageSearch,
   Search,
@@ -18,8 +19,27 @@ import {
   Eye,
   Boxes,
   CheckCircle2,
-  DollarSign
+  DollarSign,
+  Users,
+  CheckSquare,
+  Square,
+  Filter,
+  SlidersHorizontal,
+  Sparkles,
+  MapPin,
+  Check,
+  Calendar,
+  FileText
 } from 'lucide-react';
+
+const needLabelsMap: Record<string, string> = {
+  poor: 'هەژار و کەمدەرامەت',
+  orphan: 'هەتیو و بێباوک',
+  sick: 'نەخۆش و دەستکورت',
+  disabled: 'خاوەن پێداویستی تایبەت',
+  displaced: 'ئاوارە و لێقەوماو',
+  student: 'خوێندکار'
+};
 
 export const InventoryView: React.FC = () => {
   const {
@@ -30,6 +50,7 @@ export const InventoryView: React.FC = () => {
     deleteInventoryItem,
     updateInventoryQuantity,
     distributeAidFromInventory,
+    distributeAidBulkFromInventory,
     setActiveTab
   } = useApp();
 
@@ -51,10 +72,16 @@ export const InventoryView: React.FC = () => {
     minAlertThreshold: 10
   });
 
-  // Distribution Form
-  const [targetBeneficiaryId, setTargetBeneficiaryId] = useState('');
-  const [distributeQty, setDistributeQty] = useState(1);
+  // Multi-Beneficiary Distribution Form State
+  const [selectedBeneficiaryIds, setSelectedBeneficiaryIds] = useState<string[]>([]);
+  const [customQuantities, setCustomQuantities] = useState<Record<string, number>>({});
+  const [allocationMode, setAllocationMode] = useState<'equal' | 'custom'>('equal');
+  const [qtyPerBeneficiary, setQtyPerBeneficiary] = useState<number>(1);
+  const [modalBenSearch, setModalBenSearch] = useState('');
+  const [modalGovFilter, setModalGovFilter] = useState('all');
+  const [modalNeedFilter, setModalNeedFilter] = useState('all');
   const [selectedProjectTitle, setSelectedProjectTitle] = useState('دابەشکردنی خۆراکی خێزانی');
+  const [distributionNotes, setDistributionNotes] = useState('');
 
   // Aggregated distributions from all beneficiaries
   const allDistributions = beneficiaries.flatMap(b =>
@@ -130,23 +157,86 @@ export const InventoryView: React.FC = () => {
     });
   };
 
-  const handleDistributeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedItemForDistribution || !targetBeneficiaryId) return;
+  // Filter beneficiaries inside the Distribution Modal
+  const filteredModalBeneficiaries = useMemo(() => {
+    return beneficiaries.filter(b => {
+      const q = modalBenSearch.trim().toLowerCase();
+      const matchSearch =
+        !q ||
+        b.fullName.toLowerCase().includes(q) ||
+        b.phone.includes(q) ||
+        (b.nationalId && b.nationalId.includes(q)) ||
+        (b.address && b.address.toLowerCase().includes(q));
 
-    const success = distributeAidFromInventory(
-      selectedItemForDistribution.id,
-      targetBeneficiaryId,
-      distributeQty,
-      selectedProjectTitle
+      const matchGov = modalGovFilter === 'all' || b.governorate === modalGovFilter;
+      const matchNeed = modalNeedFilter === 'all' || b.needCategory === modalNeedFilter;
+
+      return matchSearch && matchGov && matchNeed;
+    });
+  }, [beneficiaries, modalBenSearch, modalGovFilter, modalNeedFilter]);
+
+  // Calculations for Stock and Allocation
+  const totalStockAvailable = selectedItemForDistribution?.quantity || 0;
+
+  const totalDistributeQuantity = useMemo(() => {
+    return selectedBeneficiaryIds.reduce((sum, id) => {
+      const qty = allocationMode === 'custom'
+        ? Number(customQuantities[id] !== undefined ? customQuantities[id] : qtyPerBeneficiary) || 1
+        : Number(qtyPerBeneficiary) || 1;
+      return sum + qty;
+    }, 0);
+  }, [selectedBeneficiaryIds, allocationMode, customQuantities, qtyPerBeneficiary]);
+
+  const remainingAfterDist = totalStockAvailable - totalDistributeQuantity;
+  const isExceedingStock = totalDistributeQuantity > totalStockAvailable;
+
+  // Beneficiary Selection Handlers
+  const handleToggleBeneficiary = (id: string) => {
+    setSelectedBeneficiaryIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
+  };
 
-    if (success) {
-      setIsDistributeModalOpen(false);
-      setSelectedItemForDistribution(null);
+  const handleSelectAllFiltered = () => {
+    const filteredIds = filteredModalBeneficiaries.map(b => b.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedBeneficiaryIds.includes(id));
+    if (allSelected) {
+      setSelectedBeneficiaryIds(prev => prev.filter(id => !filteredIds.includes(id)));
     } else {
-      alert('بڕی دیاریکراو زیاترە لەوەی لە کۆگادا بەردەستە!');
+      setSelectedBeneficiaryIds(prev => Array.from(new Set([...prev, ...filteredIds])));
     }
+  };
+
+  const handleSelectMaxStock = () => {
+    const perQty = Math.max(1, qtyPerBeneficiary || 1);
+    const maxCount = Math.min(filteredModalBeneficiaries.length, Math.floor(totalStockAvailable / perQty));
+    setSelectedBeneficiaryIds(filteredModalBeneficiaries.slice(0, maxCount).map(b => b.id));
+  };
+
+  const handleSelectN = (count: number) => {
+    setSelectedBeneficiaryIds(filteredModalBeneficiaries.slice(0, count).map(b => b.id));
+  };
+
+  const handleOpenDistributeModal = (item: InventoryItem) => {
+    setSelectedItemForDistribution(item);
+    if (beneficiaries.length > 0) {
+      setSelectedBeneficiaryIds([beneficiaries[0].id]);
+    } else {
+      setSelectedBeneficiaryIds([]);
+    }
+    setQtyPerBeneficiary(1);
+    setAllocationMode('equal');
+    setCustomQuantities({});
+    setModalBenSearch('');
+    setModalGovFilter('all');
+    setModalNeedFilter('all');
+    setSelectedProjectTitle(
+      item.sourceReceiptNumber
+        ? `دابەشکردنی کۆمەکی پسوولەی ${item.sourceReceiptNumber}`
+        : item.name ? `دابەشکردنی ${item.name}` : 'دابەشکردنی کۆمەکی بەخشراو'
+    );
+    setDistributionNotes('');
+    setIsDistributeModalOpen(true);
   };
 
   // Helper to open distribution modal directly for an in-kind donation
@@ -156,15 +246,54 @@ export const InventoryView: React.FC = () => {
     );
 
     if (matched) {
-      setSelectedItemForDistribution(matched);
-      if (beneficiaries.length > 0 && !targetBeneficiaryId) {
-        setTargetBeneficiaryId(beneficiaries[0].id);
+      handleOpenDistributeModal(matched);
+      if (donation.projectName) {
+        setSelectedProjectTitle(donation.projectName);
       }
-      setDistributeQty(1);
-      setSelectedProjectTitle(donation.projectName || 'دابەشکردنی کۆمەکی بەخشراو');
-      setIsDistributeModalOpen(true);
     } else {
       alert('ئەم کاڵایە لە کۆگادا بەردەست نییە یان دابەشکراوە.');
+    }
+  };
+
+  const handleDistributeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedItemForDistribution || selectedBeneficiaryIds.length === 0) {
+      alert('تکایە بەلایەنی کەمەوە یەک سوودمەند / خێزان دیاریبکە!');
+      return;
+    }
+
+    if (isExceedingStock) {
+      alert(`بڕی داواکراو (${totalDistributeQuantity}) زیاترە لەوەی لە کۆگادا بەردەستە (${totalStockAvailable})!`);
+      return;
+    }
+
+    const distributions = selectedBeneficiaryIds.map(id => ({
+      beneficiaryId: id,
+      quantity: allocationMode === 'custom'
+        ? Number(customQuantities[id] !== undefined ? customQuantities[id] : qtyPerBeneficiary) || 1
+        : Number(qtyPerBeneficiary) || 1
+    }));
+
+    const success = distributeAidBulkFromInventory(
+      selectedItemForDistribution.id,
+      distributions,
+      selectedProjectTitle,
+      distributionNotes
+    );
+
+    if (success) {
+      confetti({
+        particleCount: 70,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+      setIsDistributeModalOpen(false);
+      setSelectedItemForDistribution(null);
+      setSelectedBeneficiaryIds([]);
+      setCustomQuantities({});
+      setDistributionNotes('');
+    } else {
+      alert('بڕی دیاریکراو زیاترە لەوەی لە کۆگادا بەردەستە!');
     }
   };
 
@@ -492,18 +621,11 @@ export const InventoryView: React.FC = () => {
                       </div>
 
                       <button
-                        onClick={() => {
-                          setSelectedItemForDistribution(item);
-                          if (beneficiaries.length > 0 && !targetBeneficiaryId) {
-                            setTargetBeneficiaryId(beneficiaries[0].id);
-                          }
-                          setDistributeQty(1);
-                          setIsDistributeModalOpen(true);
-                        }}
+                        onClick={() => handleOpenDistributeModal(item)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        دابەشکردن بۆ خێزانێک
+                        دابەشکردن بۆ خێزانەکان
                       </button>
                     </div>
 
@@ -794,90 +916,361 @@ export const InventoryView: React.FC = () => {
         </div>
       )}
 
-      {/* Direct Distribution Modal */}
+      {/* Multi-Beneficiary Distribution Modal */}
       {isDistributeModalOpen && selectedItemForDistribution && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+          <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-2xl my-auto">
+            
+            {/* Close Button */}
             <button
               onClick={() => setIsDistributeModalOpen(false)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
+              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
-              <PackageSearch className="w-5 h-5 text-amber-600" />
-              دابەشکردنی کۆمەک لە کۆگاوە
-            </h3>
-            <p className="text-xs text-cyan-800 mb-2 font-bold">
-              کاڵا: {selectedItemForDistribution.name} ({selectedItemForDistribution.quantity} {selectedItemForDistribution.unit} بەردەستە)
-            </p>
-
-            {selectedItemForDistribution.sourceReceiptNumber && (
-              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 mb-4 font-medium flex items-center justify-between">
-                <span>لە بەخشینی: {selectedItemForDistribution.sourceDonorName || 'بەخشەر'}</span>
-                <span className="font-mono font-bold">{selectedItemForDistribution.sourceReceiptNumber}</span>
+            {/* Modal Header */}
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <Users className="w-6 h-6" />
               </div>
-            )}
+              <div className="flex-1 pr-1">
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  دابەشکردنی بە کۆمەڵی هاوکاری و کاڵاکان
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  دەتوانیت یەک یان چەندین خێزانی سوودمەند لە یەک کاتدا دیاری بکەیت بۆ وەرگرتنی ئەم کاڵایە
+                </p>
+              </div>
+            </div>
+
+            {/* Item and Stock Overview Card */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 mb-4 text-xs">
+              <div>
+                <span className="text-slate-500 block text-[11px]">ناوی کاڵا:</span>
+                <span className="font-bold text-slate-900 text-sm">{selectedItemForDistribution.name}</span>
+                <span className="text-[10px] text-slate-500 block">({selectedItemForDistribution.category})</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">کۆی بەردەست لە مەخزەن:</span>
+                <span className="font-black text-amber-700 font-mono text-base">
+                  {totalStockAvailable} {selectedItemForDistribution.unit}
+                </span>
+                <span className="text-[10px] text-slate-500 block">{selectedItemForDistribution.location}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[11px]">سەرچاوەی بەخشین:</span>
+                {selectedItemForDistribution.sourceReceiptNumber ? (
+                  <span className="font-bold text-emerald-800 flex items-center gap-1">
+                    <Receipt className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    {selectedItemForDistribution.sourceDonorName || 'بەخشەر'} ({selectedItemForDistribution.sourceReceiptNumber})
+                  </span>
+                ) : (
+                  <span className="text-slate-600 font-medium">پاشەکەوتی ڕێکخراو</span>
+                )}
+              </div>
+            </div>
 
             <form onSubmit={handleDistributeSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">دیاریکردنی سوودمەند / خێزان:</label>
-                <select
-                  required
-                  value={targetBeneficiaryId}
-                  onChange={(e) => setTargetBeneficiaryId(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl liquid-input text-slate-900 bg-white"
-                >
-                  {beneficiaries.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.fullName} ({b.governorate} - {b.phone})
-                    </option>
-                  ))}
-                </select>
+              
+              {/* Allocation Mode Selector & Default Qty */}
+              <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <label className="block text-slate-800 font-bold mb-0.5">شێوازی دیاریکردنی بڕی کاڵا بۆ هەر خێزانێک:</label>
+                    <span className="text-[11px] text-slate-500">هەڵبژێرە کە ئایا بڕەکە بۆ هەمووان یەکسان بێت یان بەپێی قەبارەی خێزان دەستکاری بکرێت</span>
+                  </div>
+
+                  {/* Toggle Modes */}
+                  <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setAllocationMode('equal')}
+                      className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                        allocationMode === 'equal'
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      بڕی یەکسان بۆ هەمووان
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAllocationMode('custom')}
+                      className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                        allocationMode === 'custom'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      بڕی تایبەت بە هەر خێزانێک
+                    </button>
+                  </div>
+                </div>
+
+                {allocationMode === 'equal' && (
+                  <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+                    <label className="text-slate-700 font-bold whitespace-nowrap">
+                      بڕ بۆ هەر خێزانێک ({selectedItemForDistribution.unit}):
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={totalStockAvailable || 1}
+                        required
+                        value={qtyPerBeneficiary}
+                        onChange={(e) => setQtyPerBeneficiary(Math.max(1, Number(e.target.value) || 1))}
+                        className="w-24 px-3 py-1.5 rounded-xl liquid-input font-bold text-sm text-center text-slate-900"
+                      />
+                      <span className="text-slate-500 font-bold">{selectedItemForDistribution.unit}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">بڕی دابەشکراو ({selectedItemForDistribution.unit}):</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={selectedItemForDistribution.quantity}
-                    required
-                    value={distributeQty}
-                    onChange={(e) => setDistributeQty(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold text-sm"
-                  />
+              {/* Beneficiary Search & Filter Controls */}
+              <div className="space-y-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  {/* Search Bar */}
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                    <input
+                      type="text"
+                      value={modalBenSearch}
+                      onChange={(e) => setModalBenSearch(e.target.value)}
+                      placeholder="گەڕان بەپێی ناوی خێزان، ژمارە تەلەفۆن، ناسنامە، ناونیشان..."
+                      className="w-full pr-8 pl-3 py-2 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400"
+                    />
+                  </div>
+
+                  {/* Governorate Filter */}
+                  <select
+                    value={modalGovFilter}
+                    onChange={(e) => setModalGovFilter(e.target.value)}
+                    className="px-2.5 py-2 rounded-xl liquid-input text-slate-900 bg-white text-xs"
+                  >
+                    <option value="all">هەموو پارێزگاکان</option>
+                    <option value="هەولێر">هەولێر</option>
+                    <option value="سلێمانی">سلێمانی</option>
+                    <option value="دهۆک">دهۆک</option>
+                    <option value="هەڵەبجە">هەڵەبجە</option>
+                    <option value="کەرکووک">کەرکووک</option>
+                  </select>
+
+                  {/* Need Category Filter */}
+                  <select
+                    value={modalNeedFilter}
+                    onChange={(e) => setModalNeedFilter(e.target.value)}
+                    className="px-2.5 py-2 rounded-xl liquid-input text-slate-900 bg-white text-xs"
+                  >
+                    <option value="all">هەموو پێداویستییەکان</option>
+                    <option value="poor">هەژار و کەمدەرامەت</option>
+                    <option value="orphan">هەتیو و بێباوک</option>
+                    <option value="sick">نەخۆش و دەستکورت</option>
+                    <option value="disabled">خاوەن پێداویستی تایبەت</option>
+                    <option value="displaced">ئاوارە و لێقەوماو</option>
+                    <option value="student">خوێندکار</option>
+                  </select>
                 </div>
+
+                {/* Quick Selection Buttons */}
+                <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllFiltered}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold flex items-center gap-1 transition-all"
+                    >
+                      <CheckSquare className="w-3 h-3 text-cyan-700" />
+                      دیاریکردنی هەموو فلتەرکراوەکان ({filteredModalBeneficiaries.length})
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSelectMaxStock}
+                      className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[11px] font-bold flex items-center gap-1 transition-all"
+                      title="دیاریکردنی ئەوپەڕی خێزان کە بەشی کۆی مەخزەن دەکات"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-600" />
+                      بەپێی کۆی مەخزەن ({Math.min(filteredModalBeneficiaries.length, Math.floor(totalStockAvailable / (qtyPerBeneficiary || 1)))} خێزان)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSelectN(5)}
+                      className="px-2 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-[11px] font-bold border border-slate-200"
+                    >
+                      ٥ خێزان
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSelectN(10)}
+                      className="px-2 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 text-[11px] font-bold border border-slate-200"
+                    >
+                      ١٠ خێزان
+                    </button>
+
+                    {selectedBeneficiaryIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBeneficiaryIds([])}
+                        className="px-2 py-1 rounded-lg text-rose-600 hover:bg-rose-50 text-[11px] font-bold"
+                      >
+                        پاککردنەوەی هەڵبژاردن
+                      </button>
+                    )}
+                  </div>
+
+                  <span className="text-[11px] font-bold text-slate-600">
+                    دیاریکراو: <span className="font-mono text-cyan-800 font-black text-xs">{selectedBeneficiaryIds.length}</span> خێزان
+                  </span>
+                </div>
+              </div>
+
+              {/* Beneficiaries Scrollable Checkbox List */}
+              <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50/50">
+                <div className="max-h-60 overflow-y-auto divide-y divide-slate-200/70">
+                  {filteredModalBeneficiaries.length === 0 ? (
+                    <div className="p-8 text-center text-slate-400">
+                      هیچ خێزانێک بەپێی ئەم فلتەرە نەدۆزرایەوە
+                    </div>
+                  ) : (
+                    filteredModalBeneficiaries.map(ben => {
+                      const isSelected = selectedBeneficiaryIds.includes(ben.id);
+                      const customQty = customQuantities[ben.id] !== undefined ? customQuantities[ben.id] : qtyPerBeneficiary;
+
+                      return (
+                        <div
+                          key={ben.id}
+                          className={`p-3 flex items-center justify-between gap-3 transition-colors ${
+                            isSelected ? 'bg-cyan-50/80' : 'hover:bg-white'
+                          }`}
+                        >
+                          <label className="flex items-center gap-3 flex-1 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleBeneficiary(ben.id)}
+                              className="w-4 h-4 text-cyan-600 focus:ring-cyan-500 border-slate-300 rounded cursor-pointer"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-900 text-xs">{ben.fullName}</span>
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-white border border-slate-200 text-slate-600">
+                                  {ben.governorate}
+                                </span>
+                                {ben.needCategory && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100/70 text-amber-900">
+                                    {needLabelsMap[ben.needCategory] || ben.needCategory}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
+                                <span className="font-mono">{ben.phone}</span>
+                                {ben.familyMembers !== undefined && (
+                                  <span>ژمارەی خێزان: {ben.familyMembers}</span>
+                                )}
+                                <span>هاوکاری وەرگیراو: {(ben.aidHistory || []).length} جار</span>
+                              </div>
+                            </div>
+                          </label>
+
+                          {/* Custom Quantity Input for this beneficiary */}
+                          {allocationMode === 'custom' && isSelected && (
+                            <div className="flex items-center gap-1.5 shrink-0 bg-white p-1 rounded-xl border border-cyan-200">
+                              <span className="text-[10px] text-slate-500 font-bold">بڕ:</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={totalStockAvailable}
+                                value={customQty}
+                                onChange={(e) => {
+                                  const val = Math.max(1, Number(e.target.value) || 1);
+                                  setCustomQuantities(prev => ({ ...prev, [ben.id]: val }));
+                                }}
+                                className="w-16 px-2 py-1 rounded-lg border border-slate-200 font-bold text-xs text-center text-slate-900"
+                              />
+                              <span className="text-[10px] text-slate-500 font-bold">{selectedItemForDistribution.unit}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Project & Notes */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">لە چوارچێوەی کام پڕۆژە:</label>
+                  <label className="block text-slate-700 font-bold mb-1">لە چوارچێوەی کام پڕۆژە / کەمپەین:</label>
                   <input
                     type="text"
+                    required
                     value={selectedProjectTitle}
                     onChange={(e) => setSelectedProjectTitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-xs"
+                    placeholder="نموونە: دابەشکردنی سەبەتەی خۆراکی ڕەمەزان"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">تێبینی یان ناوچەی دابەشکردن (ئارەزوومەندانە):</label>
+                  <input
+                    type="text"
+                    value={distributionNotes}
+                    onChange={(e) => setDistributionNotes(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-xs"
+                    placeholder="نموونە: گەڕەکی باداوە - تیمی مەیدانی ١"
                   />
                 </div>
               </div>
 
-              <div className="p-3 rounded-2xl bg-cyan-50 border border-cyan-200 text-cyan-900 text-[11px] leading-relaxed">
-                بە پەسەندکردن، ئەم کاڵایە لە کۆگا کەم دەبێتەوە و ڕاستەوخۆ دەخرێتە سەر مێژووی هاوکارییەکانی ئەم خێزانە.
+              {/* Live Stock Gauge Summary */}
+              <div className={`p-3.5 rounded-2xl border text-xs ${
+                isExceedingStock
+                  ? 'bg-rose-50 border-rose-200 text-rose-900'
+                  : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+              }`}>
+                <div className="flex items-center justify-between flex-wrap gap-2 font-bold">
+                  <div className="flex items-center gap-4">
+                    <span>خێزانە هەڵبژێردراوەکان: <span className="font-mono font-black">{selectedBeneficiaryIds.length}</span></span>
+                    <span>کۆی پێویست: <span className="font-mono font-black text-sm">{totalDistributeQuantity} {selectedItemForDistribution.unit}</span></span>
+                  </div>
+                  <div>
+                    {isExceedingStock ? (
+                      <span className="text-rose-700 font-bold flex items-center gap-1">
+                        <AlertTriangle className="w-4 h-4 text-rose-600" />
+                        بڕی داواکراو ({totalDistributeQuantity}) لە مەخزەن زیاترە! ({totalStockAvailable} بەردەستە)
+                      </span>
+                    ) : (
+                      <span>ماوەی مەخزەن دوای دابەشکردن: <span className="font-mono font-black text-emerald-800">{remainingAfterDist} {selectedItemForDistribution.unit}</span></span>
+                    )}
+                  </div>
+                </div>
               </div>
 
+              {/* Action Buttons */}
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsDistributeModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all"
                 >
                   پاشگەزبوونەوە
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
+                  disabled={selectedBeneficiaryIds.length === 0 || isExceedingStock}
+                  className={`px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-md transition-all ${
+                    selectedBeneficiaryIds.length === 0 || isExceedingStock
+                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'liquid-button-primary text-white hover:shadow-lg'
+                  }`}
                 >
-                  تەواوکردنی دابەشکردن
+                  <Send className="w-4 h-4" />
+                  دابەشکردن بۆ ({selectedBeneficiaryIds.length}) خێزان ({totalDistributeQuantity} {selectedItemForDistribution.unit})
                 </button>
               </div>
             </form>
