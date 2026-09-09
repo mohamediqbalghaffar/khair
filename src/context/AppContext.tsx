@@ -745,11 +745,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ? don.projectName
             : 'هەولێر - کۆگای سەرەکی ڕێکخراو';
 
+          const totalAlreadyDist = beneficiaries.reduce((total, ben) => {
+            return total + (ben.aidHistory || [])
+              .filter(aid =>
+                aid.type === 'in-kind' && (
+                  (aid.receiptNumber && aid.receiptNumber === don.receiptNumber) ||
+                  (aid.receiptNumber && aid.receiptNumber === don.id)
+                )
+              )
+              .reduce((sum, aid) => sum + (Number(aid.quantity) || 0), 0);
+          }, 0);
+
           const newItem: InventoryItem = {
             id: `inv-don-${don.id}`,
             name: don.categoryLabel || 'کۆمەکی بەخشراو',
             category: invCategory,
-            quantity: don.itemDetails?.quantity || 1,
+            quantity: Math.max(0, (don.itemDetails?.quantity || 1) - totalAlreadyDist),
             unit: don.itemDetails?.unit || 'دانە',
             minAlertThreshold: 5,
             location: warehouseLocation,
@@ -772,7 +783,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return prevInv;
     });
-  }, [donations]);
+  }, [donations, beneficiaries]);
 
   useEffect(() => {
     localStorage.setItem('ngo_transactions', JSON.stringify(transactions));
@@ -1537,15 +1548,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? updated.projectName
         : 'هەولێر - کۆگای سەرەکی بەحرکە';
 
+      // CRITICAL: Calculate how much has already been distributed from this inventory item
+      // by scanning all beneficiary aid history records linked to this receipt/donation
+      const totalAlreadyDistributed = beneficiaries.reduce((total, ben) => {
+        return total + (ben.aidHistory || [])
+          .filter(aid =>
+            aid.type === 'in-kind' && (
+              (aid.receiptNumber && aid.receiptNumber === (oldDonation.receiptNumber || updated.receiptNumber)) ||
+              (aid.receiptNumber && aid.receiptNumber === updated.receiptNumber)
+            )
+          )
+          .reduce((sum, aid) => sum + (Number(aid.quantity) || 0), 0);
+      }, 0);
+
+      const newDonationQty = updated.itemDetails?.quantity || 1;
+
       setInventory(prev => {
         const existingIndex = prev.findIndex(i => i.sourceReceiptNumber === updated.receiptNumber || i.sourceDonationId === updated.id);
         if (existingIndex >= 0) {
           const updatedInv = [...prev];
+          // Preserve distributed amounts: new stock = new donation qty - already distributed
+          // If the new donation qty was changed (e.g. 60 → 70), remaining adjusts accordingly
+          // If the donation qty is unchanged, remaining stays untouched
+          const correctQuantity = Math.max(0, newDonationQty - totalAlreadyDistributed);
           const itemToSave: InventoryItem = {
             ...updatedInv[existingIndex],
             name: updated.categoryLabel || 'کۆمەکی بەخشراو',
             category: invCategory,
-            quantity: updated.itemDetails?.quantity || 1,
+            quantity: correctQuantity,
             unit: updated.itemDetails?.unit || 'دانە',
             location: warehouseLocation,
             lastUpdated: updated.date,
@@ -1559,11 +1589,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           safeSupabaseSync(supabase.from('inventory').upsert(mapInventoryToDb(itemToSave)));
           return updatedInv;
         } else {
+          // No existing inventory item: this is a new in-kind donation or category was changed to in-kind
+          // Still account for any distributions that may have been recorded under the old receipt number
+          const correctQuantity = Math.max(0, newDonationQty - totalAlreadyDistributed);
           const newInvItem: InventoryItem = {
             id: `inv-don-${updated.id}`,
             name: updated.categoryLabel || 'کۆمەکی بەخشراو',
             category: invCategory,
-            quantity: updated.itemDetails?.quantity || 1,
+            quantity: correctQuantity,
             unit: updated.itemDetails?.unit || 'دانە',
             minAlertThreshold: 5,
             location: warehouseLocation,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Donor, Donation, DonorType, DonationCategory, DonationItemDetails } from '../types';
 import {
@@ -13,6 +13,8 @@ import {
   X,
   Coins,
   Package,
+  Boxes,
+  AlertTriangle,
   GraduationCap,
   Shirt,
   Stethoscope,
@@ -34,6 +36,7 @@ export const DonorsView: React.FC = () => {
     donors,
     donations,
     projects,
+    beneficiaries,
     addDonor,
     updateDonor,
     deleteDonor,
@@ -113,6 +116,21 @@ export const DonorsView: React.FC = () => {
     destinationType: 'warehouse',
     notes: ''
   });
+
+  // Quantity of in-kind donation already distributed to beneficiaries
+  const alreadyDistributedCount = useMemo(() => {
+    if (!editingDonation || editingDonation.category === 'cash') return 0;
+    return beneficiaries.reduce((total, ben) => {
+      return total + (ben.aidHistory || [])
+        .filter(aid =>
+          aid.type === 'in-kind' && (
+            (aid.receiptNumber && aid.receiptNumber === editingDonation.receiptNumber) ||
+            (aid.receiptNumber && aid.receiptNumber === editingDonation.id)
+          )
+        )
+        .reduce((sum, aid) => sum + (Number(aid.quantity) || 0), 0);
+    }, 0);
+  }, [editingDonation, beneficiaries]);
 
   // Edit Donor Modal State
   const [editingDonor, setEditingDonor] = useState<Donor | null>(null);
@@ -504,8 +522,14 @@ export const DonorsView: React.FC = () => {
 
     let itemDetails: DonationItemDetails | undefined = undefined;
     if (!isCash) {
+      const requestedQty = Number(editDonationForm.quantity) || 1;
+      if (alreadyDistributedCount > 0 && requestedQty < alreadyDistributedCount) {
+        alert(`هەڵە! ناکرێت بڕی کۆی بەخشین (${requestedQty}) لەو بڕە کەمتر بێت کە پێشتر دابەشکراوە بەسەر خێزانەکاندا (${alreadyDistributedCount})!`);
+        return;
+      }
+
       itemDetails = {
-        quantity: Number(editDonationForm.quantity) || 1,
+        quantity: requestedQty,
         unit: editDonationForm.unit,
         weightKgPerUnit:
           editDonationForm.category === 'food_basket'
@@ -1741,6 +1765,34 @@ export const DonorsView: React.FC = () => {
                   </div>
                 ) : (
                   <div className="p-3.5 bg-white rounded-xl border border-emerald-200 space-y-3 pt-3 animate-in fade-in">
+                    {/* Live Warehouse Distribution & Stock Status */}
+                    {alreadyDistributedCount > 0 && (
+                      <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1.5 shadow-xs">
+                        <div className="flex items-center justify-between font-bold">
+                          <span className="flex items-center gap-1.5 text-amber-900">
+                            <Boxes className="w-4 h-4 text-amber-600" />
+                            دۆخی ئەم کاڵایە لە کۆگا و هاوکارییەکان:
+                          </span>
+                          <span className="bg-white px-2.5 py-0.5 rounded-full border border-amber-300 font-mono text-amber-800 font-bold text-[11px]">
+                            {alreadyDistributedCount} دانە پێشتر دراوە بە خێزانەکان
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-amber-800 leading-relaxed">
+                          لە کۆی ئەم بەخشینە، تا ئێستا <strong>{alreadyDistributedCount}</strong> دانە دابەشکراوە بەسەر خێزانە هەژارەکاندا.
+                          بە نوێکردنەوەی بڕی کۆ بۆ <strong>{editDonationForm.quantity}</strong>، بڕی ماوەی بەردەستی ناو کۆگا دەبێتە{' '}
+                          <strong className="font-mono text-emerald-800 text-sm font-black">
+                            {Math.max(0, (Number(editDonationForm.quantity) || 0) - alreadyDistributedCount)}
+                          </strong> دانە.
+                        </p>
+                        {Number(editDonationForm.quantity) < alreadyDistributedCount && (
+                          <div className="p-2 rounded-xl bg-rose-100/90 border border-rose-300 text-rose-800 font-bold flex items-center gap-1.5 text-[11px]">
+                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                            <span>ئاگاداری: ناتوانیت بڕی کۆی بەخشین لە {alreadyDistributedCount} دانە کەمتر بکەیتەوە چونکە پێشتر دابەشکراوە!</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Food Aid specific details */}
                     {editDonationForm.category === 'food_basket' && (
                       <>
