@@ -134,7 +134,18 @@ export const SpotlightModal: React.FC = () => {
                       >
                         <div>
                           <p className="font-bold text-slate-900 text-xs">{b.fullName}</p>
-                          <p className="text-[10px] text-slate-500">{b.governorate} • {b.phone} • دۆخ: {b.status === 'aided' ? 'هاوکاریکراو' : 'پەسەندکراو'}</p>
+                          <p className="text-[10px] text-slate-500">
+                            {b.governorate} • {b.phone} • دۆخ: {
+                              b.status === 'pending' ? 'لەژێر لێکۆڵینەوە' :
+                              b.status === 'confidential' ? 'سوودمەندی نهێنی' :
+                              b.status === 'urgent' ? 'فریاگوزاری بەپەلە' :
+                              b.status === 'approved' ? 'پەسەندکراو' :
+                              b.status === 'aided' ? 'هاوکاریکراو' :
+                              b.status === 'periodic' ? 'هاوکاری مانگانە' :
+                              b.status === 'suspended' ? 'ڕاگیراو' :
+                              b.status === 'rejected' ? 'ڕەتکراوە' : 'ئەرشیڤکراو'
+                            }{b.aidHistory?.length > 0 ? ` (هاوکاریکراو: ${b.aidHistory.length})` : ''}
+                          </p>
                         </div>
                         <ArrowRight className="w-4 h-4 text-slate-400 rotate-180" />
                       </div>

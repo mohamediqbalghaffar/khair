@@ -1224,7 +1224,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (b.id === beneficiaryId) {
         updatedTargetBen = {
           ...b,
-          status: 'aided' as const,
+          status: b.status || 'pending',
           aidHistory: [newRecord, ...b.aidHistory]
         };
         return updatedTargetBen;

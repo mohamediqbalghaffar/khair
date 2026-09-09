@@ -29,7 +29,16 @@ export interface AppUserRecord {
 }
 
 export type NeedCategory = 'poor' | 'orphan' | 'sick' | 'disabled' | 'displaced' | 'student';
-export type BeneficiaryStatus = 'pending' | 'approved' | 'aided' | 'rejected';
+export type BeneficiaryStatus =
+  | 'pending' // ⏳ لەژێر لێکۆڵینەوە (پێویستی بە سەردانی مەیدانی و بەدواداچوونە)
+  | 'approved' // ✅ پەسەندکراو بۆ هاوکاری
+  | 'urgent' // 🚨 حاڵەتی فریاگوزاری و بەپەلە
+  | 'confidential' // 🔒 سوودمەندی نهێنی و پارێزراو
+  | 'periodic' // 🔄 هاوکاری مانگانە / خولیی بەردەوام
+  | 'suspended' // ⏸ ڕاگیراوی کاتی
+  | 'rejected' // ❌ ڕەتکراوەتەوە
+  | 'archived' // 📁 ئەرشیڤکراو
+  | 'aided'; // 🎁 هاوکاریکراو
 
 export interface AidRecord {
   id: string;
@@ -97,6 +106,7 @@ export interface Beneficiary {
   monthlyIncomeIQD: number;
   needCategory: NeedCategory;
   status: BeneficiaryStatus;
+  isConfidential?: boolean; // ئایا دۆسیەیەکی هەستیار و پارێزراوە؟
   notes: string;
   registeredDate: string;
   aidHistory: AidRecord[];

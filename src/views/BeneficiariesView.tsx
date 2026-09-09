@@ -39,7 +39,12 @@ import {
   Crosshair,
   Compass,
   RotateCcw,
-  Database
+  Database,
+  ShieldCheck,
+  Lock,
+  RefreshCw,
+  PauseCircle,
+  Archive
 } from 'lucide-react';
 
 export const BeneficiariesView: React.FC = () => {
@@ -99,6 +104,7 @@ export const BeneficiariesView: React.FC = () => {
     monthlyIncomeIQD: 0,
     needCategory: 'poor' as NeedCategory,
     status: 'pending' as BeneficiaryStatus,
+    isConfidential: false,
     notes: '',
     documents: [] as BeneficiaryDocument[],
     location: undefined as BeneficiaryLocation | undefined
@@ -132,8 +138,9 @@ export const BeneficiariesView: React.FC = () => {
             location: {
               lat,
               lng,
-              label: prev.location?.label || 'وەرگیراو لە ڕێگەی GPS ئامێر',
-              tagDate: new Date().toISOString()
+              label: prev.fullName || 'ماڵی سوودمەند',
+              addressDetails: prev.address,
+              tagDate: new Date().toISOString().split('T')[0]
             }
           }));
         } else {
@@ -142,17 +149,18 @@ export const BeneficiariesView: React.FC = () => {
             location: {
               lat,
               lng,
-              label: prev.location?.label || 'وەرگیراو لە ڕێگەی GPS ئامێر',
-              tagDate: new Date().toISOString()
+              label: prev.fullName || 'ماڵی سوودمەند',
+              addressDetails: prev.address,
+              tagDate: new Date().toISOString().split('T')[0]
             }
           }));
         }
       },
-      () => {
+      (err) => {
         setIsGettingGPS(false);
-        setGpsError('نەتوانرا پێگەی جوگرافی وەربگیرێت. دڵنیابە مۆڵەتی GPS بەخشراوە.');
+        setGpsError('نەتوانرا شوێنی ورد وەربگیرێت: ' + err.message);
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   };
 
@@ -183,6 +191,7 @@ export const BeneficiariesView: React.FC = () => {
     monthlyIncomeIQD: 0,
     needCategory: 'poor' as NeedCategory,
     status: 'pending' as BeneficiaryStatus,
+    isConfidential: false,
     notes: '',
     documents: [] as BeneficiaryDocument[],
     location: undefined as BeneficiaryLocation | undefined
@@ -225,7 +234,17 @@ export const BeneficiariesView: React.FC = () => {
       b.nationalId.includes(q) ||
       b.address.toLowerCase().includes(q);
 
-    const matchesStatus = statusFilter === 'all' || b.status === statusFilter;
+    let matchesStatus = true;
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'aided') {
+        matchesStatus = b.status === 'aided' || (b.aidHistory && b.aidHistory.length > 0);
+      } else if (statusFilter === 'confidential') {
+        matchesStatus = b.status === 'confidential' || b.isConfidential === true;
+      } else {
+        matchesStatus = b.status === statusFilter;
+      }
+    }
+
     const matchesCat = categoryFilter === 'all' || b.needCategory === categoryFilter;
     const matchesGov = governorateFilter === 'all' || b.governorate === governorateFilter;
 
@@ -306,6 +325,7 @@ export const BeneficiariesView: React.FC = () => {
       monthlyIncomeIQD: 0,
       needCategory: 'poor',
       status: 'pending',
+      isConfidential: false,
       notes: '',
       documents: [],
       location: undefined
@@ -408,6 +428,7 @@ export const BeneficiariesView: React.FC = () => {
       monthlyIncomeIQD: ben.monthlyIncomeIQD || 0,
       needCategory: ben.needCategory || 'poor',
       status: ben.status || 'pending',
+      isConfidential: ben.isConfidential ?? (ben.status === 'confidential'),
       notes: ben.notes || '',
       documents: ben.documents ? [...ben.documents] : [],
       location: ben.location ? { ...ben.location } : undefined
@@ -502,6 +523,7 @@ export const BeneficiariesView: React.FC = () => {
       monthlyIncomeIQD: Number(editFormData.monthlyIncomeIQD) || 0,
       needCategory: editFormData.needCategory,
       status: editFormData.status,
+      isConfidential: editFormData.isConfidential ?? (editFormData.status === 'confidential'),
       notes: editFormData.notes,
       documents: editFormData.documents || [],
       location: editFormData.location
@@ -724,10 +746,16 @@ export const BeneficiariesView: React.FC = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="w-full h-11 px-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
           >
-            <option value="all">هەموو دۆخەکان</option>
-            <option value="approved">پەسەندکراو بۆ هاوکاری</option>
-            <option value="aided">هاوکاری وەرگرتووە</option>
-            <option value="pending">لەژێر لێکۆڵینەوە</option>
+            <option value="all">هەموو دۆخەکان ({beneficiaries.length})</option>
+            <option value="pending">⏳ لەژێر لێکۆڵینەوە ({beneficiaries.filter(b => b.status === 'pending').length})</option>
+            <option value="approved">✅ پەسەندکراو بۆ هاوکاری ({beneficiaries.filter(b => b.status === 'approved').length})</option>
+            <option value="aided">🎁 هاوکاری وەرگرتووە ({beneficiaries.filter(b => b.status === 'aided' || (b.aidHistory && b.aidHistory.length > 0)).length})</option>
+            <option value="confidential">🔒 سوودمەندی نهێنی و پارێزراو ({beneficiaries.filter(b => b.status === 'confidential' || b.isConfidential).length})</option>
+            <option value="urgent">🚨 فریاگوزاری و بەپەلە ({beneficiaries.filter(b => b.status === 'urgent').length})</option>
+            <option value="periodic">🔄 هاوکاری خولیی و مانگانە ({beneficiaries.filter(b => b.status === 'periodic').length})</option>
+            <option value="suspended">⏸ ڕاگیراوی کاتی ({beneficiaries.filter(b => b.status === 'suspended').length})</option>
+            <option value="rejected">❌ ڕەتکراوەتەوە ({beneficiaries.filter(b => b.status === 'rejected').length})</option>
+            <option value="archived">📁 دۆسیەی ئەرشیڤکراو ({beneficiaries.filter(b => b.status === 'archived').length})</option>
           </select>
 
           {/* Category Filter */}
@@ -812,7 +840,15 @@ export const BeneficiariesView: React.FC = () => {
                           {ben.gender === 'female' ? 'مێ' : 'نێر'}
                         </span>
                         <div>
-                          <p className="font-bold text-slate-900 text-sm">{ben.fullName}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-bold text-slate-900 text-sm">{ben.fullName}</p>
+                            {(ben.isConfidential || ben.status === 'confidential') && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold" title="دۆسیەی هەستیار و پارێزراو">
+                                <Lock className="w-2.5 h-2.5 text-purple-600" />
+                                <span>نهێنی</span>
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[11px] text-slate-500 font-medium">
                             {ben.age ? `${ben.age} ساڵ` : ''} {ben.isFamilyHead ? '• سەرۆکی خێزان' : ''}
                           </span>
@@ -884,23 +920,64 @@ export const BeneficiariesView: React.FC = () => {
                       )}
                     </td>
                     <td className="py-3.5 px-4">
-                      {ben.status === 'aided' ? (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1 w-fit">
-                          <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو ({ben.aidHistory.length})
-                        </span>
-                      ) : ben.status === 'approved' ? (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> پەسەندکراوە
-                        </span>
-                      ) : ben.status === 'rejected' ? (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 w-fit">
-                          <X className="w-3 h-3 text-rose-600" /> ڕەتکراوەتەوە
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 w-fit">
-                          <Clock className="w-3 h-3 text-amber-600" /> لەژێر لێکۆڵینەوە
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* 1. Primary Case Status Badge */}
+                        {ben.status === 'pending' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 w-fit whitespace-nowrap">
+                            <Clock className="w-3 h-3 text-amber-600" /> لەژێر لێکۆڵینەوە
+                          </span>
+                        ) : ben.status === 'approved' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit whitespace-nowrap">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> پەسەندکراوە
+                          </span>
+                        ) : ben.status === 'confidential' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1 w-fit whitespace-nowrap" title="دۆسیەی هەستیار و پارێزراو">
+                            <ShieldCheck className="w-3 h-3 text-purple-600" /> سوودمەندی نهێنی
+                          </span>
+                        ) : ben.status === 'urgent' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 w-fit whitespace-nowrap animate-pulse">
+                            <AlertTriangle className="w-3 h-3 text-rose-600" /> بەپەلە / فریاگوزاری
+                          </span>
+                        ) : ben.status === 'periodic' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1 w-fit whitespace-nowrap">
+                            <RefreshCw className="w-3 h-3 text-blue-600" /> هاوکاری مانگانە
+                          </span>
+                        ) : ben.status === 'suspended' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 flex items-center gap-1 w-fit whitespace-nowrap">
+                            <PauseCircle className="w-3 h-3 text-slate-500" /> ڕاگیراوی کاتی
+                          </span>
+                        ) : ben.status === 'rejected' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 w-fit whitespace-nowrap">
+                            <X className="w-3 h-3 text-rose-600" /> ڕەتکراوەتەوە
+                          </span>
+                        ) : ben.status === 'archived' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1 w-fit whitespace-nowrap">
+                            <Archive className="w-3 h-3 text-slate-400" /> ئەرشیڤکراو
+                          </span>
+                        ) : ben.status === 'aided' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1 w-fit whitespace-nowrap">
+                            <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو ({ben.aidHistory?.length || 1})
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1 w-fit whitespace-nowrap">
+                            <Clock className="w-3 h-3 text-amber-600" /> لەژێر لێکۆڵینەوە
+                          </span>
+                        )}
+
+                        {/* 2. Confidential badge if flagged via isConfidential and status isn't confidential */}
+                        {ben.isConfidential && ben.status !== 'confidential' && (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1 w-fit whitespace-nowrap" title="دۆسیەی هەستیار و پارێزراو">
+                            <ShieldCheck className="w-2.5 h-2.5 text-purple-600" /> نهێنی
+                          </span>
+                        )}
+
+                        {/* 3. Secondary Aid Badge: display alongside case status if beneficiary has received aid */}
+                        {ben.status !== 'aided' && ben.aidHistory && ben.aidHistory.length > 0 && (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1 w-fit whitespace-nowrap shadow-xs" title={`کۆی هاوکارییە تۆمارکراوەکان: ${ben.aidHistory.length}`}>
+                            <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو ({ben.aidHistory.length})
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
@@ -1446,23 +1523,52 @@ export const BeneficiariesView: React.FC = () => {
                   </div>
 
                   {/* Status Selection - Default is 'pending' (لەژێر لێکۆڵینەوە) */}
-                  <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200">
-                    <label className="block text-slate-800 font-bold mb-1.5 flex items-center gap-1.5">
+                  <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2.5">
+                    <label className="block text-slate-800 font-bold mb-1 flex items-center gap-1.5">
                       <Clock className="w-4 h-4 text-amber-600" />
-                      دۆخی سەرەتایی دۆسیە:
+                      دۆخی سەرەتایی دۆسیە (Status):
                     </label>
                     <select
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as BeneficiaryStatus })}
-                      className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white font-bold"
+                      onChange={(e) => {
+                        const newStatus = e.target.value as BeneficiaryStatus;
+                        setFormData(prev => ({
+                          ...prev,
+                          status: newStatus,
+                          isConfidential: newStatus === 'confidential' ? true : prev.isConfidential
+                        }));
+                      }}
+                      className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white font-bold text-xs sm:text-sm"
                     >
-                      <option value="pending">لەژێر لێکۆڵینەوە (دۆخی بنەڕەتی - پێویستی بە لێکۆڵینەوە و پشکنینە)</option>
-                      <option value="approved">پەسەندکراو بۆ هاوکاری</option>
-                      <option value="aided">هاوکاری وەرگرتووە</option>
-                      <option value="rejected">ڕەتکراوەتەوە</option>
+                      <option value="pending">⏳ لەژێر لێکۆڵینەوە (پێویستی بە سەردانی مەیدانی و بەدواداچوونە)</option>
+                      <option value="approved">✅ پەسەندکراو بۆ وەرگرتنی هاوکاری (Approved)</option>
+                      <option value="urgent">🚨 حاڵەتی فریاگوزاری و بەپەلە (Urgent Emergency Case)</option>
+                      <option value="confidential">🔒 سوودمەندی نهێنی و پارێزراو (Confidential Beneficiary)</option>
+                      <option value="periodic">🔄 هاوکاری مانگانە / خولیی بەردەوام (Periodic Aid)</option>
+                      <option value="aided">🎁 هاوکاری وەرگرتووە (Aided)</option>
+                      <option value="suspended">⏸ ڕاگیراوی کاتی (Temporarily Suspended)</option>
+                      <option value="rejected">❌ ڕەتکراوەتەوە (Rejected)</option>
+                      <option value="archived">📁 دۆسیەی ئەرشیڤکراو (Archived Case)</option>
                     </select>
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      * بە شێوەی خۆکار لەسەر (لەژێر لێکۆڵینەوە) دیاریکراوە. دەتوانیت دواتر لە بەشی دەستکاریکردن پەسەندی بکەیت.
+
+                    <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={formData.isConfidential || formData.status === 'confidential'}
+                          onChange={(e) => setFormData(prev => ({ ...prev, isConfidential: e.target.checked }))}
+                          className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300"
+                        />
+                        <ShieldCheck className="w-4 h-4 text-purple-600" />
+                        <span>دۆسیەی هەستیار و نهێنی (Confidential Record)</span>
+                      </label>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+                        پاراستنی تایبەتمەندی
+                      </span>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500">
+                      * بە شێوەی خۆکار لەسەر (لەژێر لێکۆڵینەوە) دانراوە. تەنانەت ئەگەر هاوکاریش وەربگرێت، دۆخی لێکۆڵینەوەکەی پارێزراو دەبێت.
                     </p>
                   </div>
 
@@ -1790,6 +1896,7 @@ export const BeneficiariesView: React.FC = () => {
                       سەرۆکی خێزان
                     </span>
                   )}
+                  {/* Primary Case Status Badge */}
                   {selectedBeneficiary.status === 'pending' ? (
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
                       <Clock className="w-3 h-3 text-amber-600" /> لەژێر لێکۆڵینەوە
@@ -1798,13 +1905,47 @@ export const BeneficiariesView: React.FC = () => {
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3 text-emerald-600" /> پەسەندکراوە
                     </span>
-                  ) : selectedBeneficiary.status === 'aided' ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1">
-                      <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو
+                  ) : selectedBeneficiary.status === 'confidential' ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-900 border border-purple-300 flex items-center gap-1 shadow-xs">
+                      <Lock className="w-3 h-3 text-purple-700" /> سوودمەندی نهێنی و پارێزراو
                     </span>
-                  ) : (
+                  ) : selectedBeneficiary.status === 'urgent' ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 flex items-center gap-1 animate-pulse">
+                      <AlertTriangle className="w-3 h-3 text-red-600" /> فریاگوزاری بەپەلە
+                    </span>
+                  ) : selectedBeneficiary.status === 'periodic' ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 text-blue-600" /> هاوکاری مانگانە / خولیی
+                    </span>
+                  ) : selectedBeneficiary.status === 'suspended' ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 flex items-center gap-1">
+                      <PauseCircle className="w-3 h-3 text-slate-500" /> ڕاگیراوی کاتی
+                    </span>
+                  ) : selectedBeneficiary.status === 'rejected' ? (
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
                       <X className="w-3 h-3 text-rose-600" /> ڕەتکراوەتەوە
+                    </span>
+                  ) : selectedBeneficiary.status === 'archived' ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                      <Archive className="w-3 h-3 text-slate-400" /> ئەرشیڤکراو
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1">
+                      <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو ({selectedBeneficiary.aidHistory?.length || 1})
+                    </span>
+                  )}
+
+                  {/* Confidential Tag if isConfidential */}
+                  {selectedBeneficiary.isConfidential && selectedBeneficiary.status !== 'confidential' && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-purple-600" /> دۆسیەی نهێنی
+                    </span>
+                  )}
+
+                  {/* Secondary Aid Badge if received aid */}
+                  {selectedBeneficiary.status !== 'aided' && selectedBeneficiary.aidHistory && selectedBeneficiary.aidHistory.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1 shadow-xs">
+                      <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو ({selectedBeneficiary.aidHistory.length} جار)
                     </span>
                   )}
                 </div>
@@ -1823,6 +1964,21 @@ export const BeneficiariesView: React.FC = () => {
                 <span>دەستکاریکردنی دۆسیە و بەڵگەنامەکان</span>
               </button>
             </div>
+
+            {/* Confidential Warning / Protection Notice */}
+            {(selectedBeneficiary.isConfidential || selectedBeneficiary.status === 'confidential') && (
+              <div className="my-3.5 p-3 rounded-2xl bg-purple-50 border border-purple-200 flex items-center gap-3 text-purple-900">
+                <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 border border-purple-200">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div className="text-xs">
+                  <p className="font-bold">ئەم دۆسیەیە بە پێگەی سوودمەندی نهێنی و پارێزراو پۆلێن کراوە (Confidential Beneficiary)</p>
+                  <p className="text-[11px] text-purple-700/90 mt-0.5">
+                    بە مەبەستی پاراستنی کەرامەت و تایبەتمەندی خێزانەکە، ناونیشان و ناسنامەکەی پارێزراوە و تەنها بۆ بەڕێوەبەری سەرەکی دەبینرێت.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* GPS House Location Card */}
             {selectedBeneficiary.location && (
@@ -2293,16 +2449,45 @@ export const BeneficiariesView: React.FC = () => {
 
                 <select
                   value={editFormData.status}
-                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as BeneficiaryStatus })}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as BeneficiaryStatus;
+                    setEditFormData(prev => ({
+                      ...prev,
+                      status: newStatus,
+                      isConfidential: newStatus === 'confidential' ? true : prev.isConfidential
+                    }));
+                  }}
                   className="w-full px-3.5 py-2.5 rounded-xl liquid-input text-slate-900 bg-white font-bold text-xs sm:text-sm"
                 >
                   <option value="pending">⏳ لەژێر لێکۆڵینەوە (پێویستی بە سەردانی مەیدانی و بەدواداچوونە)</option>
-                  <option value="approved">✅ پەسەندکراو بۆ هاوکاری (Approved for Aid)</option>
+                  <option value="approved">✅ پەسەندکراو بۆ وەرگرتنی هاوکاری (Approved)</option>
+                  <option value="urgent">🚨 حاڵەتی فریاگوزاری و بەپەلە (Urgent Emergency Case)</option>
+                  <option value="confidential">🔒 سوودمەندی نهێنی و پارێزراو (Confidential Beneficiary)</option>
+                  <option value="periodic">🔄 هاوکاری مانگانە / خولیی بەردەوام (Periodic Aid)</option>
                   <option value="aided">🎁 هاوکاری وەرگرتووە (Aided)</option>
+                  <option value="suspended">⏸ ڕاگیراوی کاتی (Temporarily Suspended)</option>
                   <option value="rejected">❌ ڕەتکراوەتەوە (Rejected)</option>
+                  <option value="archived">📁 دۆسیەی ئەرشیڤکراو (Archived Case)</option>
                 </select>
+
+                <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.isConfidential || editFormData.status === 'confidential'}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, isConfidential: e.target.checked }))}
+                      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300"
+                    />
+                    <ShieldCheck className="w-4 h-4 text-purple-600" />
+                    <span>دۆسیەی هەستیار و نهێنی (Confidential Record)</span>
+                  </label>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+                    پاراستنی نهێنی
+                  </span>
+                </div>
+
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  * بە شێوەی خۆکار سەرەتا لەسەر (لەژێر لێکۆڵینەوە) بووە؛ لەم بەشەوە دەتوانیت بیپەسەند بکەیت یان بەپێی بارودۆخەکەی بیگۆڕیت.
+                  * سوودمەند دەتوانێت لە یەک کاتدا دۆخی دۆسیەکەی لەژێر لێکۆڵینەوە بێت و هاوکاریشی پێدرابێت. هاوکاریکردن دۆخی سەرەکی ناسڕێتەوە.
                 </p>
               </div>
 

@@ -118,7 +118,7 @@ export const DashboardView: React.FC = () => {
   const totalDonationsUSD = donationsAgg.totalUSD;
 
   const totalBeneficiaries = filteredBeneficiaries.length;
-  const aidedBeneficiaries = filteredBeneficiaries.filter(b => b.status === 'aided').length;
+  const aidedBeneficiaries = filteredBeneficiaries.filter(b => b.status === 'aided' || (b.aidHistory && b.aidHistory.length > 0)).length;
   const activeProjectsCount = filteredProjects.filter(p => p.status === 'active').length;
   const totalVolunteerHours = filteredVolunteers.reduce((sum, v) => sum + v.hoursLogged, 0);
 
@@ -759,13 +759,33 @@ export const DashboardView: React.FC = () => {
                         <p className="font-bold text-slate-900 text-sm">{b.fullName}</p>
                         <p className="text-xs text-slate-500 mt-0.5">{b.governorate} • {b.address} • {b.familyMembers} کەس</p>
                       </div>
-                      <div className="text-left">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          b.status === 'aided' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
-                        }`}>
-                          {b.status === 'aided' ? `هاوکاریکراو (${b.aidHistory.length})` : 'پەسەندکراوە'}
-                        </span>
-                        <p className="text-xs font-bold text-slate-700 mt-1 font-mono">{b.monthlyIncomeIQD.toLocaleString()} د.ع</p>
+                      <div className="text-left flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1">
+                          {b.status === 'pending' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              لەژێر لێکۆڵینەوە
+                            </span>
+                          ) : b.status === 'confidential' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                              نهێنی
+                            </span>
+                          ) : b.status === 'urgent' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              بەپەلە
+                            </span>
+                          ) : b.status === 'approved' ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              پەسەندکراو
+                            </span>
+                          ) : null}
+
+                          {(b.status === 'aided' || (b.aidHistory && b.aidHistory.length > 0)) && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                              هاوکاریکراو ({b.aidHistory.length})
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-bold text-slate-700 font-mono">{b.monthlyIncomeIQD.toLocaleString()} د.ع</p>
                       </div>
                     </div>
                   ))
