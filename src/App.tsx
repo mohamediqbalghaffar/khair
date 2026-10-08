@@ -18,6 +18,7 @@ import { GeoMapView } from './views/GeoMapView';
 import { DocumentsView } from './views/DocumentsView';
 import { AuditView } from './views/AuditView';
 import { SettingsView } from './views/SettingsView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const MainContent: React.FC = () => {
   const { activeTab } = useApp();
@@ -64,7 +65,9 @@ const MainContent: React.FC = () => {
       {/* Main Content Area with Adaptive Layout - bounded cleanly between Topbar and Navigation Dock */}
       <main className="relative z-10 flex-1 min-h-0 w-full overflow-y-auto">
         <div className="max-w-[1536px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {renderActiveView()}
+          <ErrorBoundary>
+            {renderActiveView()}
+          </ErrorBoundary>
         </div>
       </main>
 

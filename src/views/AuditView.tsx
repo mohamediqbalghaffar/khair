@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { AuditLog } from '../types';
 import {
   History,
   Search,
@@ -14,24 +15,39 @@ export const AuditView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAction, setFilterAction] = useState<string>('all');
 
-  const filteredLogs = auditLogs.filter(log => {
-    const q = searchQuery.toLowerCase();
+  // Defensive array sanitization against malformed items or nulls
+  const safeLogs: AuditLog[] = Array.isArray(auditLogs)
+    ? auditLogs.filter((log): log is AuditLog => Boolean(log && typeof log === 'object'))
+    : [];
+
+  const filteredLogs = safeLogs.filter(log => {
+    const q = (searchQuery || '').toLowerCase().trim();
+    const actionStr = String(log.action || '').toLowerCase();
+    const userStr = String(log.userName || '').toLowerCase();
+    const detailsStr = String(log.details || '').toLowerCase();
+
     const matchesSearch =
-      log.action.toLowerCase().includes(q) ||
-      log.userName.toLowerCase().includes(q) ||
-      log.details.toLowerCase().includes(q);
+      !q ||
+      actionStr.includes(q) ||
+      userStr.includes(q) ||
+      detailsStr.includes(q);
+
     const matchesAction = filterAction === 'all' || log.type === filterAction;
     return matchesSearch && matchesAction;
   });
 
   const exportAuditJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredLogs, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `audit_trail_${new Date().toISOString().split('T')[0]}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+    try {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredLogs, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `audit_trail_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch (err) {
+      console.error('Error exporting audit JSON:', err);
+    }
   };
 
   return (
@@ -45,7 +61,7 @@ export const AuditView: React.FC = () => {
             مێژووی چاودێری و کردارەکانی سیستەم (Audit Trail)
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            تۆماری گۆڕانکارییەکان، کاتی ئەنجامدان و ناسنامەی بەکارهێنەر بەپێی ستانداردەکانی شەفافییەت
+            تۆماری گۆڕانکارییەکان، کاتی ئەنجامدان و ناسنامەی ئەنجامدەر بەپێی ستانداردەکانی شەفافییەت
           </p>
         </div>
 
@@ -74,7 +90,7 @@ export const AuditView: React.FC = () => {
               filterAction === 'all' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            هەموو کردارەکان ({auditLogs.length})
+            هەموو کردارەکان ({safeLogs.length})
           </button>
           <button
             onClick={() => setFilterAction('create')}
@@ -98,7 +114,7 @@ export const AuditView: React.FC = () => {
               filterAction === 'auth' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            ئاسایش و دووبارەبوونەوە
+            ئاسایش و سیستەم
           </button>
         </div>
 
@@ -121,7 +137,7 @@ export const AuditView: React.FC = () => {
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
               <tr>
                 <th className="py-3.5 px-4">بەروار و کات</th>
-                <th className="py-3.5 px-4">بەکارهێنەر</th>
+                <th className="py-3.5 px-4">ئەنجامدەر</th>
                 <th className="py-3.5 px-4">جۆری کردار</th>
                 <th className="py-3.5 px-4">ناونیشانی کردار</th>
                 <th className="py-3.5 px-4">وردەکاری</th>
@@ -135,13 +151,13 @@ export const AuditView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map(log => (
-                  <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
+                filteredLogs.map((log, idx) => (
+                  <tr key={log.id || `audit-row-${idx}`} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3 px-4 font-mono text-[11px] text-cyan-800 font-bold">
-                      {log.timestamp}
+                      {log.timestamp || '—'}
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-900">
-                      {log.userName}
+                      {log.userName || 'سیستەم'}
                     </td>
                     <td className="py-3 px-4">
                       {log.type === 'create' && (
@@ -161,7 +177,7 @@ export const AuditView: React.FC = () => {
                       )}
                       {log.type === 'auth' && (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
-                          <AlertCircle className="w-3 h-3" /> ئاسایش و دەسەڵات
+                          <AlertCircle className="w-3 h-3" /> ئاسایش و سیستەم
                         </span>
                       )}
                       {log.type === 'export' && (
@@ -169,12 +185,17 @@ export const AuditView: React.FC = () => {
                           هەناردەکردن ⤓
                         </span>
                       )}
+                      {!['create', 'update', 'delete', 'auth', 'export'].includes(log.type) && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 w-fit">
+                          {log.type || 'گشتی'}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-900">
-                      {log.action}
+                      {log.action || '—'}
                     </td>
                     <td className="py-3 px-4 text-slate-600 max-w-md truncate">
-                      {log.details}
+                      {log.details || '—'}
                     </td>
                   </tr>
                 ))

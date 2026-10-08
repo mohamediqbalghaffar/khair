@@ -275,8 +275,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    const saved = localStorage.getItem('ngo_audit_logs');
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ngo_audit_logs');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const clean = parsed
+              .filter(item => item && item.id !== 'test' && item.id !== 'probe_audit_logs' && (item.action || item.details))
+              .map(item => ({
+                id: String(item.id || `log-${Date.now()}`),
+                timestamp: String(item.timestamp || ''),
+                userName: String(item.userName || item.user_name || 'سیستەم'),
+                userRole: String(item.userRole || 'admin'),
+                action: String(item.action || 'تۆماری چاودێری'),
+                details: String(item.details || ''),
+                type: (item.type || 'update') as AuditLog['type']
+              }));
+            if (clean.length > 0) return clean;
+          }
+        } catch (e) {
+          // fallback
+        }
+      }
+    }
+    return INITIAL_AUDIT_LOGS;
   });
 
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
@@ -536,7 +559,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setDocuments(docsRes.data.map(mapDocumentFromDb));
       }
       if (!logsRes.error && logsRes.data && logsRes.data.length > 0) {
-        setAuditLogs(logsRes.data.map(mapAuditLogFromDb));
+        const validDbLogs = logsRes.data
+          .filter((row: any) => row && row.id !== 'test' && row.id !== 'probe_audit_logs' && (row.action || row.details))
+          .map(mapAuditLogFromDb);
+        if (validDbLogs.length > 0) {
+          setAuditLogs(validDbLogs);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('ngo_audit_logs', JSON.stringify(validDbLogs));
+          }
+        }
       }
 
       return {

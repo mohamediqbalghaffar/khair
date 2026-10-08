@@ -436,11 +436,11 @@ export const mapAuditLogToDb = (log: AuditLog) => ({
 });
 
 export const mapAuditLogFromDb = (row: any): AuditLog => ({
-  id: row.id,
-  timestamp: row.timestamp,
-  userName: row.user_name,
-  userRole: 'admin',
-  action: row.action,
-  details: row.details,
-  type: row.type
+  id: String(row.id || `log-${Date.now()}`),
+  timestamp: String(row.timestamp || (row.created_at ? row.created_at.replace('T', ' ').substring(0, 19) : new Date().toISOString().replace('T', ' ').substring(0, 19))),
+  userName: String(row.user_name || row.userName || row.username || 'سیستەم'),
+  userRole: String(row.user_role || row.userRole || 'admin'),
+  action: String(row.action || 'تۆماری چاودێری'),
+  details: String(row.details || row.description || ''),
+  type: (['create', 'update', 'delete', 'auth', 'export'].includes(row.type) ? row.type : 'update') as AuditLog['type']
 });
