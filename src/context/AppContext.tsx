@@ -15,8 +15,11 @@ import {
   AuditLog,
   AidRecord,
   Announcement,
-  AutomatedReminder
+  AutomatedReminder,
+  NavTab,
+  NavItemConfig
 } from '../types';
+import { DEFAULT_NAV_CONFIGS } from '../data/navConfig';
 import {
   INITIAL_BENEFICIARIES,
   INITIAL_DONORS,
@@ -63,18 +66,7 @@ import {
   registerNewUser
 } from '../services/auth';
 
-export type NavTab =
-  | 'dashboard'
-  | 'beneficiaries'
-  | 'donors'
-  | 'projects'
-  | 'inventory'
-  | 'finance'
-  | 'volunteers'
-  | 'geo'
-  | 'documents'
-  | 'audit'
-  | 'settings';
+export type { NavTab, NavItemConfig };
 
 export interface MapFocusLocation {
   lat: number;
@@ -190,6 +182,14 @@ interface AppContextType {
   isCloudSyncing: boolean;
   syncLocalDataToCloud: () => Promise<{ success: boolean; syncedCount: number; message: string }>;
   checkConnectionHealth: () => Promise<boolean>;
+
+  // Navigation & Role Permissions (Feature 16)
+  navConfigs: NavItemConfig[];
+  updateNavConfig: (tabId: NavTab, updates: Partial<NavItemConfig>) => void;
+  toggleNavSectionVisibility: (tabId: NavTab) => void;
+  toggleRoleForNavSection: (tabId: NavTab, role: UserRole) => void;
+  resetNavConfigs: () => void;
+  isTabAllowedForRole: (tabId: NavTab, role: UserRole) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -314,6 +314,114 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState<boolean>(true);
+
+  // Navigation & Role Permissions state
+  const [navConfigs, setNavConfigs] = useState<NavItemConfig[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('ngo_nav_configs');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return DEFAULT_NAV_CONFIGS.map(def => {
+              const found = parsed.find((p: any) => p && p.id === def.id);
+              return found ? { ...def, ...found } : def;
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse saved nav configs', e);
+      }
+    }
+    return DEFAULT_NAV_CONFIGS;
+  });
+
+  // Sync navConfigs to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('ngo_nav_configs', JSON.stringify(navConfigs));
+      } catch (e) {
+        console.error('Failed to save nav configs to localStorage', e);
+      }
+    }
+  }, [navConfigs]);
+
+  const updateNavConfig = useCallback((tabId: NavTab, updates: Partial<NavItemConfig>) => {
+    setNavConfigs(prev =>
+      prev.map(c => {
+        if (c.id === tabId) {
+          let updatedRoles = updates.allowedRoles !== undefined ? updates.allowedRoles : c.allowedRoles;
+          if (c.id === 'settings' && !updatedRoles.includes('developer')) {
+            updatedRoles = [...updatedRoles, 'developer'];
+          }
+          return { ...c, ...updates, allowedRoles: updatedRoles };
+        }
+        return c;
+      })
+    );
+  }, []);
+
+  const toggleNavSectionVisibility = useCallback((tabId: NavTab) => {
+    setNavConfigs(prev =>
+      prev.map(c => {
+        if (c.id === tabId) {
+          return { ...c, isVisible: !c.isVisible };
+        }
+        return c;
+      })
+    );
+  }, []);
+
+  const toggleRoleForNavSection = useCallback((tabId: NavTab, role: UserRole) => {
+    setNavConfigs(prev =>
+      prev.map(c => {
+        if (c.id === tabId) {
+          if (c.id === 'settings' && role === 'developer') {
+            return c;
+          }
+          const exists = c.allowedRoles.includes(role);
+          const nextRoles = exists
+            ? c.allowedRoles.filter(r => r !== role)
+            : [...c.allowedRoles, role];
+          return { ...c, allowedRoles: nextRoles };
+        }
+        return c;
+      })
+    );
+  }, []);
+
+  const resetNavConfigs = useCallback(() => {
+    setNavConfigs(DEFAULT_NAV_CONFIGS);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('ngo_nav_configs', JSON.stringify(DEFAULT_NAV_CONFIGS));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }, []);
+
+  const isTabAllowedForRole = useCallback((tabId: NavTab, role: UserRole): boolean => {
+    if (role === 'developer' && tabId === 'settings') {
+      return true;
+    }
+    const config = navConfigs.find(c => c.id === tabId);
+    if (!config) return true;
+    if (!config.isVisible) return false;
+    return config.allowedRoles.includes(role);
+  }, [navConfigs]);
+
+  // If current active tab is not allowed for the active role, auto-switch to first allowed tab
+  useEffect(() => {
+    if (!isTabAllowedForRole(activeTab, currentRole)) {
+      const firstAllowed = navConfigs.find(c => isTabAllowedForRole(c.id, currentRole));
+      if (firstAllowed) {
+        setActiveTab(firstAllowed.id);
+      }
+    }
+  }, [activeTab, currentRole, isTabAllowedForRole, navConfigs]);
+
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
 
@@ -2188,7 +2296,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       transactions,
       volunteers,
       documents,
-      auditLogs
+      auditLogs,
+      navConfigs
     };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullBackup, null, 2));
     const downloadAnchor = document.createElement('a');
@@ -2250,6 +2359,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (data.documents && Array.isArray(data.documents)) {
         setDocuments(data.documents);
         safeSupabaseSync(supabase.from('documents').upsert(data.documents.map(mapDocumentToDb)));
+      }
+      if (data.navConfigs && Array.isArray(data.navConfigs)) {
+        setNavConfigs(data.navConfigs);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('ngo_nav_configs', JSON.stringify(data.navConfigs));
+          } catch (e) {
+            console.error(e);
+          }
+        }
       }
       logAction('هاوردەکردنی داتا', 'داتابەیسەکە لە فایلی یەدەگی JSON بە سەرکەوتوویی نوێکرایەوە', 'create');
       return { success: true, message: 'داتاکان بە سەرکەوتوویی هاوردەکران و تەواوی بەشەکان نوێکرانەوە.' };
@@ -2461,7 +2580,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isCloudConnected,
         isCloudSyncing,
         syncLocalDataToCloud,
-        checkConnectionHealth
+        checkConnectionHealth,
+        navConfigs,
+        updateNavConfig,
+        toggleNavSectionVisibility,
+        toggleRoleForNavSection,
+        resetNavConfigs,
+        isTabAllowedForRole
       }}
     >
       {children}

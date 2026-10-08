@@ -75,8 +75,6 @@ export const Topbar: React.FC = () => {
   } = useApp();
 
   const { user, isLoaded, isSignedIn } = useUser();
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
-  const roleDropdownRef = useRef<HTMLDivElement>(null);
 
   const userEmail = user?.primaryEmailAddress?.emailAddress?.toLowerCase() || '';
   const isDeveloperAccount =
@@ -87,9 +85,8 @@ export const Topbar: React.FC = () => {
   // Sync authenticated Clerk user profile with AppContext
   useEffect(() => {
     if (isLoaded && isSignedIn && user) {
-      const activeRole: UserRole = isDeveloperAccount
-        ? (currentRole && ['developer', 'head_of_organization', 'user'].includes(currentRole) ? currentRole : 'developer')
-        : (currentRole || 'user');
+      // moham.iqbal99@gmail.com and developer accounts are ALWAYS developer with no option to be another role
+      const activeRole: UserRole = isDeveloperAccount ? 'developer' : (currentRole || 'user');
 
       const roleConfig = SYSTEM_ROLES.find(r => r.role === activeRole) || SYSTEM_ROLES[0];
 
@@ -126,14 +123,11 @@ export const Topbar: React.FC = () => {
   const unreadCount = notifications.filter(n => !n.read).length;
   const pendingRemindersCount = reminders.filter(r => !r.completed).length;
 
-  // Close dropdowns on outside click
+  // Close notifications menu on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setShowNotifMenu(false);
-      }
-      if (roleDropdownRef.current && !roleDropdownRef.current.contains(event.target as Node)) {
-        setShowRoleDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -498,73 +492,19 @@ export const Topbar: React.FC = () => {
 
               <Show when="signed-in">
                 <div className="flex items-center gap-2">
-                  {/* Role Selector Pill */}
-                  <div className="relative" ref={roleDropdownRef}>
+                  {/* Role Badge - developer role is permanent with no options to switch */}
+                  <div>
                     {isDeveloperAccount ? (
-                      <button
-                        onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-black transition-all shadow-sm group ${
-                          currentRole === 'developer'
-                            ? 'bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-900'
-                            : currentRole === 'head_of_organization'
-                            ? 'bg-cyan-50 hover:bg-cyan-100 border-cyan-200 text-cyan-900'
-                            : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-800'
-                        }`}
-                        title="وەک پەرەپێدەر دەتوانیت ڕۆڵی سیستەم بگۆڕیت"
+                      <div 
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-black shadow-sm bg-purple-50 border-purple-200 text-purple-900 select-none"
+                        title="پەرەپێدەری سیستەم (دەسەڵاتی هەمیشەیی و نەگۆڕ)"
                       >
-                        <span className="text-sm">
-                          {currentRole === 'developer' ? '👑' : currentRole === 'head_of_organization' ? '🏛️' : '👤'}
-                        </span>
-                        <span>
-                          {currentRole === 'developer' ? 'پەرەپێدەر' : currentRole === 'head_of_organization' ? 'سەرۆکی ڕێکخراو' : 'بەکارهێنەر'}
-                        </span>
-                        <ChevronDown className="w-3.5 h-3.5 opacity-70 group-hover:rotate-180 transition-transform" />
-                      </button>
+                        <span className="text-sm">👑</span>
+                        <span>پەرەپێدەری سیستەم</span>
+                      </div>
                     ) : (
-                      <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-cyan-50 border border-cyan-200 text-cyan-800 text-xs font-bold shadow-sm">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-cyan-50 border border-cyan-200 text-cyan-800 text-xs font-bold shadow-sm select-none">
                         <span>{currentRole === 'head_of_organization' ? '🏛️ سەرۆکی ڕێکخراو' : '👤 بەکارهێنەر'}</span>
-                      </span>
-                    )}
-
-                    {/* Role Dropdown Menu */}
-                    {showRoleDropdown && isDeveloperAccount && (
-                      <div className="absolute left-0 mt-2 w-72 rounded-3xl bg-white border border-slate-200 p-2.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="px-2 py-1.5 border-b border-slate-100 mb-1.5 text-right">
-                          <p className="text-xs font-black text-slate-800">گۆڕینی ڕۆڵی بەکارهێنەر (Role Switcher)</p>
-                          <p className="text-[10px] text-slate-500">تاقیکردنەوەی سیستەم بە پێگەی جیاواز</p>
-                        </div>
-                        <div className="space-y-1">
-                          {SYSTEM_ROLES.map(r => (
-                            <button
-                              key={r.role}
-                              onClick={() => {
-                                setCurrentRole(r.role);
-                                if (currentUser) {
-                                  setCurrentUser({
-                                    ...currentUser,
-                                    role: r.role,
-                                    roleTitleKurdish: r.titleKurdish
-                                  });
-                                }
-                                setShowRoleDropdown(false);
-                              }}
-                              className={`w-full flex items-center justify-between p-2 rounded-2xl text-right text-xs transition-all ${
-                                currentRole === r.role
-                                  ? 'bg-purple-50 text-purple-900 border border-purple-200 font-black'
-                                  : 'text-slate-700 hover:bg-slate-50'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-base">{r.icon}</span>
-                                <div>
-                                  <p className="font-bold">{r.titleKurdish}</p>
-                                  <p className="text-[10px] text-slate-500 font-normal">{r.desc}</p>
-                                </div>
-                              </div>
-                              {currentRole === r.role && <Check className="w-4 h-4 text-purple-600" />}
-                            </button>
-                          ))}
-                        </div>
                       </div>
                     )}
                   </div>

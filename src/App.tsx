@@ -21,11 +21,28 @@ import { SettingsView } from './views/SettingsView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAuth } from '@clerk/react';
 import { ClerkAuthView } from './views/ClerkAuthView';
+import { ShieldAlert } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { activeTab } = useApp();
+  const { activeTab, currentRole, isTabAllowedForRole } = useApp();
 
   const renderActiveView = () => {
+    if (!isTabAllowedForRole(activeTab, currentRole)) {
+      return (
+        <div className="flex flex-col items-center justify-center p-12 text-center bg-white/90 backdrop-blur-xl rounded-3xl border border-slate-200/90 shadow-sm max-w-lg mx-auto my-12 space-y-4 animate-in fade-in zoom-in-95">
+          <div className="w-16 h-16 rounded-3xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-md">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-xl font-black text-slate-900">دەسەڵاتی بینینی ئەم بەشەت نییە</h3>
+            <p className="text-xs text-slate-600 font-bold leading-relaxed">
+              ئەم بەشە لەلایەن پەرەپێدەری سیستەمەوە بۆ ئەم ڕۆڵە شاردراوەتەوە یان سنووردار کراوە.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'dashboard':
         return <DashboardView />;

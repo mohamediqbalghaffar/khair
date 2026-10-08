@@ -22,7 +22,7 @@ interface NavItem {
 }
 
 export const NavigationDock: React.FC = () => {
-  const { activeTab, setActiveTab, beneficiaries, inventory } = useApp();
+  const { activeTab, setActiveTab, beneficiaries, inventory, currentRole, isTabAllowedForRole } = useApp();
 
   // Count items needing attention
   const pendingBeneficiaries = beneficiaries.filter(b => b.status === 'pending').length;
@@ -42,10 +42,13 @@ export const NavigationDock: React.FC = () => {
     { id: 'settings', label: 'ڕێکخستنەکان', icon: Settings },
   ];
 
+  // Filter items visible to the currently active user role
+  const visibleNavItems = navItems.filter(item => isTabAllowedForRole(item.id, currentRole));
+
   return (
     <footer className="w-full shrink-0 z-30 py-2.5 px-3 flex justify-center bg-white/90 backdrop-blur-2xl border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(15,23,42,0.03)]">
       <nav className="max-w-full overflow-x-auto no-scrollbar rounded-full p-1.5 bg-white border border-slate-200/90 shadow-[0_4px_20px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] flex items-center gap-1.5 transition-all">
-        {navItems.map(item => {
+        {visibleNavItems.map(item => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           return (

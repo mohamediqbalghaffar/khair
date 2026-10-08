@@ -8,6 +8,27 @@ export type UserRole =
   | 'volunteer'
   | 'auditor';
 
+export type NavTab =
+  | 'dashboard'
+  | 'beneficiaries'
+  | 'donors'
+  | 'projects'
+  | 'inventory'
+  | 'finance'
+  | 'volunteers'
+  | 'geo'
+  | 'documents'
+  | 'audit'
+  | 'settings';
+
+export interface NavItemConfig {
+  id: NavTab;
+  label: string;
+  englishLabel: string;
+  isVisible: boolean;
+  allowedRoles: UserRole[];
+}
+
 export interface UserProfile {
   id: string;
   name: string;
