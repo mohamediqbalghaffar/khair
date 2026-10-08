@@ -18,14 +18,9 @@ import { GeoMapView } from './views/GeoMapView';
 import { DocumentsView } from './views/DocumentsView';
 import { AuditView } from './views/AuditView';
 import { SettingsView } from './views/SettingsView';
-import { AuthView } from './views/AuthView';
 
 const MainContent: React.FC = () => {
-  const { activeTab, currentUser } = useApp();
-
-  if (!currentUser) {
-    return <AuthView />;
-  }
+  const { activeTab } = useApp();
 
   const renderActiveView = () => {
     switch (activeTab) {

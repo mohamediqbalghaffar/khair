@@ -206,26 +206,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }
 
-  // Active authenticated user (Requires Log-in unless valid active session)
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ngo_auth_user');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed && parsed.id && parsed.id !== 'user-admin' && parsed.name !== 'ئەحمەد محمد قادر') {
-            return parsed;
-          }
-          localStorage.removeItem('ngo_auth_user');
-        } catch (e) {
-          localStorage.removeItem('ngo_auth_user');
-        }
-      }
-    }
-    return null;
-  });
-
-  const [currentRole, setCurrentRole] = useState<UserRole>(() => currentUser?.role || 'admin');
+  // Active user (Clean direct access with no sign-up or log-in required)
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(INITIAL_ADMIN_USER);
+  const [currentRole, setCurrentRole] = useState<UserRole>('admin');
 
   // Keep currentRole in sync with active user
   useEffect(() => {
@@ -2318,9 +2301,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (typeof window !== 'undefined') {
       localStorage.removeItem('ngo_auth_user');
     }
-    const loggedOutName = currentUser ? currentUser.name : 'بەکارهێنەر';
-    logAction('دەرچوون لە سیستم', `بەکارهێنەر [${loggedOutName}] لە سیستم چووە دەرەوە`, 'update');
-    setCurrentUser(null);
+    setCurrentUser(INITIAL_ADMIN_USER);
   };
 
   // Reset Data to Clean Zero

@@ -21,8 +21,7 @@ import {
   Sparkles,
   Megaphone,
   User,
-  Database,
-  LogOut
+  Database
 } from 'lucide-react';
 import { DeveloperApiModal } from './DeveloperApiModal';
 import { SecurityModal } from './SecurityModal';
@@ -33,7 +32,6 @@ export const Topbar: React.FC = () => {
     currentRole,
     setCurrentRole,
     currentUser,
-    logout,
     currencyView,
     setCurrencyView,
     notifications,
@@ -554,20 +552,6 @@ export const Topbar: React.FC = () => {
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       داتای سفر
-                    </button>
-                  </div>
-
-                  {/* Sign Out Button */}
-                  <div className="pt-2 mt-1 border-t border-slate-200 px-1">
-                    <button
-                      onClick={() => {
-                        setShowRoleMenu(false);
-                        logout();
-                      }}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors border border-rose-200 shadow-sm"
-                    >
-                      <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                      <span>دەرچوون لە هەژمار (Log Out)</span>
                     </button>
                   </div>
                 </div>

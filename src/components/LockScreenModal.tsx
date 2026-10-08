@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Lock, Fingerprint, ShieldCheck, Delete, Sparkles, LogOut, User } from 'lucide-react';
+import { Lock, Fingerprint, ShieldCheck, Delete, Sparkles, User } from 'lucide-react';
 
 export const LockScreenModal: React.FC = () => {
-  const { isLocked, setIsLocked, currentUser, logout } = useApp();
+  const { isLocked, setIsLocked, currentUser } = useApp();
   const [pin, setPin] = useState<string>('');
   const [currentTime, setCurrentTime] = useState<string>('');
   const [currentDate, setCurrentDate] = useState<string>('');
@@ -152,17 +152,6 @@ export const LockScreenModal: React.FC = () => {
         >
           <Sparkles className="w-4 h-4" />
           کردنەوەی خێرا بە ناسینەوەی ڕووخسار / پەنجەمۆر
-        </button>
-
-        <button
-          onClick={() => {
-            setIsLocked(false);
-            logout();
-          }}
-          className="w-full py-2 rounded-2xl bg-white/10 hover:bg-white/15 text-slate-300 hover:text-white text-xs font-medium border border-white/10 flex items-center justify-center gap-1.5 transition-all"
-        >
-          <LogOut className="w-3.5 h-3.5 text-rose-400" />
-          <span>دەرچوون / گۆڕینی هەژمار</span>
         </button>
       </div>
 
