@@ -200,12 +200,12 @@ export const AuthView: React.FC = () => {
               <div className="p-3 rounded-2xl bg-cyan-950/40 border border-cyan-800/40 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-xs text-cyan-300">
                   <Sparkles className="w-4 h-4 text-cyan-400" />
-                  <span>هەژماری سەرەکی: <strong>mohammed.iqbal@halabjagroup</strong></span>
+                  <span>هەژماری سەرەکی: <strong dir="ltr" className="font-mono inline-block">mohammed.iqbal@halabjagroup</strong></span>
                 </div>
                 <button
                   type="button"
                   onClick={fillAdminCredentials}
-                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-400/30 transition-all shrink-0"
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-400/30 transition-all shrink-0 cursor-pointer"
                 >
                   پڕکردنەوەی خێرا
                 </button>
@@ -221,10 +221,11 @@ export const AuthView: React.FC = () => {
                   <input
                     type="text"
                     required
+                    dir="ltr"
                     value={loginIdentifier}
                     onChange={e => setLoginIdentifier(e.target.value)}
                     placeholder="mohammed.iqbal@halabjagroup"
-                    className="w-full px-4 py-3 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm transition-all"
+                    className="w-full px-4 py-3 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm transition-all text-left"
                   />
                 </div>
               </div>
@@ -236,21 +237,22 @@ export const AuthView: React.FC = () => {
                     <Lock className="w-3.5 h-3.5 text-cyan-400" />
                     <span>وشەی نهێنی (Password)</span>
                   </label>
-                  <span className="text-[11px] text-slate-400">بنەڕەتی: Admin@2026</span>
+                  <span className="text-[11px] text-slate-400">بنەڕەتی: <span dir="ltr" className="font-mono inline-block">Admin@2026</span></span>
                 </div>
                 <div className="relative">
                   <input
                     type={showLoginPassword ? 'text' : 'password'}
                     required
+                    dir="ltr"
                     value={loginPassword}
                     onChange={e => setLoginPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-4 py-3 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm transition-all pl-11"
+                    className="w-full pl-4 pr-11 py-3 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm transition-all text-left"
                   />
                   <button
                     type="button"
                     onClick={() => setShowLoginPassword(!showLoginPassword)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1 cursor-pointer"
                     title={showLoginPassword ? 'شاردنەوە' : 'نیشاندان'}
                   >
                     {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -289,10 +291,11 @@ export const AuthView: React.FC = () => {
                 <input
                   type="text"
                   required
+                  dir="ltr"
                   value={signupName}
                   onChange={e => setSignupName(e.target.value)}
                   placeholder="ناوی سیانی بەکارهێنەر"
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm text-left"
                 />
               </div>
 
@@ -303,12 +306,13 @@ export const AuthView: React.FC = () => {
                   <span>ئیمەیڵ یان ناسنامەی چوونەژوورەوە</span>
                 </label>
                 <input
-                  type="text"
+                  type="email"
                   required
+                  dir="ltr"
                   value={signupEmail}
                   onChange={e => setSignupEmail(e.target.value)}
                   placeholder="user@halabjagroup.com"
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm text-left"
                 />
               </div>
 
@@ -321,10 +325,11 @@ export const AuthView: React.FC = () => {
                   </label>
                   <input
                     type="tel"
+                    dir="ltr"
                     value={signupPhone}
                     onChange={e => setSignupPhone(e.target.value)}
                     placeholder="0750 000 0000"
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
+                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm text-left"
                   />
                 </div>
 
@@ -356,15 +361,17 @@ export const AuthView: React.FC = () => {
                   <input
                     type={showSignupPassword ? 'text' : 'password'}
                     required
+                    dir="ltr"
                     value={signupPassword}
                     onChange={e => setSignupPassword(e.target.value)}
-                    placeholder="وشەی نهێنی نوێ"
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm pl-10"
+                    placeholder="••••••••"
+                    className="w-full pl-4 pr-11 py-2.5 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm text-left"
                   />
                   <button
                     type="button"
                     onClick={() => setShowSignupPassword(!showSignupPassword)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1 cursor-pointer"
+                    title={showSignupPassword ? 'شاردنەوە' : 'نیشاندان'}
                   >
                     {showSignupPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -380,10 +387,11 @@ export const AuthView: React.FC = () => {
                 <input
                   type={showSignupPassword ? 'text' : 'password'}
                   required
+                  dir="ltr"
                   value={signupConfirmPassword}
                   onChange={e => setSignupConfirmPassword(e.target.value)}
-                  placeholder="دووبارەکردنەوەی وشەی نهێنی"
-                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
+                  placeholder="••••••••"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm text-left"
                 />
               </div>
 
