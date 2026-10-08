@@ -1,18 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { UserRole } from '../types';
 import { 
   Bell, 
   Search, 
-  Download, 
   RotateCcw, 
   CheckCircle2, 
   AlertTriangle, 
   HeartHandshake, 
   ShieldCheck, 
-  ChevronDown,
   Terminal,
-  Lock,
   Languages,
   Radio,
   Calendar,
@@ -20,7 +16,6 @@ import {
   Check,
   Sparkles,
   Megaphone,
-  User,
   Database
 } from 'lucide-react';
 import { DeveloperApiModal } from './DeveloperApiModal';
@@ -29,9 +24,6 @@ import { AccessibilityModal } from './AccessibilityModal';
 
 export const Topbar: React.FC = () => {
   const {
-    currentRole,
-    setCurrentRole,
-    currentUser,
     currencyView,
     setCurrencyView,
     notifications,
@@ -40,10 +32,7 @@ export const Topbar: React.FC = () => {
     addAnnouncement,
     reminders,
     toggleReminder,
-    setIsLocked,
     setIsSpotlightOpen,
-    exportDataJSON,
-    resetAllData,
     isCloudConnected,
     isCloudSyncing,
     syncLocalDataToCloud,
@@ -51,7 +40,6 @@ export const Topbar: React.FC = () => {
   } = useApp();
 
   const [showNotifMenu, setShowNotifMenu] = useState(false);
-  const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [notifTab, setNotifTab] = useState<'notifications' | 'announcements' | 'reminders'>('notifications');
 
   // Modals state
@@ -66,27 +54,15 @@ export const Topbar: React.FC = () => {
   const [annTag, setAnnTag] = useState<'مەیدانی' | 'کۆبوونەوە' | 'پڕۆژەکان' | 'بەپەلە'>('مەیدانی');
 
   const notifRef = useRef<HTMLDivElement>(null);
-  const roleRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const pendingRemindersCount = reminders.filter(r => !r.completed).length;
-
-  const rolesList: { role: UserRole; title: string; desc: string; icon: string }[] = [
-    { role: 'admin', title: 'بەڕێوەبەری گشتی (Admin)', desc: 'دەسەڵاتی تەواوی سیستەم و بەڕێوەبردن', icon: '👑' },
-    { role: 'finance', title: 'بەرپرسی دارایی و ژمێریاری', desc: 'تۆماری خەرجی، بەخشین و وردبینی دارایی', icon: '💳' },
-    { role: 'field_officer', title: 'کارمەندی مەیدانی و دابەشکردن', desc: 'تۆماری هاوکاری، سوودمەندان و سەردانی مەیدانی', icon: '🚚' },
-    { role: 'volunteer', title: 'خۆبەخش (Volunteer)', desc: 'چالاکییەکان و کاتژمێرەکانی خزمەت', icon: '🤝' },
-    { role: 'auditor', title: 'وردبین و چاودێری (Auditor)', desc: 'بینینی ڕاپۆرتەکان و چاودێری شاردراوە', icon: '🔍' }
-  ];
 
   // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setShowNotifMenu(false);
-      }
-      if (roleRef.current && !roleRef.current.contains(event.target as Node)) {
-        setShowRoleMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -429,131 +405,6 @@ export const Topbar: React.FC = () => {
                     </div>
                   )}
 
-                </div>
-              )}
-            </div>
-
-            {/* User Role Switcher Dropdown (Feature 8) */}
-            <div className="relative" ref={roleRef}>
-              <button
-                onClick={() => setShowRoleMenu(!showRoleMenu)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-100 hover:bg-slate-200/70 border border-slate-200 transition-all text-right group shadow-sm"
-              >
-                {currentUser?.avatar ? (
-                  <img
-                    src={currentUser.avatar}
-                    alt={currentUser?.name || 'بەکارهێنەر'}
-                    className="w-8 h-8 rounded-xl object-cover ring-1 ring-slate-300"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-teal-600 flex items-center justify-center text-white shadow-sm ring-1 ring-cyan-200">
-                    <User className="w-4 h-4" />
-                  </div>
-                )}
-                <div className="hidden sm:block text-right">
-                  <p className="text-xs font-bold text-slate-900 leading-tight">{currentUser?.name || 'محمد ئیقبال'}</p>
-                  <p className="text-[10px] text-cyan-700 font-bold">{currentUser?.roleTitleKurdish || 'بەڕێوەبەری گشتی'}</p>
-                </div>
-                <ChevronDown className="w-4 h-4 text-slate-500 group-hover:text-slate-900 transition-transform" />
-              </button>
-
-              {/* Role selection menu - 100% Opaque Solid Liquid Card to prevent any corruption */}
-              {showRoleMenu && (
-                <div className="absolute left-0 mt-3 w-80 rounded-3xl liquid-glass-dropdown p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
-                  {/* Active User Card Header */}
-                  <div className="p-3 bg-gradient-to-br from-cyan-50 to-blue-50/50 rounded-2xl border border-cyan-200/70 mb-2.5">
-                    <div className="flex items-center gap-2.5">
-                      {currentUser?.avatar ? (
-                        <img
-                          src={currentUser.avatar}
-                          alt={currentUser?.name}
-                          className="w-10 h-10 rounded-2xl object-cover ring-2 ring-white shadow-sm"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-2xl bg-cyan-600 text-white flex items-center justify-center shadow-sm">
-                          <User className="w-5 h-5" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-black text-slate-900 truncate">{currentUser?.name || 'محمد ئیقبال'}</p>
-                        <p className="text-[10px] text-slate-600 font-mono truncate">{currentUser?.email || 'mohammed.iqbal@halabjagroup'}</p>
-                        <span className="inline-block mt-0.5 text-[10px] font-bold px-2 py-0.2 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
-                          {currentUser?.roleTitleKurdish || 'بەڕێوەبەری گشتی (Admin)'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="px-2 py-1 border-b border-slate-200 mb-1">
-                    <p className="text-xs font-bold text-slate-800">گۆڕینی ڕۆڵی بەکارهێنەر</p>
-                    <p className="text-[10px] text-slate-500">دیاریکردنی دەسەڵات و بەرپرسیارێتییەکان لە سیستەمدا</p>
-                  </div>
-                  <div className="space-y-1">
-                    {rolesList.map(r => (
-                      <button
-                        key={r.role}
-                        onClick={() => {
-                          setCurrentRole(r.role);
-                          setShowRoleMenu(false);
-                        }}
-                        className={`w-full flex items-center justify-between p-2 rounded-xl text-right text-xs transition-all ${
-                          currentRole === r.role
-                            ? 'bg-cyan-50 text-cyan-800 border border-cyan-200 font-bold'
-                            : 'text-slate-700 hover:bg-slate-100'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-base">{r.icon}</span>
-                          <div>
-                            <p>{r.title}</p>
-                            <p className="text-[10px] text-slate-500 font-normal">{r.desc}</p>
-                          </div>
-                        </div>
-                        {currentRole === r.role && <CheckCircle2 className="w-4 h-4 text-cyan-600" />}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Lock Screen Button */}
-                  <div className="pt-2 mt-2 border-t border-slate-200 px-1">
-                    <button
-                      onClick={() => {
-                        setShowRoleMenu(false);
-                        setIsLocked(true);
-                      }}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors shadow-sm"
-                    >
-                      <Lock className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>قوفڵکردنی سیستەم (Lock Screen)</span>
-                    </button>
-                  </div>
-
-                  {/* Backup & Reset */}
-                  <div className="pt-2 mt-1 border-t border-slate-200 flex items-center justify-between gap-2 px-1">
-                    <button
-                      onClick={() => {
-                        exportDataJSON();
-                        setShowRoleMenu(false);
-                      }}
-                      className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-[11px] font-bold text-slate-700 transition-colors"
-                    >
-                      <Download className="w-3.5 h-3.5 text-cyan-600" />
-                      داگرتنی داتا
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm('دڵنیایت لە خاوێنکردنەوەی تەواوی داتاکان بۆ سفر؟')) {
-                          resetAllData();
-                          setShowRoleMenu(false);
-                        }
-                      }}
-                      className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-[11px] font-bold text-rose-700 transition-colors border border-rose-200"
-                      title="خاوێنکردنەوەی سەرجەم تۆمارەکان بۆ سفر"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      داتای سفر
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
