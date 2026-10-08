@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { Show, SignInButton, SignUpButton, UserButton, useUser } from '@clerk/react';
 import { 
   Bell, 
   Search, 
@@ -16,7 +17,8 @@ import {
   Check,
   Sparkles,
   Megaphone,
-  Database
+  Database,
+  LogIn
 } from 'lucide-react';
 import { DeveloperApiModal } from './DeveloperApiModal';
 import { SecurityModal } from './SecurityModal';
@@ -36,8 +38,27 @@ export const Topbar: React.FC = () => {
     isCloudConnected,
     isCloudSyncing,
     syncLocalDataToCloud,
-    checkConnectionHealth
+    checkConnectionHealth,
+    setCurrentUser
   } = useApp();
+
+  const { user, isLoaded, isSignedIn } = useUser();
+
+  // Sync authenticated Clerk user profile with AppContext
+  useEffect(() => {
+    if (isLoaded && isSignedIn && user) {
+      setCurrentUser({
+        id: user.id,
+        name: user.fullName || user.firstName || 'بەکارهێنەر',
+        email: user.primaryEmailAddress?.emailAddress || '',
+        avatar: user.imageUrl,
+        role: 'admin',
+        roleTitleKurdish: 'بەڕێوەبەری گشتی',
+        status: 'active',
+        createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : new Date().toISOString()
+      });
+    }
+  }, [isLoaded, isSignedIn, user, setCurrentUser]);
 
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [notifTab, setNotifTab] = useState<'notifications' | 'announcements' | 'reminders'>('notifications');
@@ -407,6 +428,43 @@ export const Topbar: React.FC = () => {
 
                 </div>
               )}
+            </div>
+
+            {/* Clerk Authentication Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2 mr-1">
+              <Show when="signed-out">
+                <SignInButton mode="modal">
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold transition-all shadow-sm shadow-cyan-600/20">
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>چوونەژوورەوە</span>
+                  </button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold transition-all">
+                    <span>خۆتۆمارکردن</span>
+                  </button>
+                </SignUpButton>
+              </Show>
+
+              <Show when="signed-in">
+                <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-2xl shadow-sm">
+                  <div className="hidden md:block text-right">
+                    <p className="text-xs font-bold text-slate-900 leading-tight">
+                      {user?.fullName || user?.firstName || 'بەکارهێنەر'}
+                    </p>
+                    <p className="text-[10px] text-cyan-700 font-bold truncate max-w-[140px]">
+                      {user?.primaryEmailAddress?.emailAddress || 'Gmail'}
+                    </p>
+                  </div>
+                  <UserButton
+                    appearance={{
+                      elements: {
+                        userButtonAvatarBox: 'w-7 h-7 sm:w-8 sm:h-8 rounded-xl ring-2 ring-cyan-500/30 shadow-sm'
+                      }
+                    }}
+                  />
+                </div>
+              </Show>
             </div>
 
           </div>
