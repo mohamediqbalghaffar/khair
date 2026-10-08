@@ -1,4 +1,12 @@
-export type UserRole = 'admin' | 'finance' | 'field_officer' | 'volunteer' | 'auditor';
+export type UserRole =
+  | 'developer'
+  | 'head_of_organization'
+  | 'user'
+  | 'admin'
+  | 'finance'
+  | 'field_officer'
+  | 'volunteer'
+  | 'auditor';
 
 export interface UserProfile {
   id: string;

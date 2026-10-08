@@ -2,20 +2,23 @@ import { UserProfile, UserRole, AppUserRecord } from '../types';
 import { supabase, safeSupabaseSync } from './supabase';
 
 export const ROLE_LABELS: Record<UserRole, { titleKurdish: string; badgeColor: string }> = {
-  admin: { titleKurdish: 'بەڕێوەبەری گشتی (Super Admin)', badgeColor: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
+  developer: { titleKurdish: 'پەرەپێدەری سیستەم (Developer)', badgeColor: 'bg-purple-100 text-purple-800 border-purple-200' },
+  head_of_organization: { titleKurdish: 'سەرۆکی ڕێکخراو (Head of Organization)', badgeColor: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
+  user: { titleKurdish: 'بەکارهێنەر (User)', badgeColor: 'bg-slate-100 text-slate-800 border-slate-200' },
+  admin: { titleKurdish: 'بەڕێوەبەری گشتی', badgeColor: 'bg-cyan-100 text-cyan-800 border-cyan-200' },
   finance: { titleKurdish: 'بەرپرسی دارایی و ژمێریاری', badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
   field_officer: { titleKurdish: 'کارمەندی مەیدانی و دابەشکردن', badgeColor: 'bg-blue-100 text-blue-800 border-blue-200' },
   volunteer: { titleKurdish: 'خۆبەخش (Volunteer)', badgeColor: 'bg-purple-100 text-purple-800 border-purple-200' },
   auditor: { titleKurdish: 'وردبین / چاودێر (Auditor)', badgeColor: 'bg-amber-100 text-amber-800 border-amber-200' }
 };
 
-// Initial Super Admin User requested by organization
+// Initial Developer User requested by organization
 export const INITIAL_ADMIN_USER: UserProfile = {
   id: 'user-admin-iqbal',
   name: 'محمد ئیقبال',
-  email: 'mohammed.iqbal@halabjagroup',
-  role: 'admin',
-  roleTitleKurdish: 'بەڕێوەبەری گشتی (Super Admin)',
+  email: 'moham.iqbal99@gmail.com',
+  role: 'developer',
+  roleTitleKurdish: 'پەرەپێدەری سیستەم (Developer)',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
   phone: '0750 000 0000',
   status: 'active',
