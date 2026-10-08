@@ -32,6 +32,16 @@ export async function hashPassword(password: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// Raw SHA-256 hash function without salt for hash compatibility
+export async function hashPasswordRaw(password: string): Promise<string> {
+  const normalized = password.trim();
+  const encoder = new TextEncoder();
+  const data = encoder.encode(normalized);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Convert DB row to UserProfile
 export function mapDbUserToProfile(row: any): UserProfile {
   return {
@@ -61,27 +71,9 @@ export async function authenticateUser(
   }
 
   const computedHash = await hashPassword(cleanPwd);
+  const rawHash = await hashPasswordRaw(cleanPwd);
 
-  // 1. Check initial Super Admin (Fast path & offline fallback)
-  const isInitialAdminId =
-    cleanId === 'mohammed.iqbal@halabjagroup' ||
-    cleanId === 'mohammed.iqbal@halabjagroup.com' ||
-    cleanId === 'mohammed.iqbal' ||
-    cleanId === 'admin';
-
-  if (isInitialAdminId && (cleanPwd === 'Admin@2026' || cleanPwd === 'admin1234' || cleanPwd === 'admin')) {
-    const adminProfile: UserProfile = {
-      ...INITIAL_ADMIN_USER,
-      lastLogin: new Date().toISOString()
-    };
-    // Update last_login in Supabase asynchronously
-    safeSupabaseSync(
-      supabase.from('app_users').update({ last_login: new Date().toISOString() }).eq('id', INITIAL_ADMIN_USER.id)
-    );
-    return { success: true, user: adminProfile };
-  }
-
-  // 2. Query Supabase PostgreSQL app_users table
+  // 1. Query Supabase PostgreSQL app_users table
   try {
     const { data, error } = await supabase
       .from('app_users')
@@ -92,8 +84,8 @@ export async function authenticateUser(
     if (!error && data && data.length > 0) {
       const dbUser = data[0];
 
-      // Check if password hash matches
-      if (dbUser.password_hash === computedHash || cleanPwd === 'Admin@2026') {
+      // Check if password hash matches stored hash
+      if (dbUser.password_hash === computedHash || dbUser.password_hash === rawHash) {
         if (dbUser.status === 'suspended') {
           return { success: false, message: 'ئەم هەژمارە لەلایەن بەڕێوەبەرەوە ڕاگیراوە!' };
         }
@@ -112,7 +104,7 @@ export async function authenticateUser(
     console.warn('Supabase auth query error:', err);
   }
 
-  // 3. Check local storage registered users
+  // 2. Check local storage registered users (offline fallback)
   if (typeof window !== 'undefined') {
     const localUsersStr = localStorage.getItem('ngo_registered_users');
     if (localUsersStr) {
@@ -121,7 +113,7 @@ export async function authenticateUser(
         const match = localUsers.find(
           u => u.email.toLowerCase() === cleanId || u.email.toLowerCase().startsWith(cleanId)
         );
-        if (match && match.password_hash === computedHash) {
+        if (match && (match.password_hash === computedHash || match.password_hash === rawHash)) {
           return { success: true, user: mapDbUserToProfile(match) };
         }
       } catch (e) {

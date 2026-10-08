@@ -11,7 +11,6 @@ import {
   KeyRound, 
   Eye, 
   EyeOff, 
-  Sparkles, 
   Database, 
   CheckCircle2, 
   AlertCircle,
@@ -22,9 +21,9 @@ export const AuthView: React.FC = () => {
   const { login, signup, isCloudConnected } = useApp();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
 
-  // Login form state
-  const [loginIdentifier, setLoginIdentifier] = useState('mohammed.iqbal@halabjagroup');
-  const [loginPassword, setLoginPassword] = useState('Admin@2026');
+  // Login form state (empty by default)
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // Signup form state
@@ -40,13 +39,6 @@ export const AuthView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-
-  // Quick fill Admin credentials
-  const fillAdminCredentials = () => {
-    setLoginIdentifier('mohammed.iqbal@halabjagroup');
-    setLoginPassword('Admin@2026');
-    setErrorMsg('');
-  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,21 +188,6 @@ export const AuthView: React.FC = () => {
           {mode === 'login' && (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               
-              {/* Quick Admin Fill Helper Pill */}
-              <div className="p-3 rounded-2xl bg-cyan-950/40 border border-cyan-800/40 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-xs text-cyan-300">
-                  <Sparkles className="w-4 h-4 text-cyan-400" />
-                  <span>هەژماری سەرەکی: <strong dir="ltr" className="font-mono inline-block">mohammed.iqbal@halabjagroup</strong></span>
-                </div>
-                <button
-                  type="button"
-                  onClick={fillAdminCredentials}
-                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-400/30 transition-all shrink-0 cursor-pointer"
-                >
-                  پڕکردنەوەی خێرا
-                </button>
-              </div>
-
               {/* Identifier (Email / Username) */}
               <div className="space-y-1.5 text-right">
                 <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
@@ -224,7 +201,7 @@ export const AuthView: React.FC = () => {
                     dir="ltr"
                     value={loginIdentifier}
                     onChange={e => setLoginIdentifier(e.target.value)}
-                    placeholder="mohammed.iqbal@halabjagroup"
+                    placeholder="email@example.com"
                     className="w-full px-4 py-3 rounded-2xl bg-slate-950/60 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm transition-all text-left"
                   />
                 </div>
@@ -237,7 +214,6 @@ export const AuthView: React.FC = () => {
                     <Lock className="w-3.5 h-3.5 text-cyan-400" />
                     <span>وشەی نهێنی (Password)</span>
                   </label>
-                  <span className="text-[11px] text-slate-400">بنەڕەتی: <span dir="ltr" className="font-mono inline-block">Admin@2026</span></span>
                 </div>
                 <div className="relative">
                   <input
