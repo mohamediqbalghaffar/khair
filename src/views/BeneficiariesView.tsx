@@ -44,12 +44,15 @@ import {
   Lock,
   RefreshCw,
   PauseCircle,
-  Archive
+  Archive,
+  Banknote
 } from 'lucide-react';
+import { getDonationCashMetrics } from '../utils/donationDistributionUtils';
 
 export const BeneficiariesView: React.FC = () => {
   const {
     beneficiaries,
+    donations,
     addBeneficiary,
     addBeneficiariesBulk,
     updateBeneficiary,
@@ -213,12 +216,23 @@ export const BeneficiariesView: React.FC = () => {
   // Give Aid Form State
   const [aidForm, setAidForm] = useState({
     type: 'monetary' as 'monetary' | 'in-kind',
-    amountIQD: 200000,
+    amountIQD: 50000,
+    currency: 'IQD' as 'IQD' | 'USD',
+    selectedDonationId: '',
     itemName: 'سەبەتەی خۆراک',
     quantity: 1,
-    projectTitle: 'دابەشکردنی خۆراکی مانگانە',
+    projectTitle: 'دابەشکردنی نەختینەی خێرخوازی',
     notes: ''
   });
+
+  // Calculate available cash donations with remaining funds
+  const availableCashDonations = (donations || [])
+    .filter(d => !d.itemDetails)
+    .map(d => ({
+      donation: d,
+      metrics: getDonationCashMetrics(d, beneficiaries)
+    }))
+    .filter(item => item.metrics.remainingCash > 0);
 
   // SMS Form State
   const [smsText, setSmsText] = useState(
@@ -636,15 +650,23 @@ export const BeneficiariesView: React.FC = () => {
     e.preventDefault();
     if (!selectedBeneficiary) return;
 
+    const chosenDonation = aidForm.selectedDonationId
+      ? (donations || []).find(d => d.id === aidForm.selectedDonationId)
+      : undefined;
+
     addAidRecord(selectedBeneficiary.id, {
       date: new Date().toISOString().split('T')[0],
       type: aidForm.type,
-      amountIQD: aidForm.type === 'monetary' ? aidForm.amountIQD : undefined,
+      amountIQD: aidForm.type === 'monetary' && aidForm.currency === 'IQD' ? aidForm.amountIQD : undefined,
+      amount: aidForm.type === 'monetary' ? aidForm.amountIQD : undefined,
+      currency: aidForm.type === 'monetary' ? aidForm.currency : undefined,
       itemName: aidForm.type === 'in-kind' ? aidForm.itemName : undefined,
       quantity: aidForm.type === 'in-kind' ? aidForm.quantity : undefined,
       projectTitle: aidForm.projectTitle,
       distributedBy: 'بەڕێوەبەری سیستەم',
-      notes: aidForm.notes
+      notes: aidForm.notes,
+      receiptNumber: chosenDonation ? chosenDonation.receiptNumber : undefined,
+      donationId: chosenDonation ? chosenDonation.id : undefined
     });
 
     setIsGiveAidModalOpen(false);
@@ -2225,14 +2247,25 @@ export const BeneficiariesView: React.FC = () => {
                     >
                       <div>
                         <p className="font-bold text-slate-900">{aid.projectTitle}</p>
-                        <span className="text-[10px] text-slate-500">بەروار: {aid.date}</span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-slate-500">بەروار: {aid.date}</span>
+                          {aid.receiptNumber && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono border border-emerald-200">
+                              پسوولە: {aid.receiptNumber}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="text-left font-bold">
                         {aid.type === 'monetary' ? (
-                          <span className="text-emerald-700">{aid.amountIQD?.toLocaleString()} د.ع</span>
+                          <span className="text-emerald-700">
+                            {aid.currency === 'USD'
+                              ? `$${(aid.amount || aid.amountIQD || 0).toLocaleString()}`
+                              : `${(aid.amount || aid.amountIQD || 0).toLocaleString()} د.ع`}
+                          </span>
                         ) : (
                           <span className="text-cyan-700">
-                            {aid.quantity} {aid.itemName}
+                            {aid.quantity} {aid.itemName} {aid.unit || ''}
                           </span>
                         )}
                       </div>
@@ -2279,7 +2312,7 @@ export const BeneficiariesView: React.FC = () => {
                         : 'bg-white text-slate-700 border-slate-200'
                     }`}
                   >
-                    نەختینەیی (دینار)
+                    نەختینەیی (پارەی کاش)
                   </button>
                   <button
                     type="button"
@@ -2296,15 +2329,101 @@ export const BeneficiariesView: React.FC = () => {
               </div>
 
               {aidForm.type === 'monetary' ? (
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">بڕی پارە (دینار):</label>
-                  <input
-                    type="number"
-                    value={aidForm.amountIQD}
-                    onChange={(e) => setAidForm({ ...aidForm, amountIQD: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Banknote className="w-4 h-4 text-emerald-600" />
+                        سەرچاوەی نەختینە لە خەزێنە (پسوولەی بەخشین):
+                      </span>
+                      {aidForm.selectedDonationId && (
+                        <button
+                          type="button"
+                          onClick={() => setAidForm(prev => ({ ...prev, selectedDonationId: '' }))}
+                          className="text-[10px] text-slate-400 hover:text-slate-600 underline font-normal"
+                        >
+                          پاککردنەوە
+                        </button>
+                      )}
+                    </label>
+                    <select
+                      value={aidForm.selectedDonationId}
+                      onChange={(e) => {
+                        const donId = e.target.value;
+                        const matched = availableCashDonations.find(item => item.donation.id === donId);
+                        setAidForm(prev => ({
+                          ...prev,
+                          selectedDonationId: donId,
+                          currency: matched?.donation.currency === 'USD' ? 'USD' : 'IQD',
+                          amountIQD: matched ? Math.min(prev.amountIQD, matched.metrics.remainingCash) : prev.amountIQD,
+                          projectTitle: matched ? `دابەشکردنی کۆمەکی نەختینەی پسوولەی ${matched.donation.receiptNumber} (${matched.donation.donorName})` : prev.projectTitle
+                        }));
+                      }}
+                      className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+                    >
+                      <option value="">خەزێنەی گشتی (بەبێ بەستنەوە بە پسوولەی دیاریکراو)</option>
+                      {availableCashDonations.map(({ donation, metrics }) => (
+                        <option key={donation.id} value={donation.id}>
+                          پسوولەی {donation.receiptNumber} ({donation.donorName}) — ماوە: {metrics.remainingCash.toLocaleString()} {metrics.currencySymbol}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {(() => {
+                    const selectedDonMetrics = availableCashDonations.find(item => item.donation.id === aidForm.selectedDonationId);
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-slate-700 font-bold">
+                            بڕی پارە ({aidForm.currency === 'USD' ? 'دۆلار $' : 'دینار د.ع'}):
+                          </label>
+                          {selectedDonMetrics && (
+                            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                              بەردەست لە پسوولە: {selectedDonMetrics.metrics.remainingCash.toLocaleString()} {selectedDonMetrics.metrics.currencySymbol}
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="number"
+                          value={aidForm.amountIQD}
+                          max={selectedDonMetrics ? selectedDonMetrics.metrics.remainingCash : undefined}
+                          onChange={(e) => setAidForm({ ...aidForm, amountIQD: Number(e.target.value) })}
+                          className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
+                        />
+                        {/* Quick preset amounts */}
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {(aidForm.currency === 'USD' ? [25, 50, 100, 200] : [25000, 50000, 100000, 150000, 250000]).map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => {
+                                const maxAllowed = selectedDonMetrics ? selectedDonMetrics.metrics.remainingCash : preset;
+                                setAidForm(prev => ({ ...prev, amountIQD: Math.min(preset, maxAllowed) }));
+                              }}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
+                                aidForm.amountIQD === preset
+                                  ? 'bg-emerald-600 text-white border-emerald-600'
+                                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                              }`}
+                            >
+                              {aidForm.currency === 'USD' ? `$${preset}` : `${(preset / 1000)} هەزار`}
+                            </button>
+                          ))}
+                          {selectedDonMetrics && (
+                            <button
+                              type="button"
+                              onClick={() => setAidForm(prev => ({ ...prev, amountIQD: selectedDonMetrics.metrics.remainingCash }))}
+                              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 mr-auto"
+                            >
+                              تەواوی ماوە ({selectedDonMetrics.metrics.remainingCash.toLocaleString()})
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
               ) : (
                 <>
                   <div>

@@ -35,6 +35,7 @@ import {
   INITIAL_REMINDERS
 } from '../data/initialData';
 import { getExchangeRateForDate, calcItemAmountInUSD, calcItemAmountInIQD, aggregateAmountsByDayRate } from '../utils/exchangeRates';
+import { getDonationCashMetrics } from '../utils/donationDistributionUtils';
 import {
   supabase,
   checkSupabaseConnection,
@@ -130,6 +131,15 @@ interface AppContextType {
     projectTitle: string,
     notes?: string
   ) => boolean;
+  distributeCashAidBulk: (
+    donationIdOrReceipt: string,
+    distributions: { beneficiaryId: string; amount: number }[],
+    projectTitle: string,
+    notes?: string
+  ) => boolean;
+  pendingDistributionDonationId: string | null;
+  setPendingDistributionDonationId: (id: string | null) => void;
+  openDistributionForDonation: (donationIdOrReceipt: string) => void;
 
   // Finance
   transactions: FinancialTransaction[];
@@ -218,6 +228,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser]);
 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [pendingDistributionDonationId, setPendingDistributionDonationId] = useState<string | null>(null);
+
+  const openDistributionForDonation = useCallback((donationIdOrReceipt: string) => {
+    setPendingDistributionDonationId(donationIdOrReceipt);
+    setActiveTab('inventory');
+  }, []);
+
   const [mapFocusLocation, setMapFocusLocation] = useState<MapFocusLocation | null>(null);
 
   const navigateToLocationOnMap = (lat: number, lng: number, label?: string, beneficiaryId?: string) => {
@@ -1383,7 +1400,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         date: aidDate,
         description: `هاوکاری نەختینەیی بۆ [${ben?.fullName || 'سوودمەند'}] - ${record.projectTitle}`,
         recordedBy: record.distributedBy || (currentUser ? currentUser.name : 'محمد ئیقبال'),
-        relatedProjectId: matchedProjectId
+        relatedProjectId: matchedProjectId,
+        receiptNumber: record.receiptNumber,
+        isCash: true
       };
       nextTransactions = [aidTx, ...transactions];
       setTransactions(nextTransactions);
@@ -2135,6 +2154,118 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  const distributeCashAidBulk = (
+    donationIdOrReceipt: string,
+    distributions: { beneficiaryId: string; amount: number }[],
+    projectTitle: string,
+    notes?: string
+  ): boolean => {
+    const donation = donations.find(
+      d => d.id === donationIdOrReceipt || d.receiptNumber === donationIdOrReceipt
+    );
+    if (!donation || distributions.length === 0) return false;
+
+    const validDists = distributions.filter(d => (Number(d.amount) || 0) > 0);
+    const totalNeeded = validDists.reduce((sum, b) => sum + Number(b.amount), 0);
+    if (totalNeeded <= 0) return false;
+
+    // Validate against live available cash balance
+    const cashMetrics = getDonationCashMetrics(donation, beneficiaries);
+    if (totalNeeded > cashMetrics.remainingAmount) {
+      return false;
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const distributorName = currentUser ? currentUser.name : 'محمد ئیقبال';
+    const dayRate = donation.exchangeRateAtDate || getExchangeRateForDate(todayStr).rate || 1530;
+    const isIQD = donation.currency === 'IQD';
+
+    // Atomic update of all target beneficiaries with new monetary AidRecords
+    const nextBeneficiaries = beneficiaries.map(b => {
+      const match = validDists.find(d => d.beneficiaryId === b.id);
+      if (match) {
+        const amountIQD = isIQD
+          ? Math.round(match.amount)
+          : Math.round(match.amount * dayRate);
+
+        const newAidRecord: AidRecord = {
+          id: `aid-cash-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          date: todayStr,
+          type: 'monetary',
+          amount: match.amount,
+          currency: donation.currency,
+          amountIQD,
+          projectTitle: projectTitle || donation.projectName || 'دابەشکردنی هاوکاری نەختینەیی',
+          distributedBy: distributorName,
+          receiptNumber: donation.receiptNumber,
+          donorName: donation.donorName,
+          donationId: donation.id,
+          notes: notes || `هاوکاری نەختینەیی لە پسوولەی ${donation.receiptNumber} (${donation.donorName})`
+        };
+
+        const updatedBen: Beneficiary = {
+          ...b,
+          aidHistory: [newAidRecord, ...(b.aidHistory || [])]
+        };
+        safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedBen)));
+        return updatedBen;
+      }
+      return b;
+    });
+
+    setBeneficiaries(nextBeneficiaries);
+
+    // Record consolidated financial expense transaction in ledger
+    const totalIQD = isIQD ? totalNeeded : Math.round(totalNeeded * dayRate);
+    const totalUSD = isIQD ? Number((totalNeeded / dayRate).toFixed(2)) : totalNeeded;
+
+    const expenseTx: FinancialTransaction = {
+      id: `tx-dist-cash-${Date.now()}`,
+      type: 'expense',
+      amount: totalNeeded,
+      currency: donation.currency,
+      exchangeRateAtDate: dayRate,
+      convertedAmount: isIQD ? totalUSD : totalIQD,
+      category: 'دابەشکردنی هاوکاری نەختینەیی',
+      date: todayStr,
+      description: `دابەشکردنی هاوکاری نەختینەیی (${totalNeeded.toLocaleString()} ${isIQD ? 'د.ع' : '$'}) بەسەر ${validDists.length} خێزانی سوودمەند لە پسوولەی ${donation.receiptNumber} - ${donation.donorName}`,
+      recordedBy: distributorName,
+      relatedProjectId: donation.projectId,
+      receiptNumber: donation.receiptNumber,
+      isCash: true
+    };
+
+    const nextTransactions = [expenseTx, ...transactions];
+    setTransactions(nextTransactions);
+    safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(expenseTx)));
+
+    // Synchronize Project metrics if donation has projectId
+    if (donation.projectId) {
+      setProjects(prev => prev.map(p => {
+        if (p.id === donation.projectId) {
+          const m = computeProjectLiveMetrics(p.id, p.title, donations, nextTransactions, nextBeneficiaries);
+          const updatedP = {
+            ...p,
+            spentBudgetUSD: m.spentUSD,
+            spentBudgetIQD: m.spentIQD,
+            beneficiariesCount: m.beneficiariesCount
+          };
+          safeSupabaseSync(supabase.from('projects').upsert(mapProjectToDb(updatedP)));
+          return updatedP;
+        }
+        return p;
+      }));
+    }
+
+    logAction(
+      'دابەشکردنی هاوکاری نەختینەیی',
+      `کۆی (${totalNeeded.toLocaleString()} ${isIQD ? 'د.ع' : '$'}) لە پسوولەی [${donation.receiptNumber}] بەسەر ${validDists.length} خێزانی سوودمەنددا دابەشکرا`,
+      'update'
+    );
+
+    return true;
+  };
+
   // Finance
   const addTransaction = (data: Omit<FinancialTransaction, 'id'>) => {
     const dayRate = data.exchangeRateAtDate || getExchangeRateForDate(data.date).rate;
@@ -2545,6 +2676,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateInventoryQuantity,
         distributeAidFromInventory,
         distributeAidBulkFromInventory,
+        distributeCashAidBulk,
+        pendingDistributionDonationId,
+        setPendingDistributionDonationId,
+        openDistributionForDonation,
         transactions,
         addTransaction,
         deleteTransaction,

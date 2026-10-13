@@ -74,12 +74,16 @@ export interface AidRecord {
   date: string;
   type: 'monetary' | 'in-kind';
   amountIQD?: number;
+  amount?: number;
+  currency?: 'IQD' | 'USD';
   itemName?: string;
   quantity?: number;
+  unit?: string;
   projectTitle: string;
   distributedBy: string;
   receiptNumber?: string;
   donorName?: string;
+  donationId?: string;
   notes?: string;
 }
 

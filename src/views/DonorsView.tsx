@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 import { getExchangeRateForDate, convertByDateRate, aggregateAmountsByDayRate } from '../utils/exchangeRates';
+import { getDonationCashMetrics } from '../utils/donationDistributionUtils';
 
 export const DonorsView: React.FC = () => {
   const {
@@ -37,12 +38,14 @@ export const DonorsView: React.FC = () => {
     donations,
     projects,
     beneficiaries,
+    inventory,
     addDonor,
     updateDonor,
     deleteDonor,
     addDonation,
     updateDonation,
     deleteDonation,
+    openDistributionForDonation,
     sendSMS
   } = useApp();
 
@@ -985,6 +988,29 @@ export const DonorsView: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
+                          {/* Quick Distribute Button */}
+                          {(() => {
+                            const isCash = !don.category || don.category === 'cash';
+                            const hasBalance = isCash
+                              ? getDonationCashMetrics(don, beneficiaries).remainingAmount > 0
+                              : (() => {
+                                  const invItem = inventory.find(
+                                    i => i.sourceReceiptNumber === don.receiptNumber || i.sourceDonationId === don.id
+                                  );
+                                  return invItem && invItem.quantity > 0;
+                                })();
+
+                            return hasBalance ? (
+                              <button
+                                onClick={() => openDistributionForDonation(don.id)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl liquid-button-primary text-white font-bold text-[11px] shadow-xs transition-all hover:shadow"
+                                title="دابەشکردنی ڕاستەوخۆ بۆ خێزانەکان"
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                دابەشکردن
+                              </button>
+                            ) : null;
+                          })()}
                           <button
                             onClick={() => setActiveReceipt(don)}
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-cyan-50 text-cyan-800 hover:bg-cyan-100 font-bold text-[11px] transition-colors border border-cyan-200"

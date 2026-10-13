@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { InventoryItem, Donation, NeedCategory } from '../types';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 import { getExchangeRateForDate } from '../utils/exchangeRates';
+import { getDonationCashMetrics, getTotalTreasuryCashAvailable } from '../utils/donationDistributionUtils';
 import confetti from 'canvas-confetti';
 import {
   PackageSearch,
@@ -20,6 +21,8 @@ import {
   Boxes,
   CheckCircle2,
   DollarSign,
+  Banknote,
+  Coins,
   Users,
   CheckSquare,
   Square,
@@ -31,6 +34,10 @@ import {
   Calendar,
   FileText
 } from 'lucide-react';
+
+export type DistributionTarget =
+  | { type: 'item'; item: InventoryItem; sourceDonation?: Donation }
+  | { type: 'cash'; donation: Donation };
 
 const needLabelsMap: Record<string, string> = {
   poor: 'هەژار و کەمدەرامەت',
@@ -51,13 +58,17 @@ export const InventoryView: React.FC = () => {
     updateInventoryQuantity,
     distributeAidFromInventory,
     distributeAidBulkFromInventory,
+    distributeCashAidBulk,
+    pendingDistributionDonationId,
+    setPendingDistributionDonationId,
     setActiveTab
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'stock' | 'receipts' | 'distributions'>('stock');
+  const [distTypeFilter, setDistTypeFilter] = useState<'all' | 'in-kind' | 'monetary'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [selectedItemForDistribution, setSelectedItemForDistribution] = useState<InventoryItem | null>(null);
+  const [distributionTarget, setDistributionTarget] = useState<DistributionTarget | null>(null);
   const [isDistributeModalOpen, setIsDistributeModalOpen] = useState(false);
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
   const [activeReceipt, setActiveReceipt] = useState<Donation | null>(null);
@@ -83,17 +94,43 @@ export const InventoryView: React.FC = () => {
   const [selectedProjectTitle, setSelectedProjectTitle] = useState('دابەشکردنی خۆراکی خێزانی');
   const [distributionNotes, setDistributionNotes] = useState('');
 
+  // Auto-open distribution when triggered externally from DonorsView
+  useEffect(() => {
+    if (pendingDistributionDonationId) {
+      const don = donations.find(
+        d => d.id === pendingDistributionDonationId || d.receiptNumber === pendingDistributionDonationId
+      );
+      if (don) {
+        setActiveSubTab('receipts');
+        const isCash = !don.category || don.category === 'cash';
+        if (isCash) {
+          handleOpenDistributeCash(don);
+        } else {
+          handleQuickDistributeFromDonation(don);
+        }
+      }
+      setPendingDistributionDonationId(null);
+    }
+  }, [pendingDistributionDonationId, donations]);
+
   // Aggregated distributions from all beneficiaries
-  const allDistributions = beneficiaries.flatMap(b =>
-    (b.aidHistory || []).map(record => ({
-      ...record,
-      beneficiaryId: b.id,
-      beneficiaryName: b.fullName,
-      beneficiaryPhone: b.phone,
-      beneficiaryGovernorate: b.governorate,
-      beneficiaryNeed: b.needCategory
-    }))
-  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const allDistributions = useMemo(() => {
+    return beneficiaries.flatMap(b =>
+      (b.aidHistory || []).map(record => ({
+        ...record,
+        beneficiaryId: b.id,
+        beneficiaryName: b.fullName,
+        beneficiaryPhone: b.phone,
+        beneficiaryGovernorate: b.governorate,
+        beneficiaryNeed: b.needCategory
+      }))
+    ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [beneficiaries]);
+
+  // Treasury Cash Summary
+  const treasuryCash = useMemo(() => {
+    return getTotalTreasuryCashAvailable(donations, beneficiaries);
+  }, [donations, beneficiaries]);
 
   // Stock filtering
   const filteredInventory = inventory.filter(item => {
@@ -175,14 +212,37 @@ export const InventoryView: React.FC = () => {
     });
   }, [beneficiaries, modalBenSearch, modalGovFilter, modalNeedFilter]);
 
-  // Calculations for Stock and Allocation
-  const totalStockAvailable = selectedItemForDistribution?.quantity || 0;
+  // Distribution target live calculations (Items vs Cash)
+  const activeCashMetrics = useMemo(() => {
+    if (distributionTarget?.type === 'cash') {
+      return getDonationCashMetrics(distributionTarget.donation, beneficiaries);
+    }
+    return null;
+  }, [distributionTarget, beneficiaries]);
+
+  const totalStockAvailable = useMemo(() => {
+    if (!distributionTarget) return 0;
+    if (distributionTarget.type === 'item') {
+      return distributionTarget.item.quantity || 0;
+    } else {
+      return activeCashMetrics?.remainingAmount || 0;
+    }
+  }, [distributionTarget, activeCashMetrics]);
+
+  const distributionUnit = useMemo(() => {
+    if (!distributionTarget) return '';
+    if (distributionTarget.type === 'item') {
+      return distributionTarget.item.unit || 'دانە';
+    } else {
+      return activeCashMetrics?.currencySymbol || (distributionTarget.donation.currency === 'USD' ? '$' : 'د.ع');
+    }
+  }, [distributionTarget, activeCashMetrics]);
 
   const totalDistributeQuantity = useMemo(() => {
     return selectedBeneficiaryIds.reduce((sum, id) => {
       const qty = allocationMode === 'custom'
-        ? Number(customQuantities[id] !== undefined ? customQuantities[id] : qtyPerBeneficiary) || 1
-        : Number(qtyPerBeneficiary) || 1;
+        ? Number(customQuantities[id] !== undefined ? customQuantities[id] : qtyPerBeneficiary) || 0
+        : Number(qtyPerBeneficiary) || 0;
       return sum + qty;
     }, 0);
   }, [selectedBeneficiaryIds, allocationMode, customQuantities, qtyPerBeneficiary]);
@@ -218,7 +278,7 @@ export const InventoryView: React.FC = () => {
   };
 
   const handleOpenDistributeModal = (item: InventoryItem) => {
-    setSelectedItemForDistribution(item);
+    setDistributionTarget({ type: 'item', item });
     if (beneficiaries.length > 0) {
       setSelectedBeneficiaryIds([beneficiaries[0].id]);
     } else {
@@ -246,54 +306,126 @@ export const InventoryView: React.FC = () => {
     );
 
     if (matched) {
-      handleOpenDistributeModal(matched);
-      if (donation.projectName) {
-        setSelectedProjectTitle(donation.projectName);
+      setDistributionTarget({ type: 'item', item: matched, sourceDonation: donation });
+      if (beneficiaries.length > 0) {
+        setSelectedBeneficiaryIds([beneficiaries[0].id]);
+      } else {
+        setSelectedBeneficiaryIds([]);
       }
+      setQtyPerBeneficiary(1);
+      setAllocationMode('equal');
+      setCustomQuantities({});
+      setModalBenSearch('');
+      setModalGovFilter('all');
+      setModalNeedFilter('all');
+      setSelectedProjectTitle(donation.projectName || `دابەشکردنی کۆمەکی پسوولەی ${donation.receiptNumber}`);
+      setDistributionNotes('');
+      setIsDistributeModalOpen(true);
     } else {
-      alert('ئەم کاڵایە لە کۆگادا بەردەست نییە یان دابەشکراوە.');
+      alert('ئەم کاڵایە لە کۆگادا بەردەست نییە یان پێشتر دابەشکراوە.');
     }
+  };
+
+  // Helper to open distribution modal directly for a CASH donation
+  const handleOpenDistributeCash = (donation: Donation) => {
+    const cashM = getDonationCashMetrics(donation, beneficiaries);
+    if (cashM.remainingAmount <= 0) {
+      alert(`تەواوی پارەی نەختینەیی ئەم پسوولەیە [${donation.receiptNumber}] پێشتر بەسەر خێزانەکاندا دابەشکراوە و هیچ بڕێکی نەماوە.`);
+      return;
+    }
+
+    setDistributionTarget({ type: 'cash', donation });
+    if (beneficiaries.length > 0) {
+      setSelectedBeneficiaryIds([beneficiaries[0].id]);
+    } else {
+      setSelectedBeneficiaryIds([]);
+    }
+    const isIQD = donation.currency === 'IQD';
+    const defaultAmount = isIQD ? 100000 : 50;
+    setQtyPerBeneficiary(defaultAmount);
+    setAllocationMode('equal');
+    setCustomQuantities({});
+    setModalBenSearch('');
+    setModalGovFilter('all');
+    setModalNeedFilter('all');
+    setSelectedProjectTitle(
+      donation.projectName || `دابەشکردنی هاوکاری نەختینەیی پسوولەی ${donation.receiptNumber}`
+    );
+    setDistributionNotes('');
+    setIsDistributeModalOpen(true);
   };
 
   const handleDistributeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedItemForDistribution || selectedBeneficiaryIds.length === 0) {
+    if (!distributionTarget || selectedBeneficiaryIds.length === 0) {
       alert('تکایە بەلایەنی کەمەوە یەک سوودمەند / خێزان دیاریبکە!');
       return;
     }
 
     if (isExceedingStock) {
-      alert(`بڕی داواکراو (${totalDistributeQuantity}) زیاترە لەوەی لە کۆگادا بەردەستە (${totalStockAvailable})!`);
+      alert(`بڕی داواکراو (${totalDistributeQuantity.toLocaleString()} ${distributionUnit}) زیاترە لەوەی بەردەستە (${totalStockAvailable.toLocaleString()} ${distributionUnit})!`);
       return;
     }
 
-    const distributions = selectedBeneficiaryIds.map(id => ({
-      beneficiaryId: id,
-      quantity: allocationMode === 'custom'
-        ? Number(customQuantities[id] !== undefined ? customQuantities[id] : qtyPerBeneficiary) || 1
-        : Number(qtyPerBeneficiary) || 1
-    }));
+    if (distributionTarget.type === 'item') {
+      const distributions = selectedBeneficiaryIds.map(id => ({
+        beneficiaryId: id,
+        quantity: allocationMode === 'custom'
+          ? Number(customQuantities[id] !== undefined ? customQuantities[id] : qtyPerBeneficiary) || 1
+          : Number(qtyPerBeneficiary) || 1
+      }));
 
-    const success = distributeAidBulkFromInventory(
-      selectedItemForDistribution.id,
-      distributions,
-      selectedProjectTitle,
-      distributionNotes
-    );
+      const success = distributeAidBulkFromInventory(
+        distributionTarget.item.id,
+        distributions,
+        selectedProjectTitle,
+        distributionNotes
+      );
 
-    if (success) {
-      confetti({
-        particleCount: 70,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-      setIsDistributeModalOpen(false);
-      setSelectedItemForDistribution(null);
-      setSelectedBeneficiaryIds([]);
-      setCustomQuantities({});
-      setDistributionNotes('');
+      if (success) {
+        confetti({
+          particleCount: 70,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        setIsDistributeModalOpen(false);
+        setDistributionTarget(null);
+        setSelectedBeneficiaryIds([]);
+        setCustomQuantities({});
+        setDistributionNotes('');
+      } else {
+        alert('بڕی دیاریکراو زیاترە لەوەی لە کۆگادا بەردەستە!');
+      }
     } else {
-      alert('بڕی دیاریکراو زیاترە لەوەی لە کۆگادا بەردەستە!');
+      // CASH DISTRIBUTION
+      const distributions = selectedBeneficiaryIds.map(id => ({
+        beneficiaryId: id,
+        amount: allocationMode === 'custom'
+          ? Number(customQuantities[id] !== undefined ? customQuantities[id] : qtyPerBeneficiary) || 0
+          : Number(qtyPerBeneficiary) || 0
+      }));
+
+      const success = distributeCashAidBulk(
+        distributionTarget.donation.id,
+        distributions,
+        selectedProjectTitle,
+        distributionNotes
+      );
+
+      if (success) {
+        confetti({
+          particleCount: 70,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        setIsDistributeModalOpen(false);
+        setDistributionTarget(null);
+        setSelectedBeneficiaryIds([]);
+        setCustomQuantities({});
+        setDistributionNotes('');
+      } else {
+        alert('بڕی داواکراو زیاترە لە پارەی بەردەستی ئەم پسوولەیە لە سندووقدا!');
+      }
     }
   };
 
@@ -777,10 +909,26 @@ export const InventoryView: React.FC = () => {
                                 </span>
                               )
                             ) : (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200 flex items-center gap-1 w-fit">
-                                <DollarSign className="w-3 h-3 text-cyan-600" />
-                                سندووقی نەختینەیی
-                              </span>
+                              (() => {
+                                const cashM = getDonationCashMetrics(don, beneficiaries);
+                                return cashM.remainingAmount > 0 ? (
+                                  <div className="space-y-1">
+                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1 w-fit shadow-xs">
+                                      <DollarSign className="w-3 h-3 text-emerald-600" />
+                                      بەردەست لە سندووق ({cashM.remainingAmount.toLocaleString()} {cashM.currencySymbol})
+                                    </span>
+                                    {cashM.distributedAmount > 0 && (
+                                      <span className="text-[10px] text-slate-500 font-mono block pr-1">
+                                        ({cashM.distributedAmount.toLocaleString()} {cashM.currencySymbol} دابەشکراوە)
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1 w-fit">
+                                    سەرجەمی دابەشکراوە ({cashM.totalAmount.toLocaleString()} {cashM.currencySymbol})
+                                  </span>
+                                );
+                              })()
                             )}
                           </td>
 
@@ -801,13 +949,28 @@ export const InventoryView: React.FC = () => {
                               {isInKind && matchingInv && matchingInv.quantity > 0 && (
                                 <button
                                   onClick={() => handleQuickDistributeFromDonation(don)}
-                                  className="px-3 py-1.5 rounded-xl liquid-button-primary text-white text-[11px] font-bold flex items-center gap-1 shadow-sm"
-                                  title="دابەشکردنی ڕاستەوخۆ بۆ خێزانێک"
+                                  className="px-3 py-1.5 rounded-xl liquid-button-primary text-white text-[11px] font-bold flex items-center gap-1 shadow-sm hover:shadow transition-all"
+                                  title="دابەشکردنی ڕاستەوخۆ بۆ خێزانەکان"
                                 >
                                   <Send className="w-3.5 h-3.5" />
                                   دابەشکردن
                                 </button>
                               )}
+
+                              {/* Quick Distribute Button for cash donations */}
+                              {!isInKind && (() => {
+                                const cashM = getDonationCashMetrics(don, beneficiaries);
+                                return cashM.remainingAmount > 0 ? (
+                                  <button
+                                    onClick={() => handleOpenDistributeCash(don)}
+                                    className="px-3 py-1.5 rounded-xl liquid-button-primary text-white text-[11px] font-bold flex items-center gap-1 shadow-sm hover:shadow transition-all animate-pulse hover:animate-none"
+                                    title="دابەشکردنی پارەی کاش بەسەر خێزانەکاندا"
+                                  >
+                                    <Send className="w-3.5 h-3.5" />
+                                    دابەشکردن
+                                  </button>
+                                ) : null;
+                              })()}
                             </div>
                           </td>
 
@@ -828,17 +991,61 @@ export const InventoryView: React.FC = () => {
       ======================================================== */}
       {activeSubTab === 'distributions' && (
         <div className="space-y-5">
+          
+          {/* Sub-Filter Pills (All vs In-Kind vs Cash) */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+            <button
+              onClick={() => setDistTypeFilter('all')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 ${
+                distTypeFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>هەموو دابەشکردنەکان</span>
+              <span className="font-mono font-black opacity-80">({allDistributions.length})</span>
+            </button>
+            <button
+              onClick={() => setDistTypeFilter('in-kind')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 ${
+                distTypeFilter === 'in-kind'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Boxes className="w-3.5 h-3.5" />
+              <span>کەلوپەل و عەینی</span>
+              <span className="font-mono font-black opacity-80">
+                ({allDistributions.filter(d => d.type === 'in-kind').length})
+              </span>
+            </button>
+            <button
+              onClick={() => setDistTypeFilter('monetary')}
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 ${
+                distTypeFilter === 'monetary'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Banknote className="w-3.5 h-3.5" />
+              <span>پارەی کاش و نەختینەیی</span>
+              <span className="font-mono font-black opacity-80">
+                ({allDistributions.filter(d => d.type === 'monetary').length})
+              </span>
+            </button>
+          </div>
+
           {allDistributions.length === 0 ? (
             <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-16 border border-slate-200/90 text-center shadow-sm">
               <History className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-sm font-bold text-slate-700">هیچ دابەشکردنێک بۆ خێزانەکان تۆمار نەکراوە (سفر تۆمار)</p>
               <p className="text-xs text-slate-400 mt-1">
-                کاتێک کاڵایەک لە کۆگاوە دەبەخشیتە خێزانێک، مێژووی دابەشکردنەکەی لێرەدا تۆمار دەبێت
+                کاتێک کاڵا یان پارەی کاش دەبەخشیتە خێزانەکان، مێژووی تەواوی دابەشکردنەکە لێرەدا تۆمار دەبێت
               </p>
             </div>
-          ) : filteredDistributions.length === 0 ? (
+          ) : filteredDistributions.filter(d => distTypeFilter === 'all' || d.type === distTypeFilter).length === 0 ? (
             <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-12 border border-slate-200/90 text-center shadow-sm">
-              <p className="text-sm font-bold text-slate-700">هیچ تۆمارێکی دابەشکردن بەپێی گەڕانەکەت نەدۆزرایەوە</p>
+              <p className="text-sm font-bold text-slate-700">هیچ تۆمارێکی دابەشکردن بەپێی ئەم فلتەر یان گەڕانە نەدۆزرایەوە</p>
             </div>
           ) : (
             <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
@@ -848,8 +1055,8 @@ export const InventoryView: React.FC = () => {
                     <tr>
                       <th className="p-3.5">ناوی سوودمەند / خێزان</th>
                       <th className="p-3.5">پارێزگا / تەلەفۆن</th>
-                      <th className="p-3.5">کاڵای پێدراو</th>
-                      <th className="p-3.5">بڕ</th>
+                      <th className="p-3.5">جۆری هاوکاری / کاڵا</th>
+                      <th className="p-3.5">بڕی دراوە</th>
                       <th className="p-3.5">پڕۆژە / کەمپەین</th>
                       <th className="p-3.5">سەرچاوەی بەخشین</th>
                       <th className="p-3.5">بەروار</th>
@@ -857,7 +1064,9 @@ export const InventoryView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredDistributions.map((dist, idx) => (
+                    {filteredDistributions
+                      .filter(d => distTypeFilter === 'all' || d.type === distTypeFilter)
+                      .map((dist, idx) => (
                       <tr key={`${dist.id}-${idx}`} className="hover:bg-slate-50/60 transition-all">
                         {/* Beneficiary Name */}
                         <td className="p-3.5 font-bold text-slate-900">
@@ -870,14 +1079,32 @@ export const InventoryView: React.FC = () => {
                           <span className="text-[11px] text-slate-400 block font-mono">{dist.beneficiaryPhone}</span>
                         </td>
 
-                        {/* Item Name */}
-                        <td className="p-3.5 font-bold text-slate-800">
-                          {dist.itemName || (dist.type === 'monetary' ? `${dist.amountIQD?.toLocaleString()} د.ع` : 'هاوکاری')}
+                        {/* Item Name / Monetary */}
+                        <td className="p-3.5 font-bold">
+                          {dist.type === 'monetary' ? (
+                            <span className="flex items-center gap-1.5 text-emerald-800">
+                              <Banknote className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              هاوکاری نەختینەیی (کاش)
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1.5 text-slate-800">
+                              <Boxes className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              {dist.itemName || 'کۆمەکی عەینی'}
+                            </span>
+                          )}
                         </td>
 
-                        {/* Quantity */}
-                        <td className="p-3.5 font-black text-amber-700 font-mono">
-                          {dist.quantity ? `${dist.quantity} دانە` : '-'}
+                        {/* Quantity / Amount */}
+                        <td className="p-3.5 font-bold font-mono">
+                          {dist.type === 'monetary' ? (
+                            <span className="text-emerald-700 font-black text-xs">
+                              {dist.amountIQD ? `${dist.amountIQD.toLocaleString()} د.ع` : '-'}
+                            </span>
+                          ) : (
+                            <span className="text-amber-700 font-black text-xs">
+                              {dist.quantity ? `${dist.quantity} ${dist.unit || 'دانە'}` : '-'}
+                            </span>
+                          )}
                         </td>
 
                         {/* Project */}
@@ -916,8 +1143,8 @@ export const InventoryView: React.FC = () => {
         </div>
       )}
 
-      {/* Multi-Beneficiary Distribution Modal */}
-      {isDistributeModalOpen && selectedItemForDistribution && (
+      {/* Multi-Beneficiary Distribution Modal (Items & Cash) */}
+      {isDistributeModalOpen && distributionTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
           <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-2xl my-auto">
             
@@ -931,54 +1158,101 @@ export const InventoryView: React.FC = () => {
 
             {/* Modal Header */}
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                <Users className="w-6 h-6" />
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                distributionTarget.type === 'cash' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+              }`}>
+                {distributionTarget.type === 'cash' ? (
+                  <Banknote className="w-6 h-6" />
+                ) : (
+                  <Users className="w-6 h-6" />
+                )}
               </div>
               <div className="flex-1 pr-1">
                 <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                  دابەشکردنی بە کۆمەڵی هاوکاری و کاڵاکان
+                  {distributionTarget.type === 'cash'
+                    ? 'دابەشکردنی بە کۆمەڵی هاوکاری نەختینەیی (پارەی کاش)'
+                    : 'دابەشکردنی بە کۆمەڵی هاوکاری و کاڵاکان'}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  دەتوانیت یەک یان چەندین خێزانی سوودمەند لە یەک کاتدا دیاری بکەیت بۆ وەرگرتنی ئەم کاڵایە
+                  {distributionTarget.type === 'cash'
+                    ? 'دیاریکردنی یەک یان چەندین خێزانی سوودمەند بۆ وەرگرتنی هاوکاری نەختینەیی لەم پسوولەی بەخشینە'
+                    : 'دەتوانیت یەک یان چەندین خێزانی سوودمەند لە یەک کاتدا دیاری بکەیت بۆ وەرگرتنی ئەم کاڵایە'}
                 </p>
               </div>
             </div>
 
-            {/* Item and Stock Overview Card */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 mb-4 text-xs">
-              <div>
-                <span className="text-slate-500 block text-[11px]">ناوی کاڵا:</span>
-                <span className="font-bold text-slate-900 text-sm">{selectedItemForDistribution.name}</span>
-                <span className="text-[10px] text-slate-500 block">({selectedItemForDistribution.category})</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[11px]">کۆی بەردەست لە مەخزەن:</span>
-                <span className="font-black text-amber-700 font-mono text-base">
-                  {totalStockAvailable} {selectedItemForDistribution.unit}
-                </span>
-                <span className="text-[10px] text-slate-500 block">{selectedItemForDistribution.location}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[11px]">سەرچاوەی بەخشین:</span>
-                {selectedItemForDistribution.sourceReceiptNumber ? (
-                  <span className="font-bold text-emerald-800 flex items-center gap-1">
-                    <Receipt className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    {selectedItemForDistribution.sourceDonorName || 'بەخشەر'} ({selectedItemForDistribution.sourceReceiptNumber})
+            {/* Target Overview Card */}
+            {distributionTarget.type === 'cash' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/90 mb-4 text-xs">
+                <div>
+                  <span className="text-emerald-800 block text-[11px] font-bold">پسوولەی بەخشین:</span>
+                  <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5 mt-0.5">
+                    <Receipt className="w-4 h-4 text-emerald-600 shrink-0" />
+                    {distributionTarget.donation.receiptNumber}
                   </span>
-                ) : (
-                  <span className="text-slate-600 font-medium">پاشەکەوتی ڕێکخراو</span>
-                )}
+                  <span className="text-[10px] text-slate-500 block">بەخشەر: {distributionTarget.donation.donorName}</span>
+                </div>
+                <div>
+                  <span className="text-emerald-800 block text-[11px] font-bold">بڕی بەردەست لە سندووق:</span>
+                  <span className="font-black text-emerald-800 font-mono text-base block mt-0.5">
+                    {totalStockAvailable.toLocaleString()} {distributionUnit}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">
+                    کۆی بەخشین: {distributionTarget.donation.amount.toLocaleString()} {distributionUnit}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-emerald-800 block text-[11px] font-bold">پڕۆژە / مەبەستی بەخشین:</span>
+                  <span className="font-bold text-slate-900 block mt-0.5">
+                    {distributionTarget.donation.projectName || 'دابەشکردنی خێرخوازی دەستبەجێ'}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">بەروار: {distributionTarget.donation.date}</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 mb-4 text-xs">
+                <div>
+                  <span className="text-slate-500 block text-[11px]">ناوی کاڵا:</span>
+                  <span className="font-bold text-slate-900 text-sm">{distributionTarget.item.name}</span>
+                  <span className="text-[10px] text-slate-500 block">({distributionTarget.item.category})</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[11px]">کۆی بەردەست لە مەخزەن:</span>
+                  <span className="font-black text-amber-700 font-mono text-base">
+                    {totalStockAvailable} {distributionTarget.item.unit}
+                  </span>
+                  <span className="text-[10px] text-slate-500 block">{distributionTarget.item.location}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[11px]">سەرچاوەی بەخشین:</span>
+                  {distributionTarget.item.sourceReceiptNumber ? (
+                    <span className="font-bold text-emerald-800 flex items-center gap-1">
+                      <Receipt className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      {distributionTarget.item.sourceDonorName || 'بەخشەر'} ({distributionTarget.item.sourceReceiptNumber})
+                    </span>
+                  ) : (
+                    <span className="text-slate-600 font-medium">پاشەکەوتی ڕێکخراو</span>
+                  )}
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleDistributeSubmit} className="space-y-4 text-xs">
               
-              {/* Allocation Mode Selector & Default Qty */}
+              {/* Allocation Mode Selector & Default Qty/Amount */}
               <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
-                    <label className="block text-slate-800 font-bold mb-0.5">شێوازی دیاریکردنی بڕی کاڵا بۆ هەر خێزانێک:</label>
-                    <span className="text-[11px] text-slate-500">هەڵبژێرە کە ئایا بڕەکە بۆ هەمووان یەکسان بێت یان بەپێی قەبارەی خێزان دەستکاری بکرێت</span>
+                    <label className="block text-slate-800 font-bold mb-0.5">
+                      {distributionTarget.type === 'cash'
+                        ? 'شێوازی دیاریکردنی بڕی پارە بۆ هەر خێزانێک:'
+                        : 'شێوازی دیاریکردنی بڕی کاڵا بۆ هەر خێزانێک:'}
+                    </label>
+                    <span className="text-[11px] text-slate-500">
+                      {distributionTarget.type === 'cash'
+                        ? 'هەڵبژێرە کە ئایا بڕی پارەکە بۆ هەمووان یەکسان بێت یان بۆ هەر خێزانێک بە جیا دیاری بکرێت'
+                        : 'هەڵبژێرە کە ئایا بڕەکە بۆ هەمووان یەکسان بێت یان بەپێی قەبارەی خێزان دەستکاری بکرێت'}
+                    </span>
                   </div>
 
                   {/* Toggle Modes */}
@@ -999,7 +1273,7 @@ export const InventoryView: React.FC = () => {
                       onClick={() => setAllocationMode('custom')}
                       className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
                         allocationMode === 'custom'
-                          ? 'bg-amber-600 text-white shadow-sm'
+                          ? distributionTarget.type === 'cash' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-amber-600 text-white shadow-sm'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
@@ -1009,22 +1283,49 @@ export const InventoryView: React.FC = () => {
                 </div>
 
                 {allocationMode === 'equal' && (
-                  <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-                    <label className="text-slate-700 font-bold whitespace-nowrap">
-                      بڕ بۆ هەر خێزانێک ({selectedItemForDistribution.unit}):
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={1}
-                        max={totalStockAvailable || 1}
-                        required
-                        value={qtyPerBeneficiary}
-                        onChange={(e) => setQtyPerBeneficiary(Math.max(1, Number(e.target.value) || 1))}
-                        className="w-24 px-3 py-1.5 rounded-xl liquid-input font-bold text-sm text-center text-slate-900"
-                      />
-                      <span className="text-slate-500 font-bold">{selectedItemForDistribution.unit}</span>
+                  <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <label className="text-slate-700 font-bold whitespace-nowrap">
+                        {distributionTarget.type === 'cash' ? 'بڕی پارە بۆ هەر خێزانێک:' : 'بڕ بۆ هەر خێزانێک:'}
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={distributionTarget.type === 'cash' ? 1000 : 1}
+                          max={totalStockAvailable || 1}
+                          step={distributionTarget.type === 'cash' ? (distributionUnit === '$' ? 10 : 5000) : 1}
+                          required
+                          value={qtyPerBeneficiary}
+                          onChange={(e) => setQtyPerBeneficiary(Math.max(1, Number(e.target.value) || 0))}
+                          className="w-32 px-3 py-1.5 rounded-xl liquid-input font-bold text-sm text-center text-slate-900 font-mono"
+                        />
+                        <span className="text-slate-700 font-bold">{distributionUnit}</span>
+                      </div>
                     </div>
+
+                    {/* Quick Preset Buttons for Cash */}
+                    {distributionTarget.type === 'cash' && (
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                        <span className="text-[10px] text-slate-400 font-bold">بڕە ئامادەکراوەکان:</span>
+                        {(distributionUnit === '$'
+                          ? [25, 50, 100, 150, 200, 300]
+                          : [25000, 50000, 75000, 100000, 150000, 200000, 250000, 500000]
+                        ).map(preset => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setQtyPerBeneficiary(preset)}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono transition-all border ${
+                              qtyPerBeneficiary === preset
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            {preset.toLocaleString()} {distributionUnit}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1089,11 +1390,15 @@ export const InventoryView: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleSelectMaxStock}
-                      className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[11px] font-bold flex items-center gap-1 transition-all"
-                      title="دیاریکردنی ئەوپەڕی خێزان کە بەشی کۆی مەخزەن دەکات"
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1 transition-all ${
+                        distributionTarget.type === 'cash'
+                          ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+                          : 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-800'
+                      }`}
+                      title="دیاریکردنی ئەوپەڕی خێزان کە بەشی کۆی مەخزەن یان سندووق دەکات"
                     >
-                      <Sparkles className="w-3 h-3 text-amber-600" />
-                      بەپێی کۆی مەخزەن ({Math.min(filteredModalBeneficiaries.length, Math.floor(totalStockAvailable / (qtyPerBeneficiary || 1)))} خێزان)
+                      <Sparkles className="w-3 h-3 text-emerald-600" />
+                      بەپێی کۆی بەردەست ({Math.min(filteredModalBeneficiaries.length, Math.floor(totalStockAvailable / (qtyPerBeneficiary || 1)))} خێزان)
                     </button>
 
                     <button
@@ -1177,7 +1482,7 @@ export const InventoryView: React.FC = () => {
                             </div>
                           </label>
 
-                          {/* Custom Quantity Input for this beneficiary */}
+                          {/* Custom Quantity/Amount Input for this beneficiary */}
                           {allocationMode === 'custom' && isSelected && (
                             <div className="flex items-center gap-1.5 shrink-0 bg-white p-1 rounded-xl border border-cyan-200">
                               <span className="text-[10px] text-slate-500 font-bold">بڕ:</span>
@@ -1187,12 +1492,12 @@ export const InventoryView: React.FC = () => {
                                 max={totalStockAvailable}
                                 value={customQty}
                                 onChange={(e) => {
-                                  const val = Math.max(1, Number(e.target.value) || 1);
+                                  const val = Math.max(1, Number(e.target.value) || 0);
                                   setCustomQuantities(prev => ({ ...prev, [ben.id]: val }));
                                 }}
-                                className="w-16 px-2 py-1 rounded-lg border border-slate-200 font-bold text-xs text-center text-slate-900"
+                                className="w-24 px-2 py-1 rounded-lg border border-slate-200 font-bold font-mono text-xs text-center text-slate-900"
                               />
-                              <span className="text-[10px] text-slate-500 font-bold">{selectedItemForDistribution.unit}</span>
+                              <span className="text-[10px] text-slate-500 font-bold">{distributionUnit}</span>
                             </div>
                           )}
                         </div>
@@ -1211,8 +1516,8 @@ export const InventoryView: React.FC = () => {
                     required
                     value={selectedProjectTitle}
                     onChange={(e) => setSelectedProjectTitle(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-xs"
-                    placeholder="نموونە: دابەشکردنی سەبەتەی خۆراکی ڕەمەزان"
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-xs font-medium"
+                    placeholder={distributionTarget.type === 'cash' ? 'نموونە: دابەشکردنی دەستبەجێی هاوکاری نەختینەیی' : 'نموونە: دابەشکردنی سەبەتەی خۆراکی ڕەمەزان'}
                   />
                 </div>
                 <div>
@@ -1221,7 +1526,7 @@ export const InventoryView: React.FC = () => {
                     type="text"
                     value={distributionNotes}
                     onChange={(e) => setDistributionNotes(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-xs"
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-xs font-medium"
                     placeholder="نموونە: گەڕەکی باداوە - تیمی مەیدانی ١"
                   />
                 </div>
@@ -1236,16 +1541,16 @@ export const InventoryView: React.FC = () => {
                 <div className="flex items-center justify-between flex-wrap gap-2 font-bold">
                   <div className="flex items-center gap-4">
                     <span>خێزانە هەڵبژێردراوەکان: <span className="font-mono font-black">{selectedBeneficiaryIds.length}</span></span>
-                    <span>کۆی پێویست: <span className="font-mono font-black text-sm">{totalDistributeQuantity} {selectedItemForDistribution.unit}</span></span>
+                    <span>کۆی پێویست: <span className="font-mono font-black text-sm">{totalDistributeQuantity.toLocaleString()} {distributionUnit}</span></span>
                   </div>
                   <div>
                     {isExceedingStock ? (
                       <span className="text-rose-700 font-bold flex items-center gap-1">
                         <AlertTriangle className="w-4 h-4 text-rose-600" />
-                        بڕی داواکراو ({totalDistributeQuantity}) لە مەخزەن زیاترە! ({totalStockAvailable} بەردەستە)
+                        بڕی داواکراو ({totalDistributeQuantity.toLocaleString()}) لە بەردەست زیاترە! ({totalStockAvailable.toLocaleString()} {distributionUnit} بەردەستە)
                       </span>
                     ) : (
-                      <span>ماوەی مەخزەن دوای دابەشکردن: <span className="font-mono font-black text-emerald-800">{remainingAfterDist} {selectedItemForDistribution.unit}</span></span>
+                      <span>ماوە دوای دابەشکردن: <span className="font-mono font-black text-emerald-800">{remainingAfterDist.toLocaleString()} {distributionUnit}</span></span>
                     )}
                   </div>
                 </div>
@@ -1270,7 +1575,7 @@ export const InventoryView: React.FC = () => {
                   }`}
                 >
                   <Send className="w-4 h-4" />
-                  دابەشکردن بۆ ({selectedBeneficiaryIds.length}) خێزان ({totalDistributeQuantity} {selectedItemForDistribution.unit})
+                  دابەشکردن بۆ ({selectedBeneficiaryIds.length}) خێزان ({totalDistributeQuantity.toLocaleString()} {distributionUnit})
                 </button>
               </div>
             </form>
