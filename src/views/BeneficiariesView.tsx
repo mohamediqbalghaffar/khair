@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { Beneficiary, NeedCategory, BeneficiaryStatus, OtherProvider, BeneficiaryDocument, BeneficiaryDocCategory, BeneficiaryLocation } from '../types';
+import { Beneficiary, NeedCategory, BeneficiaryStatus, OtherProvider, BeneficiaryDocument, BeneficiaryDocCategory, BeneficiaryLocation, AidRecord } from '../types';
 import {
   downloadBeneficiaryExcelTemplate,
   parseBeneficiaryExcelFile,
@@ -59,6 +59,8 @@ export const BeneficiariesView: React.FC = () => {
     deleteBeneficiary,
     checkDuplicate,
     addAidRecord,
+    updateAidRecord,
+    deleteAidRecord,
     sendSMS,
     addBeneficiaryDocument,
     updateBeneficiaryDocument,
@@ -238,6 +240,16 @@ export const BeneficiariesView: React.FC = () => {
   const [smsText, setSmsText] = useState(
     'سڵاو بەڕێز، تکایە ئاگاداربە هاوکارییە دیاریکراوەکەت لە بنکەی سەرەکی ڕێکخراوی بۆتان بامۆکی ئامادەیە بۆ وەرگرتن.'
   );
+
+  // Edit Beneficiary Aid Record State
+  const [editingBenAid, setEditingBenAid] = useState<AidRecord | null>(null);
+  const [isEditBenAidModalOpen, setIsEditBenAidModalOpen] = useState(false);
+  const [editBenAidForm, setEditBenAidForm] = useState({
+    amount: 0,
+    projectTitle: '',
+    date: '',
+    notes: ''
+  });
 
   // Filtering
   const filteredBeneficiaries = beneficiaries.filter(b => {
@@ -679,6 +691,48 @@ export const BeneficiariesView: React.FC = () => {
     if (!selectedBeneficiary) return;
     sendSMS(selectedBeneficiary.phone, selectedBeneficiary.fullName, smsText);
     setIsSMSModalOpen(false);
+  };
+
+  const handleOpenEditBenAid = (aid: AidRecord) => {
+    setEditingBenAid(aid);
+    setEditBenAidForm({
+      amount: aid.amount || aid.amountIQD || aid.quantity || 0,
+      projectTitle: aid.projectTitle || '',
+      date: aid.date || new Date().toISOString().split('T')[0],
+      notes: aid.notes || ''
+    });
+    setIsEditBenAidModalOpen(true);
+  };
+
+  const handleSaveEditBenAid = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBeneficiary || !editingBenAid) return;
+
+    const isMonetary = editingBenAid.type === 'monetary';
+    const isIQD = editingBenAid.currency !== 'USD';
+
+    updateAidRecord(selectedBeneficiary.id, editingBenAid.id, {
+      amount: isMonetary ? editBenAidForm.amount : undefined,
+      amountIQD: isMonetary && isIQD ? editBenAidForm.amount : undefined,
+      quantity: !isMonetary ? editBenAidForm.amount : undefined,
+      projectTitle: editBenAidForm.projectTitle,
+      date: editBenAidForm.date,
+      notes: editBenAidForm.notes
+    });
+
+    setIsEditBenAidModalOpen(false);
+    setEditingBenAid(null);
+    const updated = beneficiaries.find(b => b.id === selectedBeneficiary.id);
+    if (updated) setSelectedBeneficiary(updated);
+  };
+
+  const handleDeleteBenAid = (aidId: string) => {
+    if (!selectedBeneficiary) return;
+    if (!window.confirm('ئایا دڵنیایت لە سڕینەوەی ئەم تۆماری هاوکارییە؟')) return;
+
+    deleteAidRecord(selectedBeneficiary.id, aidId);
+    const updated = beneficiaries.find(b => b.id === selectedBeneficiary.id);
+    if (updated) setSelectedBeneficiary(updated);
   };
 
   const categoryLabels: Record<NeedCategory, string> = {
@@ -2256,18 +2310,38 @@ export const BeneficiariesView: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="text-left font-bold">
-                        {aid.type === 'monetary' ? (
-                          <span className="text-emerald-700">
-                            {aid.currency === 'USD'
-                              ? `$${(aid.amount || aid.amountIQD || 0).toLocaleString()}`
-                              : `${(aid.amount || aid.amountIQD || 0).toLocaleString()} د.ع`}
-                          </span>
-                        ) : (
-                          <span className="text-cyan-700">
-                            {aid.quantity} {aid.itemName} {aid.unit || ''}
-                          </span>
-                        )}
+                      <div className="flex items-center gap-2">
+                        <div className="text-left font-bold">
+                          {aid.type === 'monetary' ? (
+                            <span className="text-emerald-700">
+                              {aid.currency === 'USD'
+                                ? `$${(aid.amount || aid.amountIQD || 0).toLocaleString()}`
+                                : `${(aid.amount || aid.amountIQD || 0).toLocaleString()} د.ع`}
+                            </span>
+                          ) : (
+                            <span className="text-cyan-700">
+                              {aid.quantity} {aid.itemName} {aid.unit || ''}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 border-r border-slate-200 pr-1.5 mr-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditBenAid(aid)}
+                            className="p-1 rounded-lg bg-white hover:bg-emerald-50 hover:text-emerald-600 text-slate-500 border border-slate-200 transition-colors"
+                            title="دەستکاریکردنی ئەم هاوکارییە"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBenAid(aid.id)}
+                            className="p-1 rounded-lg bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-500 border border-slate-200 transition-colors"
+                            title="سڕینەوەی ئەم تۆمارە"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -2386,8 +2460,9 @@ export const BeneficiariesView: React.FC = () => {
                         </div>
                         <input
                           type="number"
+                          min={1}
+                          step="any"
                           value={aidForm.amountIQD}
-                          max={selectedDonMetrics ? selectedDonMetrics.metrics.remainingCash : undefined}
                           onChange={(e) => setAidForm({ ...aidForm, amountIQD: Number(e.target.value) })}
                           className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
                         />
@@ -2470,6 +2545,98 @@ export const BeneficiariesView: React.FC = () => {
                   className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
                 >
                   پەسەندکردنی هاوکاری
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Beneficiary Aid Modal */}
+      {isEditBenAidModalOpen && editingBenAid && selectedBeneficiary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-emerald-600" />
+                دەستکاریکردنی هاوکاری بۆ: {selectedBeneficiary.fullName}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditBenAidModalOpen(false);
+                  setEditingBenAid(null);
+                }}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditBenAid} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  {editingBenAid.type === 'monetary'
+                    ? `بڕی پارە (${editingBenAid.currency === 'USD' ? 'دۆلار $' : 'دینار د.ع'}):`
+                    : `بڕ / دانە (${editingBenAid.unit || 'دانە'}):`}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  step="any"
+                  required
+                  value={editBenAidForm.amount}
+                  onChange={(e) => setEditBenAidForm({ ...editBenAidForm, amount: Number(e.target.value) })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">لە چوارچێوەی کام پڕۆژە:</label>
+                <input
+                  type="text"
+                  value={editBenAidForm.projectTitle}
+                  onChange={(e) => setEditBenAidForm({ ...editBenAidForm, projectTitle: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">بەروار:</label>
+                <input
+                  type="date"
+                  value={editBenAidForm.date}
+                  onChange={(e) => setEditBenAidForm({ ...editBenAidForm, date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">تێبینی:</label>
+                <textarea
+                  rows={2}
+                  value={editBenAidForm.notes}
+                  onChange={(e) => setEditBenAidForm({ ...editBenAidForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditBenAidModalOpen(false);
+                    setEditingBenAid(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                >
+                  پاشگەزبوونەوە
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
+                >
+                  پاشەکەوتکردنی گۆڕانکاری
                 </button>
               </div>
             </form>

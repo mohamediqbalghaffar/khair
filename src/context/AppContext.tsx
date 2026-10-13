@@ -99,6 +99,9 @@ interface AppContextType {
   deleteBeneficiary: (id: string) => Promise<{ success: boolean; message?: string }>;
   checkDuplicate: (nationalId: string, phone: string, excludeId?: string) => Beneficiary | undefined;
   addAidRecord: (beneficiaryId: string, record: Omit<AidRecord, 'id'>) => void;
+  updateAidRecord: (beneficiaryId: string, aidRecordId: string, updatedRecord: Partial<AidRecord>) => boolean;
+  deleteAidRecord: (beneficiaryId: string, aidRecordId: string) => boolean;
+  bulkUpdateAidRecords: (updates: Array<{ beneficiaryId: string; aidRecordId: string; updatedData: Partial<AidRecord> }>) => boolean;
   addBeneficiaryDocument: (beneficiaryId: string, doc: Omit<BeneficiaryDocument, 'id' | 'uploadDate'>) => void;
   updateBeneficiaryDocument: (beneficiaryId: string, doc: BeneficiaryDocument) => void;
   deleteBeneficiaryDocument: (beneficiaryId: string, docId: string) => void;
@@ -1425,6 +1428,225 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('دابەشکردنی هاوکاری', `هاوکاری لە پڕۆژەی [${record.projectTitle}] بەخشرا بە [${ben?.fullName}]`);
   };
 
+  const updateAidRecord = (
+    beneficiaryId: string,
+    aidRecordId: string,
+    updatedData: Partial<AidRecord>
+  ): boolean => {
+    let oldAid: AidRecord | undefined;
+    let targetBen: Beneficiary | undefined;
+
+    const nextBeneficiaries = beneficiaries.map(b => {
+      if (b.id === beneficiaryId) {
+        targetBen = b;
+        const nextHistory = (b.aidHistory || []).map(aid => {
+          if (aid.id === aidRecordId) {
+            oldAid = aid;
+            const effectiveCurrency = updatedData.currency || aid.currency || 'IQD';
+            const isIQD = effectiveCurrency === 'IQD';
+            const newAmount = updatedData.amount !== undefined
+              ? updatedData.amount
+              : (updatedData.amountIQD !== undefined ? updatedData.amountIQD : (aid.amount || aid.amountIQD || 0));
+            const newAmountIQD = isIQD ? newAmount : (updatedData.amountIQD || aid.amountIQD);
+
+            return {
+              ...aid,
+              ...updatedData,
+              amount: newAmount,
+              amountIQD: newAmountIQD,
+              currency: effectiveCurrency
+            };
+          }
+          return aid;
+        });
+        const updatedB: Beneficiary = {
+          ...b,
+          aidHistory: nextHistory
+        };
+        safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedB)));
+        return updatedB;
+      }
+      return b;
+    });
+
+    if (!oldAid || !targetBen) return false;
+    setBeneficiaries(nextBeneficiaries);
+
+    // If linked to a donation receipt, recalculate consolidated distribution financial transaction
+    const receiptNum = updatedData.receiptNumber || oldAid.receiptNumber;
+    if (receiptNum) {
+      const linkedAids = nextBeneficiaries.flatMap(b =>
+        (b.aidHistory || []).filter(aid =>
+          aid.type === 'monetary' &&
+          (aid.receiptNumber === receiptNum || (aid.donationId && aid.donationId === (updatedData.donationId || oldAid?.donationId)))
+        )
+      );
+      const totalDistributedAmt = linkedAids.reduce((sum, a) => sum + (a.amount || a.amountIQD || 0), 0);
+
+      const nextTransactions = transactions.map(tx => {
+        if (tx.receiptNumber === receiptNum && tx.type === 'expense') {
+          const isIQD = tx.currency === 'IQD';
+          const dayRate = tx.exchangeRateAtDate || 1530;
+          const totalIQD = isIQD ? totalDistributedAmt : Math.round(totalDistributedAmt * dayRate);
+          const totalUSD = isIQD ? Number((totalDistributedAmt / dayRate).toFixed(2)) : totalDistributedAmt;
+          const updatedTx: FinancialTransaction = {
+            ...tx,
+            amount: totalDistributedAmt,
+            convertedAmount: isIQD ? totalUSD : totalIQD,
+            description: `دابەشکردنی هاوکاری نەختینەیی (${totalDistributedAmt.toLocaleString()} ${isIQD ? 'د.ع' : '$'}) بەسەر ${linkedAids.length} خێزانی سوودمەند لە پسوولەی ${receiptNum}`
+          };
+          safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(updatedTx)));
+          return updatedTx;
+        }
+        return tx;
+      });
+      setTransactions(nextTransactions);
+    }
+
+    logAction('دەستکاریکردنی هاوکاری', `دەستکاری تۆماری هاوکاری بۆ [${targetBen.fullName}] ئەنجامدرا`, 'update');
+    return true;
+  };
+
+  const bulkUpdateAidRecords = (
+    updates: Array<{ beneficiaryId: string; aidRecordId: string; updatedData: Partial<AidRecord> }>
+  ): boolean => {
+    if (updates.length === 0) return false;
+
+    const updatesMap = new Map<string, Map<string, Partial<AidRecord>>>();
+    const affectedReceipts = new Set<string>();
+
+    updates.forEach(u => {
+      if (!updatesMap.has(u.beneficiaryId)) {
+        updatesMap.set(u.beneficiaryId, new Map());
+      }
+      updatesMap.get(u.beneficiaryId)!.set(u.aidRecordId, u.updatedData);
+      if (u.updatedData.receiptNumber) affectedReceipts.add(u.updatedData.receiptNumber);
+    });
+
+    const nextBeneficiaries = beneficiaries.map(b => {
+      const benUpdates = updatesMap.get(b.id);
+      if (!benUpdates) return b;
+
+      const nextHistory = (b.aidHistory || []).map(aid => {
+        const uData = benUpdates.get(aid.id);
+        if (!uData) return aid;
+
+        if (aid.receiptNumber) affectedReceipts.add(aid.receiptNumber);
+        const effectiveCurrency = uData.currency || aid.currency || 'IQD';
+        const isIQD = effectiveCurrency === 'IQD';
+        const newAmount = uData.amount !== undefined
+          ? uData.amount
+          : (uData.amountIQD !== undefined ? uData.amountIQD : (aid.amount || aid.amountIQD || 0));
+        const newAmountIQD = isIQD ? newAmount : (uData.amountIQD || aid.amountIQD);
+
+        return {
+          ...aid,
+          ...uData,
+          amount: newAmount,
+          amountIQD: newAmountIQD,
+          currency: effectiveCurrency
+        };
+      });
+
+      const updatedB: Beneficiary = {
+        ...b,
+        aidHistory: nextHistory
+      };
+      safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedB)));
+      return updatedB;
+    });
+
+    setBeneficiaries(nextBeneficiaries);
+
+    // Recalculate transactions for all affected receipts
+    let nextTransactions = transactions;
+    affectedReceipts.forEach(receiptNum => {
+      const linkedAids = nextBeneficiaries.flatMap(b =>
+        (b.aidHistory || []).filter(aid => aid.type === 'monetary' && aid.receiptNumber === receiptNum)
+      );
+      const totalDistributedAmt = linkedAids.reduce((sum, a) => sum + (a.amount || a.amountIQD || 0), 0);
+
+      nextTransactions = nextTransactions.map(tx => {
+        if (tx.receiptNumber === receiptNum && tx.type === 'expense') {
+          const isIQD = tx.currency === 'IQD';
+          const dayRate = tx.exchangeRateAtDate || 1530;
+          const totalIQD = isIQD ? totalDistributedAmt : Math.round(totalDistributedAmt * dayRate);
+          const totalUSD = isIQD ? Number((totalDistributedAmt / dayRate).toFixed(2)) : totalDistributedAmt;
+          const updatedTx: FinancialTransaction = {
+            ...tx,
+            amount: totalDistributedAmt,
+            convertedAmount: isIQD ? totalUSD : totalIQD,
+            description: `دابەشکردنی هاوکاری نەختینەیی (${totalDistributedAmt.toLocaleString()} ${isIQD ? 'د.ع' : '$'}) بەسەر ${linkedAids.length} خێزانی سوودمەند لە پسوولەی ${receiptNum}`
+          };
+          safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(updatedTx)));
+          return updatedTx;
+        }
+        return tx;
+      });
+    });
+    setTransactions(nextTransactions);
+
+    logAction('دەستکاریکردنی بەکۆمەڵی هاوکاری', `${updates.length} تۆماری هاوکاری نوێکرانەوە`, 'update');
+    return true;
+  };
+
+  const deleteAidRecord = (
+    beneficiaryId: string,
+    aidRecordId: string
+  ): boolean => {
+    let deletedAid: AidRecord | undefined;
+    let targetBen: Beneficiary | undefined;
+
+    const nextBeneficiaries = beneficiaries.map(b => {
+      if (b.id === beneficiaryId) {
+        targetBen = b;
+        deletedAid = (b.aidHistory || []).find(a => a.id === aidRecordId);
+        const nextHistory = (b.aidHistory || []).filter(a => a.id !== aidRecordId);
+        const updatedB: Beneficiary = {
+          ...b,
+          aidHistory: nextHistory
+        };
+        safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedB)));
+        return updatedB;
+      }
+      return b;
+    });
+
+    if (!deletedAid || !targetBen) return false;
+    setBeneficiaries(nextBeneficiaries);
+
+    // If receiptNumber is linked, recalculate consolidated distribution transaction
+    const receiptNum = deletedAid.receiptNumber;
+    if (receiptNum) {
+      const linkedAids = nextBeneficiaries.flatMap(b =>
+        (b.aidHistory || []).filter(aid => aid.type === 'monetary' && aid.receiptNumber === receiptNum)
+      );
+      const totalDistributedAmt = linkedAids.reduce((sum, a) => sum + (a.amount || a.amountIQD || 0), 0);
+
+      const nextTransactions = transactions.map(tx => {
+        if (tx.receiptNumber === receiptNum && tx.type === 'expense') {
+          const isIQD = tx.currency === 'IQD';
+          const dayRate = tx.exchangeRateAtDate || 1530;
+          const totalIQD = isIQD ? totalDistributedAmt : Math.round(totalDistributedAmt * dayRate);
+          const totalUSD = isIQD ? Number((totalDistributedAmt / dayRate).toFixed(2)) : totalDistributedAmt;
+          const updatedTx: FinancialTransaction = {
+            ...tx,
+            amount: totalDistributedAmt,
+            convertedAmount: isIQD ? totalUSD : totalIQD,
+            description: `دابەشکردنی هاوکاری نەختینەیی (${totalDistributedAmt.toLocaleString()} ${isIQD ? 'د.ع' : '$'}) بەسەر ${linkedAids.length} خێزانی سوودمەند لە پسوولەی ${receiptNum}`
+          };
+          safeSupabaseSync(supabase.from('transactions').upsert(mapTransactionToDb(updatedTx)));
+          return updatedTx;
+        }
+        return tx;
+      });
+      setTransactions(nextTransactions);
+    }
+
+    logAction('سڕینەوەی تۆماری هاوکاری', `تۆماری هاوکاری بۆ [${targetBen.fullName}] سڕایەوە`, 'delete');
+    return true;
+  };
+
   // Donors & Donations
   const addDonor = (data: Omit<Donor, 'id' | 'joinedDate' | 'totalDonationsIQD' | 'totalDonationsUSD'>) => {
     const newDonor: Donor = {
@@ -2655,6 +2877,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteBeneficiary,
         checkDuplicate,
         addAidRecord,
+        updateAidRecord,
+        deleteAidRecord,
+        bulkUpdateAidRecords,
         addBeneficiaryDocument,
         updateBeneficiaryDocument,
         deleteBeneficiaryDocument,

@@ -32,7 +32,8 @@ import {
   MapPin,
   Check,
   Calendar,
-  FileText
+  FileText,
+  Edit3
 } from 'lucide-react';
 
 export type DistributionTarget =
@@ -59,6 +60,9 @@ export const InventoryView: React.FC = () => {
     distributeAidFromInventory,
     distributeAidBulkFromInventory,
     distributeCashAidBulk,
+    updateAidRecord,
+    deleteAidRecord,
+    bulkUpdateAidRecords,
     pendingDistributionDonationId,
     setPendingDistributionDonationId,
     setActiveTab
@@ -126,6 +130,135 @@ export const InventoryView: React.FC = () => {
       }))
     ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [beneficiaries]);
+
+  // Distribution History Edit & Batch Edit State
+  const [selectedDistKeys, setSelectedDistKeys] = useState<Set<string>>(new Set());
+  const [editingDist, setEditingDist] = useState<any | null>(null);
+  const [isEditDistModalOpen, setIsEditDistModalOpen] = useState(false);
+  const [editDistForm, setEditDistForm] = useState({
+    amount: 0,
+    projectTitle: '',
+    date: '',
+    distributedBy: '',
+    notes: ''
+  });
+  const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
+  const [bulkEditAmount, setBulkEditAmount] = useState<number>(150000);
+
+  // Detect if there are records with 151,000 IQD (such as the 23 recorded ones from REC-2026-002)
+  const fixable151kRecords = useMemo(() => {
+    return allDistributions.filter(d =>
+      d.type === 'monetary' &&
+      (d.amountIQD === 151000 || d.amount === 151000)
+    );
+  }, [allDistributions]);
+
+  const handleQuickFix151kTo150k = () => {
+    if (fixable151kRecords.length === 0) return;
+    const confirmFix = window.confirm(
+      `ئایا دڵنیایت لە ڕاستکردنەوەی ژمارەی (${fixable151kRecords.length}) تۆماری هاوکاری لە بڕی ۱۵۱،۰۰۰ د.ع بۆ ۱۵۰،۰۰۰ د.ع؟`
+    );
+    if (!confirmFix) return;
+
+    const updates = fixable151kRecords.map(d => ({
+      beneficiaryId: d.beneficiaryId,
+      aidRecordId: d.id,
+      updatedData: {
+        amount: 150000,
+        amountIQD: 150000,
+        currency: (d.currency as 'IQD' | 'USD') || 'IQD',
+        receiptNumber: d.receiptNumber
+      }
+    }));
+
+    const success = bulkUpdateAidRecords(updates);
+    if (success) {
+      confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
+      alert(`بە سەرکەوتوویی بڕی سەرجەم (${updates.length}) تۆمارەکە کرا بە ۱۵۰،۰۰۰ دینار.`);
+    }
+  };
+
+  const handleOpenEditDist = (dist: any) => {
+    setEditingDist(dist);
+    setEditDistForm({
+      amount: dist.amount || dist.amountIQD || dist.quantity || 0,
+      projectTitle: dist.projectTitle || '',
+      date: dist.date || new Date().toISOString().split('T')[0],
+      distributedBy: dist.distributedBy || '',
+      notes: dist.notes || ''
+    });
+    setIsEditDistModalOpen(true);
+  };
+
+  const handleSaveEditDist = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDist) return;
+
+    const isMonetary = editingDist.type === 'monetary';
+    const isIQD = editingDist.currency !== 'USD';
+
+    const success = updateAidRecord(editingDist.beneficiaryId, editingDist.id, {
+      amount: isMonetary ? editDistForm.amount : undefined,
+      amountIQD: isMonetary && isIQD ? editDistForm.amount : undefined,
+      quantity: !isMonetary ? editDistForm.amount : undefined,
+      projectTitle: editDistForm.projectTitle,
+      date: editDistForm.date,
+      distributedBy: editDistForm.distributedBy,
+      notes: editDistForm.notes,
+      receiptNumber: editingDist.receiptNumber
+    });
+
+    if (success) {
+      setIsEditDistModalOpen(false);
+      setEditingDist(null);
+      alert('تۆماری هاوکارییەکە بە سەرکەوتوویی نوێکرایەوە.');
+    }
+  };
+
+  const handleDeleteDist = (dist: any) => {
+    const confirmDel = window.confirm(
+      `ئایا دڵنیایت لە سڕینەوەی ئەم تۆماری هاوکارییە بۆ [${dist.beneficiaryName}]؟`
+    );
+    if (!confirmDel) return;
+
+    const success = deleteAidRecord(dist.beneficiaryId, dist.id);
+    if (success) {
+      setSelectedDistKeys(prev => {
+        const next = new Set(prev);
+        next.delete(`${dist.beneficiaryId}::${dist.id}`);
+        return next;
+      });
+      alert('تۆماری هاوکارییەکە بە سەرکەوتوویی سڕایەوە.');
+    }
+  };
+
+  const handleBulkEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedDistKeys.size === 0 || bulkEditAmount <= 0) return;
+
+    const selectedList = allDistributions.filter(d =>
+      selectedDistKeys.has(`${d.beneficiaryId}::${d.id}`)
+    );
+
+    const updates = selectedList.map(d => ({
+      beneficiaryId: d.beneficiaryId,
+      aidRecordId: d.id,
+      updatedData: {
+        amount: d.type === 'monetary' ? bulkEditAmount : undefined,
+        amountIQD: d.type === 'monetary' && d.currency !== 'USD' ? bulkEditAmount : undefined,
+        quantity: d.type === 'in-kind' ? bulkEditAmount : undefined,
+        receiptNumber: d.receiptNumber
+      }
+    }));
+
+    const success = bulkUpdateAidRecords(updates);
+    if (success) {
+      setIsBulkEditModalOpen(false);
+      setSelectedDistKeys(new Set());
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
+      alert(`بڕی سەرجەم (${updates.length}) تۆمارە دیاریکراوەکە بە سەرکەوتوویی نوێکرایەوە.`);
+    }
+  };
 
   // Treasury Cash Summary
   const treasuryCash = useMemo(() => {
@@ -1035,6 +1168,63 @@ export const InventoryView: React.FC = () => {
             </button>
           </div>
 
+          {/* Quick 1-Click Fix Banner for the 23 beneficiaries with 151,000 IQD */}
+          {fixable151kRecords.length > 0 && (
+            <div className="p-4 mb-4 rounded-3xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 flex items-center justify-between flex-wrap gap-4 shadow-sm animate-in fade-in">
+              <div className="flex items-center gap-3 text-amber-950 text-xs">
+                <div className="p-2.5 rounded-2xl bg-amber-100 text-amber-700 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-black text-sm text-amber-900">
+                    ڕاستکردنەوەی خێرای تۆمارەکان ({fixable151kRecords.length} تۆمار بە بڕی ۱۵۱،۰۰۰ د.ع دۆزرانەوە)
+                  </p>
+                  <p className="text-amber-800 font-medium mt-0.5">
+                    ئەم تۆمارانە بەهۆی کۆتوبەندی پێشووی سیستەمەوە بە ۱۵۱،۰۰۰ تۆمارکرابوون. ئێستا بە یەک کلیک دەتوانیت هەموویان بکەیت بە <span className="font-black underline text-amber-950">۱۵۰،۰۰۰ د.ع</span>.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleQuickFix151kTo150k}
+                className="px-5 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                ڕاستکردنەوەی هەموویان بۆ ۱۵۰،۰۰۰ د.ع ئێستا
+              </button>
+            </div>
+          )}
+
+          {/* Batch Action Toolbar when rows are checked */}
+          {selectedDistKeys.size > 0 && (
+            <div className="p-3.5 mb-4 rounded-2xl bg-cyan-50 border border-cyan-200 flex items-center justify-between flex-wrap gap-3 text-xs animate-in fade-in">
+              <div className="flex items-center gap-2 text-cyan-900 font-bold">
+                <CheckCircle2 className="w-4 h-4 text-cyan-600" />
+                <span>ژمارەی تۆمارە دیاریکراوەکان: <span className="font-mono font-black text-sm">{selectedDistKeys.size}</span> دانە</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBulkEditAmount(150000);
+                    setIsBulkEditModalOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white font-bold flex items-center gap-1.5 shadow-sm"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  دەستکاریکردنی بەکۆمەڵ (گۆڕینی بڕ بۆ هەموویان)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDistKeys(new Set())}
+                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold border border-slate-200"
+                >
+                  پاککردنەوە
+                </button>
+              </div>
+            </div>
+          )}
+
           {allDistributions.length === 0 ? (
             <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-16 border border-slate-200/90 text-center shadow-sm">
               <History className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -1053,6 +1243,34 @@ export const InventoryView: React.FC = () => {
                 <table className="w-full text-right text-xs">
                   <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
                     <tr>
+                      <th className="p-3.5 w-10 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const curFiltered = filteredDistributions.filter(d => distTypeFilter === 'all' || d.type === distTypeFilter);
+                            const allKeys = curFiltered.map(d => `${d.beneficiaryId}::${d.id}`);
+                            const allSelected = allKeys.length > 0 && allKeys.every(k => selectedDistKeys.has(k));
+                            if (allSelected) {
+                              setSelectedDistKeys(new Set());
+                            } else {
+                              setSelectedDistKeys(new Set(allKeys));
+                            }
+                          }}
+                          className="text-slate-400 hover:text-slate-700 transition-colors"
+                          title="دیاریکردنی هەمووی"
+                        >
+                          {(() => {
+                            const curFiltered = filteredDistributions.filter(d => distTypeFilter === 'all' || d.type === distTypeFilter);
+                            const allKeys = curFiltered.map(d => `${d.beneficiaryId}::${d.id}`);
+                            const allSelected = allKeys.length > 0 && allKeys.every(k => selectedDistKeys.has(k));
+                            return allSelected && allKeys.length > 0 ? (
+                              <CheckSquare className="w-4 h-4 text-emerald-600" />
+                            ) : (
+                              <Square className="w-4 h-4" />
+                            );
+                          })()}
+                        </button>
+                      </th>
                       <th className="p-3.5">ناوی سوودمەند / خێزان</th>
                       <th className="p-3.5">پارێزگا / تەلەفۆن</th>
                       <th className="p-3.5">جۆری هاوکاری / کاڵا</th>
@@ -1061,79 +1279,128 @@ export const InventoryView: React.FC = () => {
                       <th className="p-3.5">سەرچاوەی بەخشین</th>
                       <th className="p-3.5">بەروار</th>
                       <th className="p-3.5">دابەشکراوە لەلایەن</th>
+                      <th className="p-3.5 text-center">کردارەکان</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredDistributions
                       .filter(d => distTypeFilter === 'all' || d.type === distTypeFilter)
-                      .map((dist, idx) => (
-                      <tr key={`${dist.id}-${idx}`} className="hover:bg-slate-50/60 transition-all">
-                        {/* Beneficiary Name */}
-                        <td className="p-3.5 font-bold text-slate-900">
-                          {dist.beneficiaryName}
-                        </td>
+                      .map((dist, idx) => {
+                        const distKey = `${dist.beneficiaryId}::${dist.id}`;
+                        const isChecked = selectedDistKeys.has(distKey);
+                        return (
+                          <tr key={`${dist.id}-${idx}`} className={`hover:bg-slate-50/60 transition-all ${isChecked ? 'bg-cyan-50/40' : ''}`}>
+                            {/* Checkbox */}
+                            <td className="p-3.5 text-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedDistKeys(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(distKey)) next.delete(distKey);
+                                    else next.add(distKey);
+                                    return next;
+                                  });
+                                }}
+                                className="text-slate-400 hover:text-slate-700 transition-colors"
+                              >
+                                {isChecked ? (
+                                  <CheckSquare className="w-4 h-4 text-cyan-600" />
+                                ) : (
+                                  <Square className="w-4 h-4" />
+                                )}
+                              </button>
+                            </td>
 
-                        {/* Governorate & Phone */}
-                        <td className="p-3.5 text-slate-600">
-                          <span>{dist.beneficiaryGovernorate}</span>
-                          <span className="text-[11px] text-slate-400 block font-mono">{dist.beneficiaryPhone}</span>
-                        </td>
+                            {/* Beneficiary Name */}
+                            <td className="p-3.5 font-bold text-slate-900">
+                              {dist.beneficiaryName}
+                            </td>
 
-                        {/* Item Name / Monetary */}
-                        <td className="p-3.5 font-bold">
-                          {dist.type === 'monetary' ? (
-                            <span className="flex items-center gap-1.5 text-emerald-800">
-                              <Banknote className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                              هاوکاری نەختینەیی (کاش)
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1.5 text-slate-800">
-                              <Boxes className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                              {dist.itemName || 'کۆمەکی عەینی'}
-                            </span>
-                          )}
-                        </td>
+                            {/* Governorate & Phone */}
+                            <td className="p-3.5 text-slate-600">
+                              <span>{dist.beneficiaryGovernorate}</span>
+                              <span className="text-[11px] text-slate-400 block font-mono">{dist.beneficiaryPhone}</span>
+                            </td>
 
-                        {/* Quantity / Amount */}
-                        <td className="p-3.5 font-bold font-mono">
-                          {dist.type === 'monetary' ? (
-                            <span className="text-emerald-700 font-black text-xs">
-                              {dist.amountIQD ? `${dist.amountIQD.toLocaleString()} د.ع` : '-'}
-                            </span>
-                          ) : (
-                            <span className="text-amber-700 font-black text-xs">
-                              {dist.quantity ? `${dist.quantity} ${dist.unit || 'دانە'}` : '-'}
-                            </span>
-                          )}
-                        </td>
+                            {/* Item Name / Monetary */}
+                            <td className="p-3.5 font-bold">
+                              {dist.type === 'monetary' ? (
+                                <span className="flex items-center gap-1.5 text-emerald-800">
+                                  <Banknote className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  هاوکاری نەختینەیی (کاش)
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1.5 text-slate-800">
+                                  <Boxes className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                  {dist.itemName || 'کۆمەکی عەینی'}
+                                </span>
+                              )}
+                            </td>
 
-                        {/* Project */}
-                        <td className="p-3.5 text-slate-700">
-                          {dist.projectTitle}
-                        </td>
+                            {/* Quantity / Amount */}
+                            <td className="p-3.5 font-bold font-mono">
+                              {dist.type === 'monetary' ? (
+                                <span className="text-emerald-700 font-black text-xs">
+                                  {dist.currency === 'USD' ? `$${(dist.amount || 0).toLocaleString()}` : `${(dist.amount || dist.amountIQD || 0).toLocaleString()} د.ع`}
+                                </span>
+                              ) : (
+                                <span className="text-amber-700 font-black text-xs">
+                                  {dist.quantity ? `${dist.quantity} ${dist.unit || 'دانە'}` : '-'}
+                                </span>
+                              )}
+                            </td>
 
-                        {/* Sourced from Receipt / Donor */}
-                        <td className="p-3.5">
-                          {dist.receiptNumber ? (
-                            <span className="px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-[10px] font-bold inline-block">
-                              {dist.receiptNumber} {dist.donorName ? `(${dist.donorName})` : ''}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-[11px]">-</span>
-                          )}
-                        </td>
+                            {/* Project */}
+                            <td className="p-3.5 text-slate-700">
+                              {dist.projectTitle}
+                            </td>
 
-                        {/* Date */}
-                        <td className="p-3.5 font-mono text-slate-500 text-[11px]">
-                          {dist.date}
-                        </td>
+                            {/* Sourced from Receipt / Donor */}
+                            <td className="p-3.5">
+                              {dist.receiptNumber ? (
+                                <span className="px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-[10px] font-bold inline-block">
+                                  {dist.receiptNumber} {dist.donorName ? `(${dist.donorName})` : ''}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">-</span>
+                              )}
+                            </td>
 
-                        {/* Distributed By */}
-                        <td className="p-3.5 text-slate-600 text-[11px]">
-                          {dist.distributedBy || 'ڕێکخراو'}
-                        </td>
-                      </tr>
-                    ))}
+                            {/* Date */}
+                            <td className="p-3.5 font-mono text-slate-500 text-[11px]">
+                              {dist.date}
+                            </td>
+
+                            {/* Distributed By */}
+                            <td className="p-3.5 text-slate-600 text-[11px]">
+                              {dist.distributedBy || 'ڕێکخراو'}
+                            </td>
+
+                            {/* Actions (Edit & Delete) */}
+                            <td className="p-3.5 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditDist(dist)}
+                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 text-slate-600 transition-colors"
+                                  title="دەستکاریکردنی ئەم هاوکارییە"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDist(dist)}
+                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-100 hover:text-rose-700 text-slate-600 transition-colors"
+                                  title="سڕینەوەی ئەم تۆمارە"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -1291,9 +1558,8 @@ export const InventoryView: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
-                          min={distributionTarget.type === 'cash' ? 1000 : 1}
-                          max={totalStockAvailable || 1}
-                          step={distributionTarget.type === 'cash' ? (distributionUnit === '$' ? 10 : 5000) : 1}
+                          min={1}
+                          step="any"
                           required
                           value={qtyPerBeneficiary}
                           onChange={(e) => setQtyPerBeneficiary(Math.max(1, Number(e.target.value) || 0))}
@@ -1489,7 +1755,7 @@ export const InventoryView: React.FC = () => {
                               <input
                                 type="number"
                                 min={1}
-                                max={totalStockAvailable}
+                                step="any"
                                 value={customQty}
                                 onChange={(e) => {
                                   const val = Math.max(1, Number(e.target.value) || 0);
@@ -1695,6 +1961,207 @@ export const InventoryView: React.FC = () => {
                   className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
                 >
                   تۆمارکردن لە کۆگا
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Single Distribution Modal */}
+      {isEditDistModalOpen && editingDist && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-emerald-600" />
+                دەستکاریکردنی تۆماری هاوکاری
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditDistModalOpen(false);
+                  setEditingDist(null);
+                }}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 mb-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+              <p><span className="text-slate-500 font-bold">سوودمەند:</span> <span className="font-black text-slate-900">{editingDist.beneficiaryName}</span></p>
+              {editingDist.receiptNumber && (
+                <p><span className="text-slate-500 font-bold">پسوولەی بەخشین:</span> <span className="font-mono font-bold text-emerald-700">{editingDist.receiptNumber} {editingDist.donorName ? `(${editingDist.donorName})` : ''}</span></p>
+              )}
+            </div>
+
+            <form onSubmit={handleSaveEditDist} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  {editingDist.type === 'monetary' ? `بڕی پارە (${editingDist.currency === 'USD' ? 'دۆلار $' : 'دینار د.ع'}):` : `بڕ / ژمارە (${editingDist.unit || 'دانە'}):`}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  step="any"
+                  required
+                  value={editDistForm.amount}
+                  onChange={(e) => setEditDistForm({ ...editDistForm, amount: Number(e.target.value) })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-sm"
+                />
+                {editingDist.type === 'monetary' && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {(editingDist.currency === 'USD' ? [25, 50, 100, 150, 200] : [25000, 50000, 100000, 150000, 200000, 250000]).map(preset => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setEditDistForm(prev => ({ ...prev, amount: preset }))}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
+                          editDistForm.amount === preset
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {editingDist.currency === 'USD' ? `$${preset}` : `${(preset / 1000)} هەزار`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">پڕۆژە / کەمپەین:</label>
+                <input
+                  type="text"
+                  value={editDistForm.projectTitle}
+                  onChange={(e) => setEditDistForm({ ...editDistForm, projectTitle: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">بەروار:</label>
+                  <input
+                    type="date"
+                    value={editDistForm.date}
+                    onChange={(e) => setEditDistForm({ ...editDistForm, date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">دابەشکراوە لەلایەن:</label>
+                  <input
+                    type="text"
+                    value={editDistForm.distributedBy}
+                    onChange={(e) => setEditDistForm({ ...editDistForm, distributedBy: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">تێبینی:</label>
+                <textarea
+                  rows={2}
+                  value={editDistForm.notes}
+                  onChange={(e) => setEditDistForm({ ...editDistForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditDistModalOpen(false);
+                    setEditingDist(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                >
+                  پاشگەزبوونەوە
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
+                >
+                  پاشەکەوتکردنی گۆڕانکاری
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Edit Modal */}
+      {isBulkEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-cyan-600" />
+                دەستکاریکردنی بەکۆمەڵی بڕ بۆ ({selectedDistKeys.size}) تۆمار
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsBulkEditModalOpen(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 mb-4">
+              ئەم بڕەی خوارەوە بە شێوەیەکی یەکسان بۆ سەرجەم <span className="font-bold text-slate-900 font-mono">({selectedDistKeys.size})</span> تۆماری هەڵبژێردراو دادەنرێت:
+            </p>
+
+            <form onSubmit={handleBulkEditSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  بڕی نوێ (دینار / ژمارە):
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  step="any"
+                  required
+                  value={bulkEditAmount}
+                  onChange={(e) => setBulkEditAmount(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-base text-center"
+                />
+                {/* Preset Chips */}
+                <div className="flex flex-wrap gap-1.5 mt-2 justify-center">
+                  {[25000, 50000, 75000, 100000, 150000, 200000, 250000].map(preset => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setBulkEditAmount(preset)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                        bulkEditAmount === preset
+                          ? 'bg-cyan-600 text-white border-cyan-600'
+                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {preset === 150000 ? '★ ۱۵۰،۰۰۰ د.ع' : `${preset / 1000} هەزار`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkEditModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                >
+                  پاشگەزبوونەوە
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white font-bold"
+                >
+                  جێبەجێکردن بۆ هەموویان
                 </button>
               </div>
             </form>
