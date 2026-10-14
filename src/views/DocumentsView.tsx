@@ -1,6 +1,6 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { DocumentItem, DocumentCategory } from '../types';
+import { DocumentItem, DocumentCategory, Beneficiary } from '../types';
 import {
   Files,
   Search,
@@ -24,8 +24,25 @@ import {
   CopyPlus,
   CheckCheck,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Tag
 } from 'lucide-react';
+
+export const normalizeArabicKurdish = (text: string): string => {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ئ([اوەی])/g, '$1')
+    .replace(/ئ/g, '')
+    .replace(/[يىێ]/g, 'ی')
+    .replace(/[ةە]/g, 'ه')
+    .replace(/[ك]/g, 'ک')
+    .replace(/[ؤ]/g, 'و')
+    .replace(/[\u064B-\u0652]/g, '')
+    .replace(/[\s\-_.]+/g, ' ')
+    .trim();
+};
 
 const CATEGORY_TABS: { id: string; label: string }[] = [
   { id: 'all', label: 'هەموو جۆرەکان' },
@@ -71,6 +88,177 @@ interface BulkDocItem {
   relatedEntity: string;
 }
 
+// Reusable, Instant-Search Combobox Component for Beneficiary Selection
+interface SearchableBeneficiaryComboboxProps {
+  selectedId: string;
+  onSelect: (ben: Beneficiary) => void;
+  beneficiaries: Beneficiary[];
+  placeholder?: string;
+  className?: string;
+}
+
+const SearchableBeneficiaryCombobox: React.FC<SearchableBeneficiaryComboboxProps> = ({
+  selectedId,
+  onSelect,
+  beneficiaries,
+  placeholder = 'بگەڕێ بەپێی ناو یان ژمارە مۆبایل...',
+  className = ''
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedBen = useMemo(() => {
+    return beneficiaries.find(b => b.id === selectedId);
+  }, [beneficiaries, selectedId]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return beneficiaries.slice(0, 50);
+    const qNorm = normalizeArabicKurdish(search);
+    return beneficiaries
+      .filter(b => {
+        const nameNorm = normalizeArabicKurdish(b.fullName);
+        const phone = (b.phone || '').replace(/[^0-9]/g, '');
+        const id = (b.nationalId || '').toLowerCase();
+        const gov = normalizeArabicKurdish(b.governorate || '');
+        return (
+          nameNorm.includes(qNorm) ||
+          phone.includes(qNorm) ||
+          id.includes(qNorm) ||
+          gov.includes(qNorm)
+        );
+      })
+      .slice(0, 50);
+  }, [beneficiaries, search]);
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      {/* Combobox Trigger / Search Input */}
+      <div
+        onClick={() => setIsOpen(true)}
+        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer ${
+          isOpen
+            ? 'bg-white border-cyan-500 ring-2 ring-cyan-400/20 shadow-sm'
+            : 'bg-cyan-50/70 hover:bg-white border-cyan-300 text-slate-800'
+        }`}
+      >
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <Users className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+          {isOpen ? (
+            <input
+              type="text"
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (filtered.length > 0) {
+                    onSelect(filtered[0]);
+                    setIsOpen(false);
+                    setSearch('');
+                  }
+                } else if (e.key === 'Escape') {
+                  setIsOpen(false);
+                }
+              }}
+              placeholder="ناوی سوودمەند بنووسە..."
+              className="w-full bg-transparent text-xs text-slate-900 font-bold focus:outline-none placeholder-slate-400"
+            />
+          ) : (
+            <span className="text-xs font-bold truncate text-cyan-950">
+              {selectedBen
+                ? `${selectedBen.fullName} - ${selectedBen.nationalId || selectedBen.phone} (${selectedBen.governorate})`
+                : placeholder}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0 mr-1">
+          {isOpen ? (
+            search ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSearch('');
+                }}
+                className="p-0.5 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : null
+          ) : (
+            <Search className="w-3.5 h-3.5 text-cyan-600" />
+          )}
+        </div>
+      </div>
+
+      {/* Floating Dropdown List */}
+      {isOpen && (
+        <div className="absolute z-50 top-full right-0 left-0 mt-1 bg-white border border-cyan-300 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 min-w-[260px]">
+          <div className="p-2 border-b border-slate-100 bg-cyan-50/60 flex items-center justify-between text-[11px] text-cyan-900 font-bold">
+            <span>
+              {search.trim() ? `${filtered.length} سوودمەند دۆزرایەوە` : 'هەڵبژاردنی سوودمەند:'}
+            </span>
+            <span className="text-[10px] text-slate-400 font-normal">
+              Enter بۆ هەڵبژاردن
+            </span>
+          </div>
+
+          <div className="max-h-48 overflow-y-auto scrollbar-thin divide-y divide-slate-100">
+            {filtered.length === 0 ? (
+              <div className="p-4 text-center text-xs text-slate-400">
+                هیچ سوودمەندێک بەم ناوە نەدۆزرایەوە «{search}»
+              </div>
+            ) : (
+              filtered.map(ben => {
+                const isSelected = ben.id === selectedId;
+                return (
+                  <div
+                    key={ben.id}
+                    onClick={() => {
+                      onSelect(ben);
+                      setIsOpen(false);
+                      setSearch('');
+                    }}
+                    className={`p-2.5 text-right hover:bg-cyan-50 cursor-pointer transition-colors flex items-center justify-between gap-2 ${
+                      isSelected ? 'bg-cyan-50/80 font-black text-cyan-900' : 'text-slate-700'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold truncate text-slate-900">{ben.fullName}</p>
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        {ben.nationalId ? `کۆد: ${ben.nationalId} • ` : ''}
+                        {ben.phone} ({ben.governorate})
+                      </p>
+                    </div>
+                    {isSelected && (
+                      <span className="px-2 py-0.5 rounded-full bg-cyan-600 text-white text-[9px] font-bold">
+                        دیاریکراو
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const DocumentsView: React.FC = () => {
   const {
     documents,
@@ -95,7 +283,6 @@ export const DocumentsView: React.FC = () => {
   // Single Upload Form State
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [modalBenSearch, setModalBenSearch] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     category: 'ناسنامە' as DocumentCategory,
@@ -117,23 +304,6 @@ export const DocumentsView: React.FC = () => {
   const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
   const [bulkGlobalBeneficiaryId, setBulkGlobalBeneficiaryId] = useState<string>('');
   const [bulkGlobalCategory, setBulkGlobalCategory] = useState<DocumentCategory | ''>('');
-  const [bulkGlobalBenSearch, setBulkGlobalBenSearch] = useState<string>('');
-
-  // Per-row Beneficiary search state
-  const [bulkRowSearches, setBulkRowSearches] = useState<Record<string, string>>({});
-
-  // Helper function to search/filter beneficiaries
-  const getFilteredBeneficiaries = (search?: string) => {
-    if (!search || !search.trim()) return beneficiaries;
-    const q = search.toLowerCase().trim();
-    return beneficiaries.filter(
-      b =>
-        b.fullName.toLowerCase().includes(q) ||
-        (b.phone && b.phone.includes(q)) ||
-        (b.nationalId && b.nationalId.toLowerCase().includes(q)) ||
-        (b.governorate && b.governorate.toLowerCase().includes(q))
-    );
-  };
 
   // Calculate counts per entity
   const countsByEntity = useMemo(() => {
@@ -303,38 +473,42 @@ export const DocumentsView: React.FC = () => {
         const sizeStr = file.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
         const baseName = file.name.replace(/\.[^/.]+$/, '');
 
-        // Smart Category Detection
+        // Category Detection (respects bulkGlobalCategory if set)
         let inferredCategory: DocumentCategory = (bulkGlobalCategory as DocumentCategory) || 'ناسنامە';
-        const lowerName = file.name.toLowerCase();
-        if (lowerName.includes('kart') || lowerName.includes('nishtimani') || lowerName.includes('نیشتمانی')) {
-          inferredCategory = 'کارتی نیشتمانی';
-        } else if (lowerName.includes('pizishki') || lowerName.includes('medical') || lowerName.includes('پزیشکی')) {
-          inferredCategory = 'ڕاپۆرتی پزیشکی';
-        } else if (lowerName.includes('food') || lowerName.includes('kapon') || lowerName.includes('کۆبۆن')) {
-          inferredCategory = 'کۆبۆنی خۆراک';
-        } else if (lowerName.includes('wena') || lowerName.includes('photo') || lowerName.includes('وێنە')) {
-          inferredCategory = 'وێنەی مەیدانی';
-        } else if (lowerName.includes('receipt') || lowerName.includes('psula') || lowerName.includes('پسوولە')) {
-          inferredCategory = 'پسوولەی دارایی';
-        } else if (lowerName.includes('contract') || lowerName.includes('grebast') || lowerName.includes('گرێبەست')) {
-          inferredCategory = 'گرێبەست';
-        } else if (lowerName.includes('address') || lowerName.includes('nishtaje') || lowerName.includes('نیشتەجێبوون')) {
-          inferredCategory = 'بەڵگەنامەی نیشتەجێبوون';
+        if (!bulkGlobalCategory) {
+          const lowerName = file.name.toLowerCase();
+          if (lowerName.includes('kart') || lowerName.includes('nishtimani') || lowerName.includes('نیشتمانی')) {
+            inferredCategory = 'کارتی نیشتمانی';
+          } else if (lowerName.includes('pizishki') || lowerName.includes('medical') || lowerName.includes('پزیشکی')) {
+            inferredCategory = 'ڕاپۆرتی پزیشکی';
+          } else if (lowerName.includes('food') || lowerName.includes('kapon') || lowerName.includes('کۆبۆن')) {
+            inferredCategory = 'کۆبۆنی خۆراک';
+          } else if (lowerName.includes('wena') || lowerName.includes('photo') || lowerName.includes('وێنە')) {
+            inferredCategory = 'وێنەی مەیدانی';
+          } else if (lowerName.includes('receipt') || lowerName.includes('psula') || lowerName.includes('پسوولە')) {
+            inferredCategory = 'پسوولەی دارایی';
+          } else if (lowerName.includes('contract') || lowerName.includes('grebast') || lowerName.includes('گرێبەست')) {
+            inferredCategory = 'گرێبەست';
+          } else if (lowerName.includes('address') || lowerName.includes('nishtaje') || lowerName.includes('نیشتەجێبوون')) {
+            inferredCategory = 'بەڵگەنامەی نیشتەجێبوون';
+          }
         }
 
-        // Smart Beneficiary Detection: match nationalId, phone, or name from filename
+        // Smart Beneficiary Detection (Normalized Kurdish/Arabic)
         let matchedBenId = bulkGlobalBeneficiaryId || (beneficiaries[0]?.id || '');
         let matchedBenName = beneficiaries.find(b => b.id === matchedBenId)?.fullName || 'سوودمەند';
 
         if (!bulkGlobalBeneficiaryId) {
-          const cleanName = baseName.replace(/^[0-9]+[\s._-]+/, '').trim().toLowerCase();
-          const words = cleanName.split(/[\s._-]+/).filter(w => w.length >= 2);
+          const cleanName = normalizeArabicKurdish(baseName.replace(/^[0-9]+[\s._-]+/, ''));
+          const words = cleanName.split(/[\s]+/).filter(w => w.length >= 2);
 
           let foundBen = beneficiaries.find(b => {
-            const bName = b.fullName.toLowerCase();
+            const bName = normalizeArabicKurdish(b.fullName);
+            const bPhone = (b.phone || '').replace(/[^0-9]/g, '');
+            const bId = (b.nationalId || '').toLowerCase();
             return (
-              (b.nationalId && cleanName.includes(b.nationalId.toLowerCase())) ||
-              (b.phone && cleanName.includes(b.phone.replace(/[^0-9]/g, ''))) ||
+              (bId && cleanName.includes(bId)) ||
+              (bPhone && cleanName.includes(bPhone)) ||
               cleanName.includes(bName) ||
               bName.includes(cleanName)
             );
@@ -342,11 +516,11 @@ export const DocumentsView: React.FC = () => {
 
           if (!foundBen && words.length >= 2) {
             const twoWords = words.slice(0, 2).join(' ');
-            foundBen = beneficiaries.find(b => b.fullName.toLowerCase().includes(twoWords));
+            foundBen = beneficiaries.find(b => normalizeArabicKurdish(b.fullName).includes(twoWords));
           }
 
           if (!foundBen && words.length >= 1) {
-            foundBen = beneficiaries.find(b => b.fullName.toLowerCase().includes(words[0]));
+            foundBen = beneficiaries.find(b => normalizeArabicKurdish(b.fullName).includes(words[0]));
           }
 
           if (foundBen) {
@@ -382,14 +556,16 @@ export const DocumentsView: React.FC = () => {
     let matchCount = 0;
     setBulkItems(prev =>
       prev.map(item => {
-        const cleanName = item.title.replace(/^[0-9]+[\s._-]+/, '').trim().toLowerCase();
-        const words = cleanName.split(/[\s._-]+/).filter(w => w.length >= 2);
+        const cleanName = normalizeArabicKurdish(item.title.replace(/^[0-9]+[\s._-]+/, ''));
+        const words = cleanName.split(/[\s]+/).filter(w => w.length >= 2);
 
         let matched = beneficiaries.find(b => {
-          const bName = b.fullName.toLowerCase();
+          const bName = normalizeArabicKurdish(b.fullName);
+          const bPhone = (b.phone || '').replace(/[^0-9]/g, '');
+          const bId = (b.nationalId || '').toLowerCase();
           return (
-            (b.nationalId && cleanName.includes(b.nationalId.toLowerCase())) ||
-            (b.phone && cleanName.includes(b.phone.replace(/[^0-9]/g, ''))) ||
+            (bId && cleanName.includes(bId)) ||
+            (bPhone && cleanName.includes(bPhone)) ||
             cleanName.includes(bName) ||
             bName.includes(cleanName)
           );
@@ -397,11 +573,11 @@ export const DocumentsView: React.FC = () => {
 
         if (!matched && words.length >= 2) {
           const twoWords = words.slice(0, 2).join(' ');
-          matched = beneficiaries.find(b => b.fullName.toLowerCase().includes(twoWords));
+          matched = beneficiaries.find(b => normalizeArabicKurdish(b.fullName).includes(twoWords));
         }
 
         if (!matched && words.length >= 1) {
-          matched = beneficiaries.find(b => b.fullName.toLowerCase().includes(words[0]));
+          matched = beneficiaries.find(b => normalizeArabicKurdish(b.fullName).includes(words[0]));
         }
 
         if (matched) {
@@ -501,7 +677,6 @@ export const DocumentsView: React.FC = () => {
       if (res.success) {
         setIsAddModalOpen(false);
         setBulkItems([]);
-        setBulkRowSearches({});
         alert(`سەرکەوتوو بوو: ${res.count} بەڵگەنامە بە سەرکەوتوویی بارکران و بەسترانەوە بە دۆسیەی سوودمەندان.`);
       }
     } catch (err: any) {
@@ -570,15 +745,6 @@ export const DocumentsView: React.FC = () => {
     const data = doc.fileData || (doc as any).url || '';
     return data.startsWith('data:application/pdf') || t.includes('PDF');
   };
-
-  // Filtered beneficiaries inside single modal
-  const modalFilteredBeneficiaries = useMemo(() => {
-    if (!modalBenSearch.trim()) return beneficiaries.slice(0, 50);
-    const q = modalBenSearch.toLowerCase();
-    return beneficiaries
-      .filter(b => b.fullName.toLowerCase().includes(q) || b.phone.includes(q) || (b.nationalId && b.nationalId.includes(q)))
-      .slice(0, 50);
-  }, [beneficiaries, modalBenSearch]);
 
   return (
     <div className="space-y-6 pb-8">
@@ -1010,7 +1176,7 @@ export const DocumentsView: React.FC = () => {
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-md animate-in fade-in duration-200">
           <div
-            className={`relative rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-2xl max-h-[92vh] flex flex-col justify-between transition-all duration-200 ${
+            className={`relative rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-2xl max-h-[94vh] flex flex-col justify-between transition-all duration-200 ${
               uploadMode === 'bulk' ? 'w-full max-w-5xl' : 'w-full max-w-lg'
             }`}
           >
@@ -1118,35 +1284,21 @@ export const DocumentsView: React.FC = () => {
 
                 {/* Target Dropdowns */}
                 {formData.entityType === 'beneficiary' && (
-                  <div className="p-3 rounded-2xl bg-cyan-50/60 border border-cyan-200 space-y-2">
+                  <div className="p-3 rounded-2xl bg-cyan-50/60 border border-cyan-200 space-y-1.5">
                     <label className="block text-cyan-900 font-bold">دیاریکردنی سوودمەند:</label>
-                    <input
-                      type="text"
-                      value={modalBenSearch}
-                      onChange={(e) => setModalBenSearch(e.target.value)}
-                      placeholder="گەڕان بەپێی ناو یان ژمارە مۆبایل..."
-                      className="w-full px-3 py-1.5 rounded-xl bg-white border border-cyan-200 text-slate-900 text-xs focus:outline-none"
-                    />
-                    <select
-                      value={formData.beneficiaryId}
-                      onChange={(e) => {
-                        const selectedId = e.target.value;
-                        const ben = beneficiaries.find(b => b.id === selectedId);
+                    <SearchableBeneficiaryCombobox
+                      selectedId={formData.beneficiaryId}
+                      onSelect={(ben) => {
                         setFormData(prev => ({
                           ...prev,
-                          beneficiaryId: selectedId,
-                          relatedEntity: ben?.fullName || ''
+                          beneficiaryId: ben.id,
+                          relatedEntity: ben.fullName
                         }));
                       }}
-                      className="w-full px-3 py-2 rounded-xl bg-white border border-cyan-200 text-slate-900 text-xs font-bold"
-                    >
-                      {modalFilteredBeneficiaries.map(ben => (
-                        <option key={ben.id} value={ben.id}>
-                          {ben.fullName} - {ben.phone} ({ben.governorate})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-cyan-700">
+                      beneficiaries={beneficiaries}
+                      placeholder="ناوی سوودمەند بنووسە بۆ گەڕانی خێرا..."
+                    />
+                    <p className="text-[10px] text-cyan-700 pt-0.5">
                       ئەم بەڵگەنامەیە ڕاستەوخۆ دەچێتە ناو دۆسیەی ئەم سوودمەندەوە لە بەشی سوودمەندان.
                     </p>
                   </div>
@@ -1311,7 +1463,7 @@ export const DocumentsView: React.FC = () => {
               </form>
             ) : (
               /* MODE 2: BULK UPLOAD (MULTI-FILES WITH SEARCHABLE BENEFICIARY SELECTION) */
-              <div className="space-y-3.5 text-xs flex-1 flex flex-col min-h-0">
+              <div className="space-y-3 text-xs flex-1 flex flex-col min-h-0">
                 {/* Hidden Multi-file input */}
                 <input
                   type="file"
@@ -1352,224 +1504,177 @@ export const DocumentsView: React.FC = () => {
                 ) : (
                   <>
                     {/* Bulk Assistant Bar (Apply to All & Quick Tools) */}
-                    <div className="p-3 rounded-2xl bg-cyan-50/80 border border-cyan-200 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-cyan-950 text-xs flex items-center gap-1.5">
-                          <CheckCheck className="w-4 h-4 text-cyan-700" />
-                          کۆی گشتی:
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-cyan-600 text-white font-bold font-mono text-xs">
-                          {bulkItems.length} فایل ئامادەیە
-                        </span>
+                    <div className="p-3 rounded-2xl bg-cyan-50/80 border border-cyan-200 flex flex-col gap-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-cyan-950 text-xs flex items-center gap-1.5">
+                            <CheckCheck className="w-4 h-4 text-cyan-700" />
+                            کۆی گشتی:
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full bg-cyan-600 text-white font-bold font-mono text-xs">
+                            {bulkItems.length} فایل ئامادەیە
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {/* Smart Auto Match Button */}
+                          <button
+                            type="button"
+                            onClick={runSmartAutoMatch}
+                            className="px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-teal-300 text-teal-800 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
+                            title="بەستنەوەی خودکاری هەر بەڵگەنامەیەک بەو سوودمەندەی کە ناوی لەسەر فایلی وێنەکە یان PDFەکە نووسراوە"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                            بەستنەوەی خودکار بە ناوی فایل
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => bulkFileInputRef.current?.click()}
+                            className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-cyan-200 text-cyan-800 text-xs font-bold flex items-center gap-1 shadow-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5 text-cyan-600" />
+                            زیادکردنی فایلی تر
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setBulkItems([])}
+                            className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200"
+                            title="خاوێنکردنەوەی لیستی فایلەکان"
+                          >
+                            خاوێنکردنەوە
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Quick Global Beneficiary Assignment with Search */}
-                      <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white border border-cyan-200">
-                          <span className="text-[11px] text-cyan-900 font-bold whitespace-nowrap flex items-center gap-1 pl-1">
-                            <Users className="w-3.5 h-3.5 text-cyan-600" />
-                            دانانی هەمان سوودمەند بۆ هەمووان:
+                      {/* Bulk Settings for ALL (Category & Beneficiary) */}
+                      <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-cyan-200/80">
+                        {/* Requirement 2: Bulk Category Selector for ALL */}
+                        <div className="flex items-center gap-2 p-1.5 rounded-xl bg-white border border-teal-200 shadow-2xs">
+                          <span className="text-[11px] text-teal-950 font-bold whitespace-nowrap flex items-center gap-1 pl-1">
+                            <Tag className="w-3.5 h-3.5 text-teal-600" />
+                            دانانی جۆری بەڵگەنامە بۆ هەمووان:
                           </span>
-                          <div className="relative">
-                            <Search className="w-3 h-3 text-cyan-600 absolute right-2 top-2 pointer-events-none" />
-                            <input
-                              type="text"
-                              value={bulkGlobalBenSearch}
-                              onChange={(e) => setBulkGlobalBenSearch(e.target.value)}
-                              placeholder="گەڕان بەپێی ناو..."
-                              className="w-32 pr-6 pl-2 py-1 text-[11px] rounded-lg bg-slate-50 border border-cyan-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none"
-                            />
-                          </div>
                           <select
-                            value={bulkGlobalBeneficiaryId}
+                            value={bulkGlobalCategory}
                             onChange={(e) => {
-                              const val = e.target.value;
-                              setBulkGlobalBeneficiaryId(val);
-                              if (val) applyBeneficiaryToAllBulk(val);
+                              const val = e.target.value as DocumentCategory;
+                              setBulkGlobalCategory(val);
+                              if (val) applyCategoryToAllBulk(val);
                             }}
-                            className="px-2 py-1 text-xs rounded-lg bg-cyan-50 border border-cyan-300 text-slate-900 font-bold max-w-[190px]"
+                            className="px-2.5 py-1 text-xs rounded-lg bg-teal-50 border border-teal-300 text-teal-950 font-bold max-w-[180px] focus:outline-none focus:ring-1 focus:ring-teal-500"
                           >
-                            <option value="">-- دیاریکردن بۆ هەمووان --</option>
-                            {getFilteredBeneficiaries(bulkGlobalBenSearch).map(b => (
-                              <option key={b.id} value={b.id}>
-                                {b.fullName} ({b.governorate})
+                            <option value="">-- هەڵبژاردنی جۆر بۆ هەمووان --</option>
+                            {ALL_CATEGORIES.map(cat => (
+                              <option key={cat} value={cat}>
+                                {cat}
                               </option>
                             ))}
                           </select>
                         </div>
 
-                        {/* Smart Auto Match Button */}
-                        <button
-                          type="button"
-                          onClick={runSmartAutoMatch}
-                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-teal-300 text-teal-800 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
-                          title="بەستنەوەی خودکاری هەر بەڵگەنامەیەک بەو سوودمەندەی کە ناوی لەسەر فایلی وێنەکە یان PDFەکە نووسراوە"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                          بەستنەوەی خودکار بە ناوی فایل
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => bulkFileInputRef.current?.click()}
-                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-cyan-200 text-cyan-800 text-xs font-bold flex items-center gap-1 shadow-sm"
-                        >
-                          <Plus className="w-3.5 h-3.5 text-cyan-600" />
-                          زیادکردنی فایلی تر
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setBulkItems([]);
-                            setBulkRowSearches({});
-                          }}
-                          className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200"
-                          title="خاوێنکردنەوەی لیستی فایلەکان"
-                        >
-                          خاوێنکردنەوە
-                        </button>
+                        {/* Quick Global Beneficiary Assignment with Combobox */}
+                        <div className="flex items-center gap-2 p-1.5 rounded-xl bg-white border border-cyan-200 shadow-2xs flex-1 min-w-[280px]">
+                          <span className="text-[11px] text-cyan-950 font-bold whitespace-nowrap pl-1">
+                            دانانی هەمان سوودمەند بۆ هەمووان:
+                          </span>
+                          <SearchableBeneficiaryCombobox
+                            selectedId={bulkGlobalBeneficiaryId}
+                            onSelect={(ben) => {
+                              setBulkGlobalBeneficiaryId(ben.id);
+                              applyBeneficiaryToAllBulk(ben.id);
+                            }}
+                            beneficiaries={beneficiaries}
+                            placeholder="گەڕان و دانان بۆ هەمووان..."
+                            className="flex-1"
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    {/* Scrollable List of Files with Beneficiary Assignment & Row-level Search */}
-                    <div className="flex-1 overflow-y-auto max-h-[50vh] pr-1 space-y-2.5 scrollbar-thin">
-                      {bulkItems.map((item, index) => {
-                        const rowQuery = bulkRowSearches[item.id] || '';
-                        const rowFilteredBens = getFilteredBeneficiaries(rowQuery);
-                        const currentSelected = beneficiaries.find(b => b.id === item.beneficiaryId);
-                        const rowOptions =
-                          currentSelected && !rowFilteredBens.some(b => b.id === currentSelected.id)
-                            ? [currentSelected, ...rowFilteredBens]
-                            : rowFilteredBens;
-
-                        return (
-                          <div
-                            key={item.id}
-                            className="p-3 rounded-2xl bg-white border border-slate-200 hover:border-cyan-400 shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
-                          >
-                            {/* File Thumbnail & Name */}
-                            <div className="flex items-center gap-3 min-w-0 sm:w-1/4">
-                              <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
-                                {isImageFile(item) && item.fileData ? (
-                                  <img src={item.fileData} alt={item.fileName} className="w-full h-full object-cover" />
-                                ) : (
-                                  getFileIcon(item.fileType)
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-bold text-slate-900 text-xs truncate" title={item.fileName}>
-                                  {index + 1}. {item.fileName}
-                                </p>
-                                <p className="text-[10px] text-slate-400 font-mono">
-                                  {item.fileType} • {item.fileSize}
-                                </p>
-                              </div>
+                    {/* Scrollable List of Files with Beneficiary Assignment & Instant-Search Combobox */}
+                    <div className="flex-1 overflow-y-auto max-h-[48vh] pr-1 space-y-2.5 scrollbar-thin">
+                      {bulkItems.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className="p-3 rounded-2xl bg-white border border-slate-200 hover:border-cyan-400 shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
+                        >
+                          {/* File Thumbnail & Name */}
+                          <div className="flex items-center gap-3 min-w-0 sm:w-1/4">
+                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                              {isImageFile(item) && item.fileData ? (
+                                <img src={item.fileData} alt={item.fileName} className="w-full h-full object-cover" />
+                              ) : (
+                                getFileIcon(item.fileType)
+                              )}
                             </div>
-
-                            {/* Editable Title */}
-                            <div className="w-full sm:w-1/5">
-                              <label className="block text-[10px] text-slate-400 font-bold mb-0.5">ناونیشانی بەڵگەنامە:</label>
-                              <input
-                                type="text"
-                                value={item.title}
-                                onChange={(e) => updateBulkItem(item.id, { title: e.target.value })}
-                                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-medium focus:bg-white"
-                              />
-                            </div>
-
-                            {/* Category Selector */}
-                            <div className="w-full sm:w-1/6">
-                              <label className="block text-[10px] text-slate-400 font-bold mb-0.5">پۆلێنکردن:</label>
-                              <select
-                                value={item.category}
-                                onChange={(e) => updateBulkItem(item.id, { category: e.target.value as any })}
-                                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold focus:bg-white"
-                              >
-                                {ALL_CATEGORIES.map(cat => (
-                                  <option key={cat} value={cat}>
-                                    {cat}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* Beneficiary Assignment with Dedicated Search Section */}
-                            <div className="w-full sm:w-1/3 p-2 rounded-xl bg-cyan-50/60 border border-cyan-200/90 space-y-1.5">
-                              <div className="flex items-center justify-between">
-                                <label className="text-[10px] text-cyan-900 font-bold flex items-center gap-1">
-                                  <Users className="w-3 h-3 text-cyan-600" />
-                                  پەیوەست بە کام سوودمەند:
-                                </label>
-                                {rowQuery && (
-                                  <span className="text-[9px] text-cyan-700 font-mono font-bold">
-                                    ({rowFilteredBens.length} ئەنجام)
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Search Section for this row */}
-                              <div className="relative">
-                                <Search className="w-3 h-3 text-cyan-600 absolute right-2.5 top-2 pointer-events-none" />
-                                <input
-                                  type="text"
-                                  value={rowQuery}
-                                  onChange={(e) => {
-                                    const q = e.target.value;
-                                    setBulkRowSearches(prev => ({ ...prev, [item.id]: q }));
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      const first = getFilteredBeneficiaries(bulkRowSearches[item.id])[0];
-                                      if (first) {
-                                        updateBulkItem(item.id, { beneficiaryId: first.id });
-                                      }
-                                    }
-                                  }}
-                                  placeholder="بگەڕێ بەپێی ناو یان ژمارە مۆبایل..."
-                                  className="w-full pr-7 pl-6 py-1 text-[11px] rounded-lg bg-white border border-cyan-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-cyan-500 shadow-2xs"
-                                />
-                                {rowQuery && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setBulkRowSearches(prev => ({ ...prev, [item.id]: '' }))}
-                                    className="absolute left-2 top-1 text-slate-400 hover:text-slate-600 p-0.5"
-                                    title="خاوێنکردنەوەی گەڕان"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-
-                              {/* Beneficiary Dropdown for this row */}
-                              <select
-                                value={item.beneficiaryId}
-                                onChange={(e) => updateBulkItem(item.id, { beneficiaryId: e.target.value })}
-                                className="w-full px-2 py-1.5 rounded-lg bg-white border border-cyan-300 text-cyan-950 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-cyan-500 shadow-2xs"
-                              >
-                                {rowOptions.map(ben => (
-                                  <option key={ben.id} value={ben.id}>
-                                    {ben.fullName} - {ben.phone} ({ben.governorate})
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* Remove button */}
-                            <div className="self-end sm:self-center">
-                              <button
-                                type="button"
-                                onClick={() => removeBulkItem(item.id)}
-                                className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                                title="سڕینەوەی ئەم فایلە لە لیستەکە"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                            <div className="min-w-0">
+                              <p className="font-bold text-slate-900 text-xs truncate" title={item.fileName}>
+                                {index + 1}. {item.fileName}
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-mono">
+                                {item.fileType} • {item.fileSize}
+                              </p>
                             </div>
                           </div>
-                        );
-                      })}
+
+                          {/* Editable Title */}
+                          <div className="w-full sm:w-1/5">
+                            <label className="block text-[10px] text-slate-400 font-bold mb-0.5">ناونیشانی بەڵگەنامە:</label>
+                            <input
+                              type="text"
+                              value={item.title}
+                              onChange={(e) => updateBulkItem(item.id, { title: e.target.value })}
+                              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-medium focus:bg-white"
+                            />
+                          </div>
+
+                          {/* Category Selector */}
+                          <div className="w-full sm:w-1/6">
+                            <label className="block text-[10px] text-slate-400 font-bold mb-0.5">پۆلێنکردن:</label>
+                            <select
+                              value={item.category}
+                              onChange={(e) => updateBulkItem(item.id, { category: e.target.value as any })}
+                              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold focus:bg-white"
+                            >
+                              {ALL_CATEGORIES.map(cat => (
+                                <option key={cat} value={cat}>
+                                  {cat}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Beneficiary Assignment with Searchable Combobox */}
+                          <div className="w-full sm:w-1/3">
+                            <label className="block text-[10px] text-cyan-900 font-bold mb-0.5 flex items-center gap-1">
+                              <Users className="w-3 h-3 text-cyan-600" />
+                              پەیوەست بە کام سوودمەند:
+                            </label>
+                            <SearchableBeneficiaryCombobox
+                              selectedId={item.beneficiaryId}
+                              onSelect={(ben) =>
+                                updateBulkItem(item.id, { beneficiaryId: ben.id, relatedEntity: ben.fullName })
+                              }
+                              beneficiaries={beneficiaries}
+                              placeholder="بگەڕێ بەپێی ناو یان مۆبایل..."
+                            />
+                          </div>
+
+                          {/* Remove button */}
+                          <div className="self-end sm:self-center">
+                            <button
+                              type="button"
+                              onClick={() => removeBulkItem(item.id)}
+                              className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="سڕینەوەی ئەم فایلە لە لیستەکە"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
 
                     {/* Bulk Submit Footer */}
