@@ -94,7 +94,7 @@ export const VolunteersView: React.FC = () => {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="گەڕان بەدوای ناو، لێهاتوویی، پارێزگا..."
-          className="w-full pr-10 pl-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+          className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
         />
       </div>
 
@@ -236,7 +236,7 @@ export const VolunteersView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px] p-2.5 rounded-xl bg-white border border-slate-200 text-right">
+              <div className="grid grid-cols-2 gap-2 text-[11px] p-2.5 rounded-xl bg-white border border-slate-200 text-end">
                 <div>
                   <span className="text-slate-500 block">گرووپی خوێن:</span>
                   <span className="font-bold text-rose-700">{selectedVolunteerBadge.bloodType}</span>
@@ -257,7 +257,7 @@ export const VolunteersView: React.FC = () => {
 
               <div className="pt-2 flex items-center justify-between border-t border-slate-200">
                 <QrCode className="w-10 h-10 text-slate-600" />
-                <div className="text-left text-[9px] text-slate-500">
+                <div className="text-start text-[9px] text-slate-500">
                   <p className="text-emerald-700 font-bold">پشتڕاستکراوە ✓</p>
                   <p>تەنها بۆ کاری خێرخوازی</p>
                 </div>

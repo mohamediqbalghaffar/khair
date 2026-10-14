@@ -1,3 +1,4 @@
+import { useUrlTabSync } from './utils/useUrlTabSync';
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { LiquidBackground } from './components/LiquidBackground';
@@ -24,7 +25,8 @@ import { ClerkAuthView } from './views/ClerkAuthView';
 import { ShieldAlert } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { activeTab, currentRole, isTabAllowedForRole } = useApp();
+  const { activeTab, setActiveTab, currentRole, isTabAllowedForRole } = useApp();
+  useUrlTabSync(activeTab, setActiveTab);
 
   const renderActiveView = () => {
     if (!isTabAllowedForRole(activeTab, currentRole)) {

@@ -333,7 +333,7 @@ export const Topbar: React.FC = () => {
 
                   {/* TAB 1: System Notifications */}
                   {notifTab === 'notifications' && (
-                    <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-1">
+                    <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pe-1">
                       {notifications.length === 0 ? (
                         <p className="text-center py-6 text-sm text-slate-500">هیچ ئاگادارییەک نییە</p>
                       ) : (
@@ -419,9 +419,9 @@ export const Topbar: React.FC = () => {
                         </form>
                       )}
 
-                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      <div className="space-y-2 max-h-60 overflow-y-auto pe-1">
                         {announcements.map(a => (
-                          <div key={a.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-right space-y-1">
+                          <div key={a.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-end space-y-1">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold text-slate-900">{a.title}</span>
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800">
@@ -441,7 +441,7 @@ export const Topbar: React.FC = () => {
 
                   {/* TAB 3: Automated Reminders */}
                   {notifTab === 'reminders' && (
-                    <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-1">
+                    <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pe-1">
                       <p className="text-[11px] text-slate-500 mb-2">بیرخەرەوەی کاتەکانی دابەشکردن، کۆگا و بەدواداچوونی خێزانەکان</p>
                       {reminders.map(r => (
                         <div
@@ -475,7 +475,7 @@ export const Topbar: React.FC = () => {
             </div>
 
             {/* Clerk Authentication Controls */}
-            <div className="flex items-center gap-1.5 sm:gap-2 mr-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 me-1">
               <Show when="signed-out">
                 <SignInButton mode="modal">
                   <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold transition-all shadow-sm shadow-cyan-600/20">
@@ -511,7 +511,7 @@ export const Topbar: React.FC = () => {
 
                   {/* Profile and UserButton */}
                   <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-2xl shadow-sm">
-                    <div className="hidden lg:block text-right">
+                    <div className="hidden lg:block text-end">
                       <p className="text-xs font-bold text-slate-900 leading-tight">
                         {user?.fullName || user?.firstName || 'محمد ئیقبال'}
                       </p>

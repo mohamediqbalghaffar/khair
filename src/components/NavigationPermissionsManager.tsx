@@ -105,7 +105,7 @@ export const NavigationPermissionsManager: React.FC = () => {
       
       {/* Header Banner */}
       <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl -mr-20 -mt-20" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl -me-20 -mt-20" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-black">
@@ -352,7 +352,7 @@ export const NavigationPermissionsManager: React.FC = () => {
                         <span>{r.kurdish}</span>
                         
                         {isRoleSettingsLocked ? (
-                          <Lock className="w-3.5 h-3.5 text-purple-600 ml-0.5" />
+                          <Lock className="w-3.5 h-3.5 text-purple-600 ms-0.5" />
                         ) : (
                           <div
                             className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${

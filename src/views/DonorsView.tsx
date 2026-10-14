@@ -789,7 +789,7 @@ export const DonorsView: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="گەڕان بەدوای ناو، ژمارەی پسوولە..."
-            className="w-full pr-10 pl-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+            className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
           />
         </div>
       </div>
@@ -844,7 +844,7 @@ export const DonorsView: React.FC = () => {
                       <span className="font-bold text-cyan-700">${dispUSD.toLocaleString()}</span>
                     </div>
                     {hasDonations && donorAgg.directIQD > 0 && donorAgg.directUSD > 0 && (
-                      <div className="text-[10px] text-slate-400 font-mono text-left">
+                      <div className="text-[10px] text-slate-400 font-mono text-start">
                         ڕاستەوخۆ: {donorAgg.directIQD.toLocaleString()} د.ع + ${donorAgg.directUSD.toLocaleString()}
                       </div>
                     )}
@@ -912,7 +912,7 @@ export const DonorsView: React.FC = () => {
       {activeSubTab === 'donations' && (
         <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
+            <table className="w-full text-end text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
                 <tr>
                   <th className="py-3.5 px-4">ژمارەی پسوولە</th>

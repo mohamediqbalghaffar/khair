@@ -184,7 +184,7 @@ const SearchableBeneficiaryCombobox: React.FC<SearchableBeneficiaryComboboxProps
           )}
         </div>
 
-        <div className="flex items-center gap-1 shrink-0 mr-1">
+        <div className="flex items-center gap-1 shrink-0 me-1">
           {isOpen ? (
             search ? (
               <button
@@ -232,7 +232,7 @@ const SearchableBeneficiaryCombobox: React.FC<SearchableBeneficiaryComboboxProps
                       setIsOpen(false);
                       setSearch('');
                     }}
-                    className={`p-2.5 text-right hover:bg-cyan-50 cursor-pointer transition-colors flex items-center justify-between gap-2 ${
+                    className={`p-2.5 text-end hover:bg-cyan-50 cursor-pointer transition-colors flex items-center justify-between gap-2 ${
                       isSelected ? 'bg-cyan-50/80 font-black text-cyan-900' : 'text-slate-700'
                     }`}
                   >
@@ -791,7 +791,7 @@ export const DocumentsView: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
         <button
           onClick={() => setEntityFilter('all')}
-          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
+          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-end ${
             entityFilter === 'all'
               ? 'bg-slate-900 text-white border-slate-900 shadow-md'
               : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
@@ -810,7 +810,7 @@ export const DocumentsView: React.FC = () => {
 
         <button
           onClick={() => setEntityFilter('beneficiary')}
-          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
+          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-end ${
             entityFilter === 'beneficiary'
               ? 'bg-cyan-600 text-white border-cyan-600 shadow-md'
               : 'bg-white hover:bg-cyan-50/50 text-slate-700 border-slate-200'
@@ -829,7 +829,7 @@ export const DocumentsView: React.FC = () => {
 
         <button
           onClick={() => setEntityFilter('project')}
-          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
+          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-end ${
             entityFilter === 'project'
               ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
               : 'bg-white hover:bg-emerald-50/50 text-slate-700 border-slate-200'
@@ -848,7 +848,7 @@ export const DocumentsView: React.FC = () => {
 
         <button
           onClick={() => setEntityFilter('donor')}
-          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
+          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-end ${
             entityFilter === 'donor'
               ? 'bg-amber-600 text-white border-amber-600 shadow-md'
               : 'bg-white hover:bg-amber-50/50 text-slate-700 border-slate-200'
@@ -867,7 +867,7 @@ export const DocumentsView: React.FC = () => {
 
         <button
           onClick={() => setEntityFilter('general')}
-          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-right ${
+          className={`flex items-center justify-between p-3 rounded-2xl border transition-all text-end ${
             entityFilter === 'general'
               ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
               : 'bg-white hover:bg-indigo-50/50 text-slate-700 border-slate-200'
@@ -910,7 +910,7 @@ export const DocumentsView: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="گەڕان بەپێی ناونیشانی فایل یان ناوی کەس..."
-            className="w-full pr-10 pl-3 py-2 text-xs rounded-2xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 shadow-sm"
+            className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 shadow-sm"
           />
         </div>
       </div>
@@ -1085,7 +1085,7 @@ export const DocumentsView: React.FC = () => {
             </button>
 
             {/* Modal Header */}
-            <div className="flex items-center gap-3 mb-4 pr-2">
+            <div className="flex items-center gap-3 mb-4 pe-2">
               <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center border border-slate-200 shrink-0">
                 {getFileIcon(selectedDoc.fileType)}
               </div>
@@ -1230,7 +1230,7 @@ export const DocumentsView: React.FC = () => {
 
             {/* MODE 1: SINGLE UPLOAD */}
             {uploadMode === 'single' ? (
-              <form onSubmit={handleSingleSubmit} className="space-y-4 text-xs overflow-y-auto max-h-[68vh] pr-1">
+              <form onSubmit={handleSingleSubmit} className="space-y-4 text-xs overflow-y-auto max-h-[68vh] pe-1">
                 {/* Section Target Choice */}
                 <div>
                   <label className="block text-slate-700 font-bold mb-1.5">ئەم بەڵگەنامەیە پەیوەستە بە کام بەش:</label>
@@ -1552,7 +1552,7 @@ export const DocumentsView: React.FC = () => {
                       <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-cyan-200/80">
                         {/* Requirement 2: Bulk Category Selector for ALL */}
                         <div className="flex items-center gap-2 p-1.5 rounded-xl bg-white border border-teal-200 shadow-2xs">
-                          <span className="text-[11px] text-teal-950 font-bold whitespace-nowrap flex items-center gap-1 pl-1">
+                          <span className="text-[11px] text-teal-950 font-bold whitespace-nowrap flex items-center gap-1 ps-1">
                             <Tag className="w-3.5 h-3.5 text-teal-600" />
                             دانانی جۆری بەڵگەنامە بۆ هەمووان:
                           </span>
@@ -1576,7 +1576,7 @@ export const DocumentsView: React.FC = () => {
 
                         {/* Quick Global Beneficiary Assignment with Combobox */}
                         <div className="flex items-center gap-2 p-1.5 rounded-xl bg-white border border-cyan-200 shadow-2xs flex-1 min-w-[280px]">
-                          <span className="text-[11px] text-cyan-950 font-bold whitespace-nowrap pl-1">
+                          <span className="text-[11px] text-cyan-950 font-bold whitespace-nowrap ps-1">
                             دانانی هەمان سوودمەند بۆ هەمووان:
                           </span>
                           <SearchableBeneficiaryCombobox
@@ -1594,7 +1594,7 @@ export const DocumentsView: React.FC = () => {
                     </div>
 
                     {/* Scrollable List of Files with Beneficiary Assignment & Instant-Search Combobox */}
-                    <div className="flex-1 overflow-y-auto max-h-[48vh] pr-1 space-y-2.5 scrollbar-thin">
+                    <div className="flex-1 overflow-y-auto max-h-[48vh] pe-1 space-y-2.5 scrollbar-thin">
                       {bulkItems.map((item, index) => (
                         <div
                           key={item.id}

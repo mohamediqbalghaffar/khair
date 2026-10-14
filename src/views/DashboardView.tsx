@@ -249,7 +249,7 @@ export const DashboardView: React.FC = () => {
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="w-full h-11 pr-7 pl-2 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 font-mono bg-white font-bold"
+                  className="w-full h-11 pe-7 ps-2 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 font-mono bg-white font-bold"
                   title="لە بەرواری (From Date)"
                 />
               </div>
@@ -259,7 +259,7 @@ export const DashboardView: React.FC = () => {
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="w-full h-11 pr-7 pl-2 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 font-mono bg-white font-bold"
+                  className="w-full h-11 pe-7 ps-2 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 font-mono bg-white font-bold"
                   title="بۆ بەرواری (To Date)"
                 />
               </div>
@@ -312,7 +312,7 @@ export const DashboardView: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="گەڕان بەپێی ناو یان ناونیشان..."
-                className="w-full h-11 pr-10 pl-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 placeholder-slate-400 font-bold"
+                className="w-full h-11 pe-10 ps-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 placeholder-slate-400 font-bold"
               />
             </div>
           </div>
@@ -533,7 +533,7 @@ export const DashboardView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="text-left">
+                  <div className="text-start">
                     <span className="text-sm font-black text-cyan-800 block">
                       {aid.type === 'monetary'
                         ? `${aid.amountIQD?.toLocaleString()} دینار`
@@ -655,7 +655,7 @@ export const DashboardView: React.FC = () => {
                           <p className="font-bold text-slate-900">{d.donorName}</p>
                           <p className="text-xs text-slate-500 font-mono mt-0.5">{d.receiptNumber} • {d.method} • {d.date}</p>
                         </div>
-                        <div className="text-left">
+                        <div className="text-start">
                           <span className="font-black text-emerald-700 text-sm block">
                             {d.amount.toLocaleString()} {d.currency === 'IQD' ? 'د.ع' : '$'}
                           </span>
@@ -759,7 +759,7 @@ export const DashboardView: React.FC = () => {
                         <p className="font-bold text-slate-900 text-sm">{b.fullName}</p>
                         <p className="text-xs text-slate-500 mt-0.5">{b.governorate} • {b.address} • {b.familyMembers} کەس</p>
                       </div>
-                      <div className="text-left flex flex-col items-end gap-1">
+                      <div className="text-start flex flex-col items-end gap-1">
                         <div className="flex items-center gap-1">
                           {b.status === 'pending' ? (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
@@ -838,7 +838,7 @@ export const DashboardView: React.FC = () => {
             </div>
 
             {/* Projects List with Progress */}
-            <div className="space-y-3.5 mb-5 max-h-72 overflow-y-auto pr-1">
+            <div className="space-y-3.5 mb-5 max-h-72 overflow-y-auto pe-1">
               {filteredProjects.length === 0 ? (
                 <div className="p-8 text-center text-xs sm:text-sm text-slate-400 font-bold">
                   هیچ پڕۆژەیەک تۆمار نەکراوە (سفر پڕۆژە)
@@ -980,7 +980,7 @@ export const DashboardView: React.FC = () => {
                           <p className="text-xs text-slate-500 font-mono mt-0.5">{v.badgeNumber} • {v.governorate} • خوێن: {v.bloodType}</p>
                         </div>
                       </div>
-                      <div className="text-left">
+                      <div className="text-start">
                         <span className="font-black text-amber-700 text-sm block">
                           {v.hoursLogged} کاتژمێر
                         </span>

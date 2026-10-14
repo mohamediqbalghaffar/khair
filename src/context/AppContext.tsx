@@ -221,7 +221,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   if (typeof window !== 'undefined') {
     const savedVer = localStorage.getItem('ngo_system_version');
     if (savedVer !== SYSTEM_VERSION) {
-      localStorage.clear();
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('KHAIR_APP_STATE_') && !k.includes(SYSTEM_VERSION))
+        .forEach((k) => localStorage.removeItem(k));
       localStorage.setItem('ngo_system_version', SYSTEM_VERSION);
     }
   }
@@ -3023,7 +3025,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Reset Data to Clean Zero
   const resetAllData = () => {
     const activeAuth = currentUser ? JSON.stringify(currentUser) : null;
-    localStorage.clear();
+    Object.keys(localStorage)
+        .filter((k) => k.startsWith('KHAIR_APP_STATE_') && !k.includes(SYSTEM_VERSION))
+        .forEach((k) => localStorage.removeItem(k));
     localStorage.setItem('ngo_system_version', SYSTEM_VERSION);
     if (activeAuth) {
       localStorage.setItem('ngo_auth_user', activeAuth);
@@ -3046,7 +3050,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const clearToEmptyDatabase = () => {
     const activeAuth = currentUser ? JSON.stringify(currentUser) : null;
-    localStorage.clear();
+    Object.keys(localStorage)
+        .filter((k) => k.startsWith('KHAIR_APP_STATE_') && !k.includes(SYSTEM_VERSION))
+        .forEach((k) => localStorage.removeItem(k));
     localStorage.setItem('ngo_system_version', SYSTEM_VERSION);
     if (activeAuth) {
       localStorage.setItem('ngo_auth_user', activeAuth);

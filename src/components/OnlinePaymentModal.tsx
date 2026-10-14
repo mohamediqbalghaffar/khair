@@ -92,7 +92,7 @@ export const OnlinePaymentModal: React.FC<Props> = ({ isOpen, onClose, onReceipt
                 پسوولەی ئەلیکترۆنی فەرمی ژمارە: <span className="font-mono font-bold text-cyan-800">{successReceipt}</span>
               </p>
             </div>
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1 text-right">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1 text-end">
               <div className="flex justify-between">
                 <span className="text-slate-500">بڕی بەخشین:</span>
                 <span className="font-bold text-emerald-700">{amount.toLocaleString()} {currency === 'IQD' ? 'د.ع' : '$'}</span>

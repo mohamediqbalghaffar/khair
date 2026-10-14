@@ -324,7 +324,7 @@ export const ProjectsView: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="گەڕان بەدوای پڕۆژە، ناونیشان، جۆر یان ئامانج..."
-            className="w-full pr-10 pl-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+            className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
           />
         </div>
 
@@ -500,7 +500,7 @@ export const ProjectsView: React.FC = () => {
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-slate-500 text-[11px]">بودجەی کۆکراوە:</span>
-                          <div className="text-left font-mono">
+                          <div className="text-start font-mono">
                             {currencyView === 'IQD' ? (
                               <span className="font-bold text-emerald-700">
                                 {raisedIQD.toLocaleString()} د.ع / {targetIQD.toLocaleString()} د.ع ({raisedPercent}٪)

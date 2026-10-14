@@ -176,6 +176,8 @@ export const GeoMapView: React.FC = () => {
         zoomControl: false,
         attributionControl: false
       });
+    setTimeout(() => { try { map.invalidateSize({ animate: false }); } catch {} }, 150);
+    setTimeout(() => { try { map.invalidateSize({ animate: false }); } catch {} }, 150);
 
       // Clean Zoom Control on top-left
       L.control.zoom({ position: 'topleft' }).addTo(map);
@@ -786,7 +788,7 @@ export const GeoMapView: React.FC = () => {
             : 'bg-slate-100 text-slate-700 border-slate-200'
         }`} title={`ئاستی زووم: ${currentZoom}`}>
           <span>زووم: {currentZoom}</span>
-          {currentZoom >= 18 && <span className="mr-1 text-[10px] text-emerald-700 font-sans font-bold">🏠 سەربانی ماڵ</span>}
+          {currentZoom >= 18 && <span className="me-1 text-[10px] text-emerald-700 font-sans font-bold">🏠 سەربانی ماڵ</span>}
         </div>
 
         {/* Full Screen Button */}
@@ -927,7 +929,7 @@ export const GeoMapView: React.FC = () => {
               value={houseSearchQuery}
               onChange={(e) => setHouseSearchQuery(e.target.value)}
               placeholder="گەڕان بەپێی ناو، مۆبایل، شار..."
-              className={`w-full pr-8 pl-3 py-1.5 rounded-xl text-xs border outline-none transition-all ${
+              className={`w-full pe-8 ps-3 py-1.5 rounded-xl text-xs border outline-none transition-all ${
                 isDark
                   ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-cyan-500'
                   : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-500'
@@ -936,7 +938,7 @@ export const GeoMapView: React.FC = () => {
           </div>
 
           {/* List of Houses */}
-          <div className="flex-1 overflow-y-auto space-y-2 pr-0.5" style={{ maxHeight: isFullScreen ? 'calc(100vh - 180px)' : '420px' }}>
+          <div className="flex-1 overflow-y-auto space-y-2 pe-0.5" style={{ maxHeight: isFullScreen ? 'calc(100vh - 180px)' : '420px' }}>
             {filteredTaggedHouses.length === 0 ? (
               <div className="py-12 text-center text-slate-400 px-4">
                 <Home className="w-8 h-8 mx-auto mb-2 opacity-40 text-cyan-500" />
@@ -1178,7 +1180,7 @@ export const GeoMapView: React.FC = () => {
             <span className="text-[11px] text-slate-500">بەستراوە بە پێگەی جوگرافی</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
+            <table className="w-full text-end text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
                 <tr>
                   <th className="py-3 px-4">ناوی پارێزگا / ئیدارە</th>
@@ -1338,7 +1340,7 @@ export const GeoMapView: React.FC = () => {
                       value={tagBeneficiarySearch}
                       onChange={(e) => setTagBeneficiarySearch(e.target.value)}
                       placeholder="ناوی کەس یان ژمارە مۆبایل بنووسە..."
-                      className="w-full pr-9 pl-3 py-2 rounded-xl border border-slate-200 text-xs focus:border-cyan-500 outline-none"
+                      className="w-full pe-9 ps-3 py-2 rounded-xl border border-slate-200 text-xs focus:border-cyan-500 outline-none"
                     />
                   </div>
                 </div>

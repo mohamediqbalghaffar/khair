@@ -37,7 +37,7 @@ export const ClerkAuthView: React.FC = () => {
 
         {/* 3 System Roles Guide Banner */}
         <div className="mb-5 p-3.5 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/80 shadow-sm space-y-2">
-          <p className="text-[11px] font-black text-slate-700 text-right">ڕۆڵەکانی بەکارهێنەر لە سیستەمدا:</p>
+          <p className="text-[11px] font-black text-slate-700 text-end">ڕۆڵەکانی بەکارهێنەر لە سیستەمدا:</p>
           <div className="grid grid-cols-3 gap-2 text-center">
             
             {/* Developer */}

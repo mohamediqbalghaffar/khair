@@ -691,7 +691,7 @@ export const InventoryView: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="گەڕان بەپێی کاڵا، بەخشەر، ژمارەی پسوولە، شوێن..."
-            className="w-full pr-10 pl-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+            className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
           />
         </div>
       </div>
@@ -935,7 +935,7 @@ export const InventoryView: React.FC = () => {
           ) : (
             <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full text-right text-xs">
+                <table className="w-full text-end text-xs">
                   <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
                     <tr>
                       <th className="p-3.5">ژمارەی پسوولە</th>
@@ -1051,7 +1051,7 @@ export const InventoryView: React.FC = () => {
                                       بەردەست لە سندووق ({cashM.remainingAmount.toLocaleString()} {cashM.currencySymbol})
                                     </span>
                                     {cashM.distributedAmount > 0 && (
-                                      <span className="text-[10px] text-slate-500 font-mono block pr-1">
+                                      <span className="text-[10px] text-slate-500 font-mono block pe-1">
                                         ({cashM.distributedAmount.toLocaleString()} {cashM.currencySymbol} دابەشکراوە)
                                       </span>
                                     )}
@@ -1240,7 +1240,7 @@ export const InventoryView: React.FC = () => {
           ) : (
             <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full text-right text-xs">
+                <table className="w-full text-end text-xs">
                   <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
                     <tr>
                       <th className="p-3.5 w-10 text-center">
@@ -1434,7 +1434,7 @@ export const InventoryView: React.FC = () => {
                   <Users className="w-6 h-6" />
                 )}
               </div>
-              <div className="flex-1 pr-1">
+              <div className="flex-1 pe-1">
                 <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                   {distributionTarget.type === 'cash'
                     ? 'دابەشکردنی بە کۆمەڵی هاوکاری نەختینەیی (پارەی کاش)'
@@ -1607,7 +1607,7 @@ export const InventoryView: React.FC = () => {
                       value={modalBenSearch}
                       onChange={(e) => setModalBenSearch(e.target.value)}
                       placeholder="گەڕان بەپێی ناوی خێزان، ژمارە تەلەفۆن، ناسنامە، ناونیشان..."
-                      className="w-full pr-8 pl-3 py-2 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400"
+                      className="w-full pe-8 ps-3 py-2 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400"
                     />
                   </div>
 

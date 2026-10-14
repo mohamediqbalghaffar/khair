@@ -144,7 +144,7 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
                     <span className="text-xs text-slate-500 block">جۆری بەخشین:</span>
                     <span className="text-sm text-slate-800 font-bold">کۆمەکی نەختینەیی (پارە)</span>
                   </div>
-                  <div className="text-left">
+                  <div className="text-start">
                     <span className="text-xs text-slate-500 block">بڕی پارەی بەخشراو:</span>
                     <span className="text-2xl font-black text-cyan-900 tracking-wide font-mono">
                       {donation.amount.toLocaleString()} {donation.currency === 'IQD' ? 'دیناری عێراقی' : 'دۆلاری ئەمریکی ($)'}
@@ -169,7 +169,7 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
                         </span>
                       </div>
                     </div>
-                    <div className="text-[10px] text-slate-500 text-left pt-0.5">
+                    <div className="text-[10px] text-slate-500 text-start pt-0.5">
                       ✓ پشتڕاستکراوە بەپێی بۆرسەی بازاڕی عێراق ({rateSource})
                     </div>
                   </div>

@@ -773,7 +773,7 @@ export const FinanceView: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="گەڕان لە خەرجی، داهات، پسوولە..."
-            className="w-full pr-10 pl-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+            className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
           />
         </div>
       </div>
@@ -781,7 +781,7 @@ export const FinanceView: React.FC = () => {
       {/* Transactions Table */}
       <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-right text-xs">
+          <table className="w-full text-end text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
               <tr>
                 <th className="py-3.5 px-4">جۆر</th>

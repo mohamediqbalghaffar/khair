@@ -124,7 +124,7 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 setSelectedEndpoint(e.id);
                 setApiResponse(null);
               }}
-              className={`p-2.5 rounded-xl border text-right transition-all text-xs ${
+              className={`p-2.5 rounded-xl border text-end transition-all text-xs ${
                 selectedEndpoint === e.id
                   ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-bold shadow-sm'
                   : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -149,7 +149,7 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
             </button>
           </div>
 
-          <div dir="ltr" className="p-3.5 rounded-2xl bg-slate-900 text-cyan-400 font-mono text-xs overflow-x-auto select-all text-left">
+          <div dir="ltr" className="p-3.5 rounded-2xl bg-slate-900 text-cyan-400 font-mono text-xs overflow-x-auto select-all text-start">
             {currentEndpoint.curl}
           </div>
 
@@ -172,7 +172,7 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
               </span>
               <span className="text-[11px] text-slate-500 font-normal">{apiResponse.timestamp}</span>
             </div>
-            <pre dir="ltr" className="p-4 bg-slate-950 text-emerald-400 font-mono text-[11px] max-h-56 overflow-y-auto leading-relaxed text-left">
+            <pre dir="ltr" className="p-4 bg-slate-950 text-emerald-400 font-mono text-[11px] max-h-56 overflow-y-auto leading-relaxed text-start">
               {JSON.stringify(apiResponse, null, 2)}
             </pre>
           </div>

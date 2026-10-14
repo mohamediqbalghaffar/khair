@@ -1135,7 +1135,7 @@ export const BeneficiariesView: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="گەڕان بەپێی ناو، مۆبایل، ژمارەی نیشتمانی..."
-              className="w-full h-10 pr-10 pl-8 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400 font-bold"
+              className="w-full h-10 pe-10 ps-8 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400 font-bold"
             />
             {searchQuery && (
               <button
@@ -1440,89 +1440,89 @@ export const BeneficiariesView: React.FC = () => {
         {/* Active Filter Chips / Pills */}
         {activeFiltersCount > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100/80 text-[11px]">
-            <span className="text-slate-400 font-bold ml-1">فلتەرە چالاکەکان:</span>
+            <span className="text-slate-400 font-bold ms-1">فلتەرە چالاکەکان:</span>
             
             {searchQuery.trim() && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 گەڕان: {searchQuery}
-                <button type="button" onClick={() => setSearchQuery('')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setSearchQuery('')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
             
             {statusFilter !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 دۆخ: {statusLabels[statusFilter] || statusFilter}
-                <button type="button" onClick={() => setStatusFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setStatusFilter('all')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
 
             {categoryFilter !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 حاڵەت: {categoryLabels[categoryFilter as NeedCategory] || categoryFilter}
-                <button type="button" onClick={() => setCategoryFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setCategoryFilter('all')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
 
             {governorateFilter !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 پارێزگا: {governorateFilter}
-                <button type="button" onClick={() => setGovernorateFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setGovernorateFilter('all')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
 
             {genderFilter !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 ڕەگەز: {genderFilter === 'male' ? 'نێرینە' : 'مێینە'}
-                <button type="button" onClick={() => setGenderFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setGenderFilter('all')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
 
             {ageFilter !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 تەمەن: {ageFilter === 'under18' ? 'خوار ١٨ ساڵ' : ageFilter === '18-35' ? '١٨ - ٣٥ ساڵ' : ageFilter === '36-59' ? '٣٦ - ٥٩ ساڵ' : '٦٠ ساڵ و زیاتر'}
-                <button type="button" onClick={() => setAgeFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setAgeFilter('all')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
 
             {familyHeadFilter !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 پێگەی خێزان: {familyHeadFilter === 'head' ? 'سەرۆکی خێزان' : 'ئەندامی خێزان'}
-                <button type="button" onClick={() => setFamilyHeadFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setFamilyHeadFilter('all')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
 
             {providerFilter !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 بژێوی: {providerFilter === 'provider' ? 'دابینکەری سەرەکی' : providerFilter === 'not_provider' ? 'دابینکەر نییە' : 'تەنها دابینکەر'}
-                <button type="button" onClick={() => setProviderFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setProviderFilter('all')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
 
             {familyMembersFilter !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 ئەندامان: {familyMembersFilter} ئەندام
-                <button type="button" onClick={() => setFamilyMembersFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setFamilyMembersFilter('all')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
 
             {incomeFilter !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 داهات: {incomeFilter === 'zero' ? 'بێ داهات' : incomeFilter === 'low' ? '1 - 300,000 د.ع' : incomeFilter === 'under300k' ? '< 300,000 د.ع' : incomeFilter === '300k-600k' ? '300k - 600k د.ع' : '> 600,000 د.ع'}
-                <button type="button" onClick={() => setIncomeFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setIncomeFilter('all')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
 
             {hasGpsFilter !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
                 GPS: {hasGpsFilter === 'with_gps' ? 'خاوەن GPS' : 'بێ GPS'}
-                <button type="button" onClick={() => setHasGpsFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => setHasGpsFilter('all')} className="hover:text-cyan-950 font-bold ms-0.5">×</button>
               </span>
             )}
 
             {sortField && (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-purple-50 border border-purple-200 text-purple-800 font-bold shadow-2xs">
                 ڕیزبەندی: {sortFieldLabels[sortField]} ({sortOrder === 'asc' ? 'سەرکەوتوو ↑' : 'دابەزیو ↓'})
-                <button type="button" onClick={() => { setSortField(null); setSortOrder('asc'); }} className="hover:text-purple-950 font-bold ml-0.5">×</button>
+                <button type="button" onClick={() => { setSortField(null); setSortOrder('asc'); }} className="hover:text-purple-950 font-bold ms-0.5">×</button>
               </span>
             )}
           </div>
@@ -1603,7 +1603,7 @@ export const BeneficiariesView: React.FC = () => {
             isFullscreenTable ? 'flex-1 min-h-0' : 'max-h-[calc(100vh-270px)] min-h-[420px]'
           }`}
         >
-          <table className="w-full text-right text-xs min-w-[1200px] border-collapse select-text">
+          <table className="w-full text-end text-xs min-w-[1200px] border-collapse select-text">
             <thead className="sticky top-0 z-20 bg-slate-100/95 backdrop-blur-md border-b-2 border-slate-200 text-slate-700 font-bold shadow-xs">
               <tr>
                 {/* 1. ناوی تەواو / تەمەن و ڕەگەز */}
@@ -2917,7 +2917,7 @@ export const BeneficiariesView: React.FC = () => {
                     {/* Preview Table */}
                     {parsedData.valid.length > 0 && (
                       <div className="max-h-56 overflow-y-auto rounded-2xl border border-slate-200">
-                        <table className="w-full text-right text-[11px]">
+                        <table className="w-full text-end text-[11px]">
                           <thead className="bg-slate-100 sticky top-0 text-slate-700 font-bold">
                             <tr>
                               <th className="p-2">ناو</th>
@@ -3372,7 +3372,7 @@ export const BeneficiariesView: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="text-left font-bold">
+                        <div className="text-start font-bold">
                           {aid.type === 'monetary' ? (
                             <span className="text-emerald-700">
                               {aid.currency === 'USD'
@@ -3385,7 +3385,7 @@ export const BeneficiariesView: React.FC = () => {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-1 border-r border-slate-200 pr-1.5 mr-1">
+                        <div className="flex items-center gap-1 border-r border-slate-200 pe-1.5 me-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEditBenAid(aid)}
@@ -3550,7 +3550,7 @@ export const BeneficiariesView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setAidForm(prev => ({ ...prev, amountIQD: selectedDonMetrics.metrics.remainingCash }))}
-                              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 mr-auto"
+                              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 me-auto"
                             >
                               تەواوی ماوە ({selectedDonMetrics.metrics.remainingCash.toLocaleString()})
                             </button>
@@ -4001,9 +4001,9 @@ export const BeneficiariesView: React.FC = () => {
                                 >
                                   <div>
                                     <span className="font-bold text-slate-900">{op.name}</span>
-                                    <span className="text-slate-500 mr-2">({op.relation})</span>
+                                    <span className="text-slate-500 me-2">({op.relation})</span>
                                     {op.monthlyIncomeIQD ? (
-                                      <span className="text-emerald-700 font-bold mr-2">
+                                      <span className="text-emerald-700 font-bold me-2">
                                         • داهات: {op.monthlyIncomeIQD.toLocaleString()} د.ع
                                       </span>
                                     ) : null}
@@ -4306,7 +4306,7 @@ export const BeneficiariesView: React.FC = () => {
                             </div>
                             <div className="min-w-0">
                               <span className="font-mono text-[10px] text-slate-400">{doc.fileName}</span>
-                              <span className="text-[10px] text-slate-400 mr-2">({doc.fileSize} • {doc.uploadDate})</span>
+                              <span className="text-[10px] text-slate-400 me-2">({doc.fileSize} • {doc.uploadDate})</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
