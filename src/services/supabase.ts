@@ -408,20 +408,24 @@ export const mapDocumentToDb = (doc: DocumentItem) => ({
   file_size: parseFloat(doc.fileSize) || 0,
   upload_date: doc.uploadDate || new Date().toISOString().split('T')[0],
   related_entity: doc.relatedEntity,
-  file_data: doc.url || '',
+  file_data: doc.fileData || doc.url || '',
   updated_at: new Date().toISOString()
 });
 
-export const mapDocumentFromDb = (row: any): DocumentItem => ({
-  id: row.id,
-  title: row.title,
-  category: row.category,
-  fileType: row.file_type,
-  fileSize: row.file_size ? `${row.file_size} KB` : '0 KB',
-  uploadDate: row.upload_date,
-  relatedEntity: row.related_entity,
-  url: row.file_data || undefined
-});
+export const mapDocumentFromDb = (row: any): DocumentItem => {
+  const fileData = row.file_data || undefined;
+  return {
+    id: row.id,
+    title: row.title,
+    category: row.category,
+    fileType: row.file_type,
+    fileSize: row.file_size ? `${row.file_size} KB` : '0 KB',
+    uploadDate: row.upload_date,
+    relatedEntity: row.related_entity,
+    url: fileData,
+    fileData: fileData
+  };
+};
 
 // ==========================================
 // Audit Logs Mapper & API

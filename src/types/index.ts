@@ -306,15 +306,36 @@ export interface AppNotification {
   priority: 'low' | 'medium' | 'high';
 }
 
+export type DocumentCategory =
+  | 'ناسنامە'
+  | 'کارتی نیشتمانی'
+  | 'ڕاپۆرتی پزیشکی'
+  | 'پسوولەی دارایی'
+  | 'گرێبەست'
+  | 'وێنەی مەیدانی'
+  | 'کۆبۆنی خۆراک'
+  | 'بەڵگەنامەی نیشتەجێبوون'
+  | 'پشتگیری فەرمی'
+  | 'پڕۆژە'
+  | 'تر'
+  | 'گشتی';
+
 export interface DocumentItem {
   id: string;
   title: string;
-  category: 'ناسنامە' | 'ڕاپۆرتی پزیشکی' | 'پسوولەی دارایی' | 'گرێبەست' | 'وێنەی مەیدانی';
+  category: DocumentCategory;
   fileType: string;
   fileSize: string;
   uploadDate: string;
   relatedEntity: string;
   url?: string;
+  fileData?: string; // base64 / data URL for real preview and download
+  fileName?: string;
+  entityType?: 'beneficiary' | 'project' | 'donor' | 'general';
+  entityId?: string;
+  beneficiaryId?: string;
+  projectId?: string;
+  donorId?: string;
 }
 
 export interface AuditLog {

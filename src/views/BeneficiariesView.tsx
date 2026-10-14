@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Beneficiary, NeedCategory, BeneficiaryStatus, OtherProvider, BeneficiaryDocument, BeneficiaryDocCategory, BeneficiaryLocation, AidRecord } from '../types';
 import {
@@ -65,6 +65,8 @@ export const BeneficiariesView: React.FC = () => {
     addBeneficiaryDocument,
     updateBeneficiaryDocument,
     deleteBeneficiaryDocument,
+    selectedBeneficiaryIdForView,
+    setSelectedBeneficiaryIdForView,
     setActiveTab,
     navigateToLocationOnMap,
     isCloudConnected,
@@ -84,6 +86,27 @@ export const BeneficiariesView: React.FC = () => {
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiary | null>(null);
+
+  // Auto-open dossier if navigated from DocumentsView or another section
+  useEffect(() => {
+    if (selectedBeneficiaryIdForView) {
+      const target = beneficiaries.find(b => b.id === selectedBeneficiaryIdForView);
+      if (target) {
+        setSelectedBeneficiary(target);
+      }
+      setSelectedBeneficiaryIdForView(null);
+    }
+  }, [selectedBeneficiaryIdForView, beneficiaries, setSelectedBeneficiaryIdForView]);
+
+  // Keep selectedBeneficiary synced with latest state
+  useEffect(() => {
+    if (selectedBeneficiary) {
+      const refreshed = beneficiaries.find(b => b.id === selectedBeneficiary.id);
+      if (refreshed && refreshed !== selectedBeneficiary) {
+        setSelectedBeneficiary(refreshed);
+      }
+    }
+  }, [beneficiaries]);
   const [isGiveAidModalOpen, setIsGiveAidModalOpen] = useState(false);
   const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
   const [duplicateAlert, setDuplicateAlert] = useState<string | null>(null);

@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   UserRole,
   UserProfile,
   Beneficiary,
   BeneficiaryDocument,
+  BeneficiaryDocCategory,
   Donor,
   Donation,
   Project,
@@ -12,6 +13,7 @@ import {
   Volunteer,
   AppNotification,
   DocumentItem,
+  DocumentCategory,
   AuditLog,
   AidRecord,
   Announcement,
@@ -79,6 +81,9 @@ export interface MapFocusLocation {
 interface AppContextType {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
+  selectedBeneficiaryIdForView: string | null;
+  setSelectedBeneficiaryIdForView: (id: string | null) => void;
+  openBeneficiaryProfile: (beneficiaryId: string) => void;
   mapFocusLocation: MapFocusLocation | null;
   setMapFocusLocation: (loc: MapFocusLocation | null) => void;
   navigateToLocationOnMap: (lat: number, lng: number, label?: string, beneficiaryId?: string) => void;
@@ -159,6 +164,7 @@ interface AppContextType {
 
   // Documents
   documents: DocumentItem[];
+  allConnectedDocuments: DocumentItem[];
   addDocument: (doc: Omit<DocumentItem, 'id' | 'uploadDate'>) => void;
   deleteDocument: (id: string) => void;
 
@@ -244,6 +250,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMapFocusLocation({ lat, lng, label, beneficiaryId });
     setActiveTab('geo');
   };
+
+  const [selectedBeneficiaryIdForView, setSelectedBeneficiaryIdForView] = useState<string | null>(null);
+
+  const openBeneficiaryProfile = useCallback((beneficiaryId: string) => {
+    setSelectedBeneficiaryIdForView(beneficiaryId);
+    setActiveTab('beneficiaries');
+  }, []);
 
   const [currencyView, setCurrencyView] = useState<'IQD' | 'USD'>('IQD');
   const [isSpotlightOpen, setIsSpotlightOpen] = useState<boolean>(false);
@@ -334,6 +347,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState<boolean>(true);
+
+  // Bidirectional Unified Documents: Standalone + Beneficiaries Documents
+  const allConnectedDocuments = useMemo(() => {
+    const map = new Map<string, DocumentItem>();
+
+    // 1. Standalone documents table / state
+    documents.forEach(d => {
+      let bId = d.beneficiaryId;
+      let eType = d.entityType;
+      if (!bId && (!eType || eType === 'beneficiary')) {
+        const found = beneficiaries.find(b => b.fullName === d.relatedEntity);
+        if (found) {
+          bId = found.id;
+          eType = 'beneficiary';
+        }
+      }
+      map.set(d.id, {
+        ...d,
+        beneficiaryId: bId || d.beneficiaryId,
+        entityType: eType || d.entityType || (bId ? 'beneficiary' : 'general'),
+        fileData: d.fileData || d.url
+      });
+    });
+
+    // 2. Beneficiaries documents
+    beneficiaries.forEach(b => {
+      (b.documents || []).forEach(d => {
+        const existing = map.get(d.id);
+        if (existing) {
+          map.set(d.id, {
+            ...existing,
+            beneficiaryId: b.id,
+            entityId: b.id,
+            entityType: 'beneficiary',
+            relatedEntity: b.fullName,
+            fileData: d.fileData || existing.fileData || existing.url,
+            url: d.fileData || existing.url,
+            fileName: d.fileName || existing.fileName
+          });
+        } else {
+          map.set(d.id, {
+            id: d.id,
+            title: d.title,
+            category: (d.category as DocumentCategory) || 'ناسنامە',
+            fileType: d.fileType || 'بەڵگەنامە',
+            fileSize: d.fileSize || '1 MB',
+            uploadDate: d.uploadDate || new Date().toISOString().split('T')[0],
+            relatedEntity: b.fullName,
+            url: d.fileData,
+            fileData: d.fileData,
+            fileName: d.fileName,
+            entityType: 'beneficiary',
+            entityId: b.id,
+            beneficiaryId: b.id
+          });
+        }
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      return (b.uploadDate || '').localeCompare(a.uploadDate || '');
+    });
+  }, [documents, beneficiaries]);
 
   // Navigation & Role Permissions state
   const [navConfigs, setNavConfigs] = useState<NavItemConfig[]>(() => {
@@ -1290,10 +1366,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addBeneficiaryDocument = (beneficiaryId: string, doc: Omit<BeneficiaryDocument, 'id' | 'uploadDate'>) => {
+    const docId = `bdoc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const today = new Date().toISOString().split('T')[0];
     const newDoc: BeneficiaryDocument = {
       ...doc,
-      id: `bdoc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      uploadDate: new Date().toISOString().split('T')[0]
+      id: docId,
+      uploadDate: today
     };
 
     let updatedBeneficiary: Beneficiary | undefined;
@@ -1311,14 +1389,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const targetBen = beneficiaries.find(b => b.id === beneficiaryId);
-    // Mirror in global documents list
-    addDocument({
-      title: `${newDoc.title} (${targetBen?.fullName || 'سوودمەند'})`,
-      category: newDoc.category === 'ڕاپۆرتی پزیشکی' ? 'ڕاپۆرتی پزیشکی' : 'ناسنامە',
+    const globalDoc: DocumentItem = {
+      id: docId,
+      title: newDoc.title,
+      category: (newDoc.category as DocumentCategory) || 'ناسنامە',
       fileType: newDoc.fileType || 'بەڵگەنامە',
       fileSize: newDoc.fileSize || '1 MB',
-      relatedEntity: targetBen?.fullName || 'سوودمەند'
-    });
+      uploadDate: today,
+      relatedEntity: targetBen?.fullName || 'سوودمەند',
+      url: newDoc.fileData,
+      fileData: newDoc.fileData,
+      fileName: newDoc.fileName,
+      entityType: 'beneficiary',
+      entityId: beneficiaryId,
+      beneficiaryId: beneficiaryId
+    };
+
+    setDocuments(prev => [globalDoc, ...prev.filter(d => d.id !== docId)]);
+    safeSupabaseSync(supabase.from('documents').upsert(mapDocumentToDb(globalDoc)));
 
     logAction('بارکردنی بەڵگەنامەی سوودمەند', `بەڵگەنامەی [${newDoc.title}] بۆ دۆسیەی [${targetBen?.fullName || beneficiaryId}] زیادکرا`, 'create');
   };
@@ -1336,6 +1424,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updatedBeneficiary) {
       safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedBeneficiary)));
     }
+
+    // Also update in documents state & supabase documents table if exists
+    setDocuments(prev => prev.map(d => {
+      if (d.id === doc.id) {
+        const updatedDocItem: DocumentItem = {
+          ...d,
+          title: doc.title,
+          category: (doc.category as DocumentCategory) || d.category,
+          fileType: doc.fileType || d.fileType,
+          fileSize: doc.fileSize || d.fileSize,
+          fileName: doc.fileName || d.fileName,
+          fileData: doc.fileData || d.fileData,
+          url: doc.fileData || d.url
+        };
+        safeSupabaseSync(supabase.from('documents').upsert(mapDocumentToDb(updatedDocItem)));
+        return updatedDocItem;
+      }
+      return d;
+    }));
+
     logAction('دەستکاریکردنی بەڵگەنامە', `زانیاری بەڵگەنامەی [${doc.title}] دەستکاری کرا`, 'update');
   };
 
@@ -1352,6 +1460,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updatedBeneficiary) {
       safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedBeneficiary)));
     }
+
+    // Also remove from documents state & Supabase documents table
+    setDocuments(prev => prev.filter(d => d.id !== docId));
+    safeSupabaseSync(supabase.from('documents').delete().eq('id', docId));
+
     logAction('سڕینەوەی بەڵگەنامە', `بەڵگەنامە لە دۆسیەی سوودمەند سڕایەوە`, 'delete');
   };
 
@@ -2598,18 +2711,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Documents
   const addDocument = (data: Omit<DocumentItem, 'id' | 'uploadDate'>) => {
+    const docId = `doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const today = new Date().toISOString().split('T')[0];
     const newDoc: DocumentItem = {
       ...data,
-      id: `doc-${Date.now()}`,
-      uploadDate: new Date().toISOString().split('T')[0]
+      id: docId,
+      uploadDate: today
     };
+
+    // If linked to a beneficiary, automatically add to beneficiary's documents
+    if ((data.entityType === 'beneficiary' && data.beneficiaryId) || data.beneficiaryId) {
+      const bId = data.beneficiaryId;
+      let updatedBen: Beneficiary | undefined;
+      setBeneficiaries(prev => prev.map(b => {
+        if (b.id === bId) {
+          const benDoc: BeneficiaryDocument = {
+            id: docId,
+            title: data.title,
+            category: (data.category as BeneficiaryDocCategory) || 'ناسنامە',
+            fileName: data.fileName || `${data.title}.${data.fileType?.toLowerCase() || 'pdf'}`,
+            fileSize: data.fileSize,
+            fileType: data.fileType,
+            fileData: data.fileData,
+            uploadDate: today
+          };
+          updatedBen = {
+            ...b,
+            documents: [benDoc, ...(b.documents || [])]
+          };
+          return updatedBen;
+        }
+        return b;
+      }));
+
+      if (updatedBen) {
+        safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedBen)));
+      }
+    }
+
     setDocuments(prev => [newDoc, ...prev]);
     safeSupabaseSync(supabase.from('documents').upsert(mapDocumentToDb(newDoc)));
-    logAction('بارکردنی بەڵگەنامە', `بەڵگەنامەی [${newDoc.title}] بە قەبارەی ${newDoc.fileSize} بارکرا`);
+    logAction('بارکردنی بەڵگەنامە', `بەڵگەنامەی [${newDoc.title}] بۆ [${newDoc.relatedEntity || 'سیستەم'}] بارکرا`);
   };
 
   const deleteDocument = (id: string) => {
-    const doc = documents.find(d => d.id === id);
+    const doc = allConnectedDocuments.find(d => d.id === id) || documents.find(d => d.id === id);
+
+    // If it belongs to a beneficiary (by beneficiaryId or found in b.documents)
+    setBeneficiaries(prev => prev.map(b => {
+      const hasDoc = (b.documents || []).some(d => d.id === id) || (doc?.beneficiaryId && b.id === doc.beneficiaryId);
+      if (hasDoc) {
+        const filteredDocs = (b.documents || []).filter(d => d.id !== id);
+        const updatedBen = { ...b, documents: filteredDocs };
+        safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedBen)));
+        return updatedBen;
+      }
+      return b;
+    }));
+
     setDocuments(prev => prev.filter(d => d.id !== id));
     safeSupabaseSync(supabase.from('documents').delete().eq('id', id));
     logAction('سڕینەوەی بەڵگەنامە', `بەڵگەنامەی [${doc?.title || id}] سڕایەوە`, 'delete');
@@ -2859,6 +3018,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         activeTab,
         setActiveTab,
+        selectedBeneficiaryIdForView,
+        setSelectedBeneficiaryIdForView,
+        openBeneficiaryProfile,
         mapFocusLocation,
         setMapFocusLocation,
         navigateToLocationOnMap,
@@ -2914,7 +3076,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addVolunteer,
         deleteVolunteer,
         logVolunteerHours,
-        documents,
+        documents: allConnectedDocuments,
+        allConnectedDocuments,
         addDocument,
         deleteDocument,
         notifications,
