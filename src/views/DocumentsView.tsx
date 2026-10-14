@@ -24,9 +24,7 @@ import {
   CopyPlus,
   CheckCheck,
   Sparkles,
-  RefreshCw,
-  Layers,
-  ArrowRight
+  RefreshCw
 } from 'lucide-react';
 
 const CATEGORY_TABS: { id: string; label: string }[] = [
@@ -119,6 +117,23 @@ export const DocumentsView: React.FC = () => {
   const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
   const [bulkGlobalBeneficiaryId, setBulkGlobalBeneficiaryId] = useState<string>('');
   const [bulkGlobalCategory, setBulkGlobalCategory] = useState<DocumentCategory | ''>('');
+  const [bulkGlobalBenSearch, setBulkGlobalBenSearch] = useState<string>('');
+
+  // Per-row Beneficiary search state
+  const [bulkRowSearches, setBulkRowSearches] = useState<Record<string, string>>({});
+
+  // Helper function to search/filter beneficiaries
+  const getFilteredBeneficiaries = (search?: string) => {
+    if (!search || !search.trim()) return beneficiaries;
+    const q = search.toLowerCase().trim();
+    return beneficiaries.filter(
+      b =>
+        b.fullName.toLowerCase().includes(q) ||
+        (b.phone && b.phone.includes(q)) ||
+        (b.nationalId && b.nationalId.toLowerCase().includes(q)) ||
+        (b.governorate && b.governorate.toLowerCase().includes(q))
+    );
+  };
 
   // Calculate counts per entity
   const countsByEntity = useMemo(() => {
@@ -312,11 +327,28 @@ export const DocumentsView: React.FC = () => {
         let matchedBenName = beneficiaries.find(b => b.id === matchedBenId)?.fullName || 'سوودمەند';
 
         if (!bulkGlobalBeneficiaryId) {
-          const foundBen = beneficiaries.find(b =>
-            (b.nationalId && lowerName.includes(b.nationalId.toLowerCase())) ||
-            (b.phone && lowerName.includes(b.phone.replace(/[^0-9]/g, ''))) ||
-            (b.fullName && lowerName.includes(b.fullName.toLowerCase()))
-          );
+          const cleanName = baseName.replace(/^[0-9]+[\s._-]+/, '').trim().toLowerCase();
+          const words = cleanName.split(/[\s._-]+/).filter(w => w.length >= 2);
+
+          let foundBen = beneficiaries.find(b => {
+            const bName = b.fullName.toLowerCase();
+            return (
+              (b.nationalId && cleanName.includes(b.nationalId.toLowerCase())) ||
+              (b.phone && cleanName.includes(b.phone.replace(/[^0-9]/g, ''))) ||
+              cleanName.includes(bName) ||
+              bName.includes(cleanName)
+            );
+          });
+
+          if (!foundBen && words.length >= 2) {
+            const twoWords = words.slice(0, 2).join(' ');
+            foundBen = beneficiaries.find(b => b.fullName.toLowerCase().includes(twoWords));
+          }
+
+          if (!foundBen && words.length >= 1) {
+            foundBen = beneficiaries.find(b => b.fullName.toLowerCase().includes(words[0]));
+          }
+
           if (foundBen) {
             matchedBenId = foundBen.id;
             matchedBenName = foundBen.fullName;
@@ -343,6 +375,47 @@ export const DocumentsView: React.FC = () => {
     setBulkItems(prev => [...prev, ...newItems]);
     setIsReadingBulkFiles(false);
     if (bulkFileInputRef.current) bulkFileInputRef.current.value = '';
+  };
+
+  // Run Smart Auto-Matching across all loaded bulk files
+  const runSmartAutoMatch = () => {
+    let matchCount = 0;
+    setBulkItems(prev =>
+      prev.map(item => {
+        const cleanName = item.title.replace(/^[0-9]+[\s._-]+/, '').trim().toLowerCase();
+        const words = cleanName.split(/[\s._-]+/).filter(w => w.length >= 2);
+
+        let matched = beneficiaries.find(b => {
+          const bName = b.fullName.toLowerCase();
+          return (
+            (b.nationalId && cleanName.includes(b.nationalId.toLowerCase())) ||
+            (b.phone && cleanName.includes(b.phone.replace(/[^0-9]/g, ''))) ||
+            cleanName.includes(bName) ||
+            bName.includes(cleanName)
+          );
+        });
+
+        if (!matched && words.length >= 2) {
+          const twoWords = words.slice(0, 2).join(' ');
+          matched = beneficiaries.find(b => b.fullName.toLowerCase().includes(twoWords));
+        }
+
+        if (!matched && words.length >= 1) {
+          matched = beneficiaries.find(b => b.fullName.toLowerCase().includes(words[0]));
+        }
+
+        if (matched) {
+          matchCount++;
+          return {
+            ...item,
+            beneficiaryId: matched.id,
+            relatedEntity: matched.fullName
+          };
+        }
+        return item;
+      })
+    );
+    alert(`بەستنەوەی زیرەک تەواو بوو: ${matchCount} لە ${bulkItems.length} فایل بە شێوەی خودکار بەسترانەوە بە سوودمەندان`);
   };
 
   // Update a single bulk item in table
@@ -428,6 +501,7 @@ export const DocumentsView: React.FC = () => {
       if (res.success) {
         setIsAddModalOpen(false);
         setBulkItems([]);
+        setBulkRowSearches({});
         alert(`سەرکەوتوو بوو: ${res.count} بەڵگەنامە بە سەرکەوتوویی بارکران و بەسترانەوە بە دۆسیەی سوودمەندان.`);
       }
     } catch (err: any) {
@@ -497,7 +571,7 @@ export const DocumentsView: React.FC = () => {
     return data.startsWith('data:application/pdf') || t.includes('PDF');
   };
 
-  // Filtered beneficiaries inside modal
+  // Filtered beneficiaries inside single modal
   const modalFilteredBeneficiaries = useMemo(() => {
     if (!modalBenSearch.trim()) return beneficiaries.slice(0, 50);
     const q = modalBenSearch.toLowerCase();
@@ -937,7 +1011,7 @@ export const DocumentsView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-md animate-in fade-in duration-200">
           <div
             className={`relative rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-2xl max-h-[92vh] flex flex-col justify-between transition-all duration-200 ${
-              uploadMode === 'bulk' ? 'w-full max-w-4xl' : 'w-full max-w-lg'
+              uploadMode === 'bulk' ? 'w-full max-w-5xl' : 'w-full max-w-lg'
             }`}
           >
             <button
@@ -1236,8 +1310,8 @@ export const DocumentsView: React.FC = () => {
                 </div>
               </form>
             ) : (
-              /* MODE 2: BULK UPLOAD (MULTI-FILES WITH PER-BENEFICIARY SELECTION) */
-              <div className="space-y-4 text-xs flex-1 flex flex-col min-h-0">
+              /* MODE 2: BULK UPLOAD (MULTI-FILES WITH SEARCHABLE BENEFICIARY SELECTION) */
+              <div className="space-y-3.5 text-xs flex-1 flex flex-col min-h-0">
                 {/* Hidden Multi-file input */}
                 <input
                   type="file"
@@ -1268,7 +1342,7 @@ export const DocumentsView: React.FC = () => {
                     </h4>
                     <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed mt-1">
                       دەتوانیت 5، 10، 20 یان زیاتر فایلی ناسنامە و ڕاپۆرتی پزیشکی و وێنە بەیەکجار هەڵبژێریت، پاشان
-                      دیاری بکە هەر بەڵگەنامەیەک دەچێتە ناو دۆسیەی کام سوودمەند.
+                      دیاری بکە هەر بەڵگەنامەیەک دەچێتە ناو دۆسیەی کام سوودمەند لەگەڵ بەشی گەڕانی خێرا.
                     </p>
                     <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 text-white font-bold text-xs shadow-sm">
                       <UploadCloud className="w-4 h-4" />
@@ -1277,8 +1351,8 @@ export const DocumentsView: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    {/* Bulk Assistant Bar (Apply to All) */}
-                    <div className="p-3.5 rounded-2xl bg-cyan-50/80 border border-cyan-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    {/* Bulk Assistant Bar (Apply to All & Quick Tools) */}
+                    <div className="p-3 rounded-2xl bg-cyan-50/80 border border-cyan-200 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <span className="font-black text-cyan-950 text-xs flex items-center gap-1.5">
                           <CheckCheck className="w-4 h-4 text-cyan-700" />
@@ -1289,27 +1363,51 @@ export const DocumentsView: React.FC = () => {
                         </span>
                       </div>
 
-                      {/* Quick Global Beneficiary Assignment */}
-                      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                        <span className="text-[11px] text-cyan-900 font-bold whitespace-nowrap">
-                          دانانی هەمان سوودمەند بۆ هەمووان:
-                        </span>
-                        <select
-                          value={bulkGlobalBeneficiaryId}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setBulkGlobalBeneficiaryId(val);
-                            if (val) applyBeneficiaryToAllBulk(val);
-                          }}
-                          className="px-2.5 py-1.5 rounded-xl bg-white border border-cyan-300 text-slate-900 text-xs font-bold max-w-[200px]"
+                      {/* Quick Global Beneficiary Assignment with Search */}
+                      <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white border border-cyan-200">
+                          <span className="text-[11px] text-cyan-900 font-bold whitespace-nowrap flex items-center gap-1 pl-1">
+                            <Users className="w-3.5 h-3.5 text-cyan-600" />
+                            دانانی هەمان سوودمەند بۆ هەمووان:
+                          </span>
+                          <div className="relative">
+                            <Search className="w-3 h-3 text-cyan-600 absolute right-2 top-2 pointer-events-none" />
+                            <input
+                              type="text"
+                              value={bulkGlobalBenSearch}
+                              onChange={(e) => setBulkGlobalBenSearch(e.target.value)}
+                              placeholder="گەڕان بەپێی ناو..."
+                              className="w-32 pr-6 pl-2 py-1 text-[11px] rounded-lg bg-slate-50 border border-cyan-200 text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none"
+                            />
+                          </div>
+                          <select
+                            value={bulkGlobalBeneficiaryId}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setBulkGlobalBeneficiaryId(val);
+                              if (val) applyBeneficiaryToAllBulk(val);
+                            }}
+                            className="px-2 py-1 text-xs rounded-lg bg-cyan-50 border border-cyan-300 text-slate-900 font-bold max-w-[190px]"
+                          >
+                            <option value="">-- دیاریکردن بۆ هەمووان --</option>
+                            {getFilteredBeneficiaries(bulkGlobalBenSearch).map(b => (
+                              <option key={b.id} value={b.id}>
+                                {b.fullName} ({b.governorate})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Smart Auto Match Button */}
+                        <button
+                          type="button"
+                          onClick={runSmartAutoMatch}
+                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-teal-50 border border-teal-300 text-teal-800 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+                          title="بەستنەوەی خودکاری هەر بەڵگەنامەیەک بەو سوودمەندەی کە ناوی لەسەر فایلی وێنەکە یان PDFەکە نووسراوە"
                         >
-                          <option value="">-- دیاریکردن بۆ هەمووان --</option>
-                          {beneficiaries.map(b => (
-                            <option key={b.id} value={b.id}>
-                              {b.fullName} ({b.governorate})
-                            </option>
-                          ))}
-                        </select>
+                          <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                          بەستنەوەی خودکار بە ناوی فایل
+                        </button>
 
                         <button
                           type="button"
@@ -1322,7 +1420,10 @@ export const DocumentsView: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => setBulkItems([])}
+                          onClick={() => {
+                            setBulkItems([]);
+                            setBulkRowSearches({});
+                          }}
                           className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200"
                           title="خاوێنکردنەوەی لیستی فایلەکان"
                         >
@@ -1331,91 +1432,144 @@ export const DocumentsView: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Scrollable List of Files with Beneficiary Assignment */}
+                    {/* Scrollable List of Files with Beneficiary Assignment & Row-level Search */}
                     <div className="flex-1 overflow-y-auto max-h-[50vh] pr-1 space-y-2.5 scrollbar-thin">
-                      {bulkItems.map((item, index) => (
-                        <div
-                          key={item.id}
-                          className="p-3 rounded-2xl bg-white border border-slate-200 hover:border-cyan-400 shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
-                        >
-                          {/* File Thumbnail & Name */}
-                          <div className="flex items-center gap-3 min-w-0 sm:w-1/4">
-                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
-                              {isImageFile(item) && item.fileData ? (
-                                <img src={item.fileData} alt={item.fileName} className="w-full h-full object-cover" />
-                              ) : (
-                                getFileIcon(item.fileType)
-                              )}
+                      {bulkItems.map((item, index) => {
+                        const rowQuery = bulkRowSearches[item.id] || '';
+                        const rowFilteredBens = getFilteredBeneficiaries(rowQuery);
+                        const currentSelected = beneficiaries.find(b => b.id === item.beneficiaryId);
+                        const rowOptions =
+                          currentSelected && !rowFilteredBens.some(b => b.id === currentSelected.id)
+                            ? [currentSelected, ...rowFilteredBens]
+                            : rowFilteredBens;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="p-3 rounded-2xl bg-white border border-slate-200 hover:border-cyan-400 shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
+                          >
+                            {/* File Thumbnail & Name */}
+                            <div className="flex items-center gap-3 min-w-0 sm:w-1/4">
+                              <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                                {isImageFile(item) && item.fileData ? (
+                                  <img src={item.fileData} alt={item.fileName} className="w-full h-full object-cover" />
+                                ) : (
+                                  getFileIcon(item.fileType)
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-900 text-xs truncate" title={item.fileName}>
+                                  {index + 1}. {item.fileName}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-mono">
+                                  {item.fileType} • {item.fileSize}
+                                </p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-bold text-slate-900 text-xs truncate" title={item.fileName}>
-                                {index + 1}. {item.fileName}
-                              </p>
-                              <p className="text-[10px] text-slate-400 font-mono">
-                                {item.fileType} • {item.fileSize}
-                              </p>
+
+                            {/* Editable Title */}
+                            <div className="w-full sm:w-1/5">
+                              <label className="block text-[10px] text-slate-400 font-bold mb-0.5">ناونیشانی بەڵگەنامە:</label>
+                              <input
+                                type="text"
+                                value={item.title}
+                                onChange={(e) => updateBulkItem(item.id, { title: e.target.value })}
+                                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-medium focus:bg-white"
+                              />
+                            </div>
+
+                            {/* Category Selector */}
+                            <div className="w-full sm:w-1/6">
+                              <label className="block text-[10px] text-slate-400 font-bold mb-0.5">پۆلێنکردن:</label>
+                              <select
+                                value={item.category}
+                                onChange={(e) => updateBulkItem(item.id, { category: e.target.value as any })}
+                                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold focus:bg-white"
+                              >
+                                {ALL_CATEGORIES.map(cat => (
+                                  <option key={cat} value={cat}>
+                                    {cat}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Beneficiary Assignment with Dedicated Search Section */}
+                            <div className="w-full sm:w-1/3 p-2 rounded-xl bg-cyan-50/60 border border-cyan-200/90 space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <label className="text-[10px] text-cyan-900 font-bold flex items-center gap-1">
+                                  <Users className="w-3 h-3 text-cyan-600" />
+                                  پەیوەست بە کام سوودمەند:
+                                </label>
+                                {rowQuery && (
+                                  <span className="text-[9px] text-cyan-700 font-mono font-bold">
+                                    ({rowFilteredBens.length} ئەنجام)
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Search Section for this row */}
+                              <div className="relative">
+                                <Search className="w-3 h-3 text-cyan-600 absolute right-2.5 top-2 pointer-events-none" />
+                                <input
+                                  type="text"
+                                  value={rowQuery}
+                                  onChange={(e) => {
+                                    const q = e.target.value;
+                                    setBulkRowSearches(prev => ({ ...prev, [item.id]: q }));
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const first = getFilteredBeneficiaries(bulkRowSearches[item.id])[0];
+                                      if (first) {
+                                        updateBulkItem(item.id, { beneficiaryId: first.id });
+                                      }
+                                    }
+                                  }}
+                                  placeholder="بگەڕێ بەپێی ناو یان ژمارە مۆبایل..."
+                                  className="w-full pr-7 pl-6 py-1 text-[11px] rounded-lg bg-white border border-cyan-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-cyan-500 shadow-2xs"
+                                />
+                                {rowQuery && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setBulkRowSearches(prev => ({ ...prev, [item.id]: '' }))}
+                                    className="absolute left-2 top-1 text-slate-400 hover:text-slate-600 p-0.5"
+                                    title="خاوێنکردنەوەی گەڕان"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Beneficiary Dropdown for this row */}
+                              <select
+                                value={item.beneficiaryId}
+                                onChange={(e) => updateBulkItem(item.id, { beneficiaryId: e.target.value })}
+                                className="w-full px-2 py-1.5 rounded-lg bg-white border border-cyan-300 text-cyan-950 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-cyan-500 shadow-2xs"
+                              >
+                                {rowOptions.map(ben => (
+                                  <option key={ben.id} value={ben.id}>
+                                    {ben.fullName} - {ben.phone} ({ben.governorate})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Remove button */}
+                            <div className="self-end sm:self-center">
+                              <button
+                                type="button"
+                                onClick={() => removeBulkItem(item.id)}
+                                className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="سڕینەوەی ئەم فایلە لە لیستەکە"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
                           </div>
-
-                          {/* Editable Title */}
-                          <div className="w-full sm:w-1/4">
-                            <label className="block text-[10px] text-slate-400 font-bold mb-0.5">ناونیشانی بەڵگەنامە:</label>
-                            <input
-                              type="text"
-                              value={item.title}
-                              onChange={(e) => updateBulkItem(item.id, { title: e.target.value })}
-                              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-medium focus:bg-white"
-                            />
-                          </div>
-
-                          {/* Category Selector */}
-                          <div className="w-full sm:w-1/6">
-                            <label className="block text-[10px] text-slate-400 font-bold mb-0.5">پۆلێنکردن:</label>
-                            <select
-                              value={item.category}
-                              onChange={(e) => updateBulkItem(item.id, { category: e.target.value as any })}
-                              className="w-full px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold focus:bg-white"
-                            >
-                              {ALL_CATEGORIES.map(cat => (
-                                <option key={cat} value={cat}>
-                                  {cat}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Beneficiary Assignment Dropdown */}
-                          <div className="w-full sm:w-1/3">
-                            <label className="block text-[10px] text-cyan-800 font-bold mb-0.5 flex items-center gap-1">
-                              <Users className="w-3 h-3 text-cyan-600" />
-                              پەیوەست بە کام سوودمەند:
-                            </label>
-                            <select
-                              value={item.beneficiaryId}
-                              onChange={(e) => updateBulkItem(item.id, { beneficiaryId: e.target.value })}
-                              className="w-full px-2.5 py-1.5 rounded-xl bg-cyan-50/60 border border-cyan-300 text-cyan-950 text-xs font-bold focus:bg-white"
-                            >
-                              {beneficiaries.map(ben => (
-                                <option key={ben.id} value={ben.id}>
-                                  {ben.fullName} - {ben.phone} ({ben.governorate})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Remove button */}
-                          <div className="self-end sm:self-center">
-                            <button
-                              type="button"
-                              onClick={() => removeBulkItem(item.id)}
-                              className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                              title="سڕینەوەی ئەم فایلە لە لیستەکە"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {/* Bulk Submit Footer */}
