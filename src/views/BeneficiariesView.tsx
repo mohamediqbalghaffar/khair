@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { Beneficiary, NeedCategory, BeneficiaryStatus, OtherProvider, BeneficiaryDocument, BeneficiaryDocCategory, BeneficiaryLocation, AidRecord } from '../types';
 import {
@@ -24,30 +24,88 @@ import {
   Upload,
   UserCheck,
   User,
-  ShieldAlert,
-  Info,
   Edit3,
   FileText,
   Image as ImageIcon,
   Paperclip,
-  FilePlus,
   ExternalLink,
   File,
   Check,
   UploadCloud,
   Navigation,
   Crosshair,
-  Compass,
   RotateCcw,
-  Database,
   ShieldCheck,
   Lock,
   RefreshCw,
   PauseCircle,
   Archive,
-  Banknote
+  Banknote,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Maximize2,
+  Minimize2,
+  SlidersHorizontal,
+  ChevronUp,
+  ChevronDown,
+  Filter
 } from 'lucide-react';
 import { getDonationCashMetrics } from '../utils/donationDistributionUtils';
+
+const categoryLabels: Record<NeedCategory, string> = {
+  poor: 'هەژار و دەستکورت',
+  orphan: 'بێباوک و هەتیو',
+  sick: 'نەخۆشی درێژخایەن',
+  disabled: 'خاوەن پێداویستی تایبەت',
+  displaced: 'ئاوارە و پەنابەر',
+  student: 'خوێندکاری هەژار'
+};
+
+const statusLabels: Record<string, string> = {
+  pending: 'لەژێر لێکۆڵینەوە',
+  approved: 'پەسەندکراوە',
+  aided: 'هاوکاری پێدراوە',
+  urgent: 'بەپەلە / فریاگوزاری',
+  periodic: 'هاوکاری مانگانە',
+  suspended: 'ڕاگیراوی کاتی',
+  rejected: 'ڕەتکراوەتەوە',
+  archived: 'ئەرشیڤکراو',
+  confidential: 'دۆسیەی نهێنی'
+};
+
+export type BeneficiarySortField =
+  | 'fullName'
+  | 'age'
+  | 'gender'
+  | 'nationalId'
+  | 'phone'
+  | 'governorate'
+  | 'address'
+  | 'hasGps'
+  | 'isProvider'
+  | 'isFamilyHead'
+  | 'needCategory'
+  | 'familyMembers'
+  | 'monthlyIncomeIQD'
+  | 'status';
+
+const sortFieldLabels: Record<BeneficiarySortField, string> = {
+  fullName: 'ناوی تەواو',
+  age: 'تەمەن',
+  gender: 'ڕەگەز',
+  nationalId: 'ژمارەی ناسنامە',
+  phone: 'ژمارەی مۆبایل',
+  governorate: 'پارێزگا',
+  address: 'ناونیشان',
+  hasGps: 'شوێنی GPS',
+  isProvider: 'پێگەی بژێوی',
+  isFamilyHead: 'سەرۆکایەتی خێزان',
+  needCategory: 'حاڵەتی پێویستی',
+  familyMembers: 'ئەندامانی خێزان',
+  monthlyIncomeIQD: 'داهاتی مانگانە',
+  status: 'دۆخی دۆسیە'
+};
 
 export const BeneficiariesView: React.FC = () => {
   const {
@@ -79,6 +137,36 @@ export const BeneficiariesView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [governorateFilter, setGovernorateFilter] = useState<string>('all');
+
+  // Additional Table Head Filters
+  const [genderFilter, setGenderFilter] = useState<string>('all');
+  const [ageFilter, setAgeFilter] = useState<string>('all');
+  const [familyHeadFilter, setFamilyHeadFilter] = useState<string>('all');
+  const [providerFilter, setProviderFilter] = useState<string>('all');
+  const [familyMembersFilter, setFamilyMembersFilter] = useState<string>('all');
+  const [incomeFilter, setIncomeFilter] = useState<string>('all');
+  const [hasGpsFilter, setHasGpsFilter] = useState<string>('all');
+  const [isFiltersExpanded, setIsFiltersExpanded] = useState<boolean>(true);
+
+  // Sorting State
+  const [sortField, setSortField] = useState<BeneficiarySortField | null>(null);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Screen Interactive Layout State
+  const [isFullscreenTable, setIsFullscreenTable] = useState(false);
+  const [tableDensity, setTableDensity] = useState<'comfortable' | 'compact'>('comfortable');
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close fullscreen on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreenTable) {
+        setIsFullscreenTable(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreenTable]);
 
   // Entry Mode inside modal: 'single' (one-by-one) | 'bulk' (excel)
   const [entryMode, setEntryMode] = useState<'single' | 'bulk'>('single');
@@ -274,31 +362,252 @@ export const BeneficiariesView: React.FC = () => {
     notes: ''
   });
 
-  // Filtering
-  const filteredBeneficiaries = beneficiaries.filter(b => {
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      b.fullName.toLowerCase().includes(q) ||
-      b.phone.includes(q) ||
-      b.nationalId.includes(q) ||
-      b.address.toLowerCase().includes(q);
-
-    let matchesStatus = true;
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'aided') {
-        matchesStatus = b.status === 'aided' || (b.aidHistory && b.aidHistory.length > 0);
-      } else if (statusFilter === 'confidential') {
-        matchesStatus = b.status === 'confidential' || b.isConfidential === true;
+  // Sorting Handlers
+  const handleSort = (field: BeneficiarySortField) => {
+    if (sortField === field) {
+      if (sortOrder === 'asc') {
+        setSortOrder('desc');
       } else {
-        matchesStatus = b.status === statusFilter;
+        setSortField(null);
+        setSortOrder('asc');
       }
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
     }
+  };
 
-    const matchesCat = categoryFilter === 'all' || b.needCategory === categoryFilter;
-    const matchesGov = governorateFilter === 'all' || b.governorate === governorateFilter;
+  const handleTopFilterSortChange = (val: string) => {
+    if (val === 'default') {
+      setSortField(null);
+      setSortOrder('asc');
+    } else {
+      const [field, order] = val.split(':');
+      setSortField(field as BeneficiarySortField);
+      setSortOrder((order as 'asc' | 'desc') || 'asc');
+    }
+  };
 
-    return matchesSearch && matchesStatus && matchesCat && matchesGov;
-  });
+  const secondaryFiltersCount =
+    (genderFilter !== 'all' ? 1 : 0) +
+    (ageFilter !== 'all' ? 1 : 0) +
+    (familyHeadFilter !== 'all' ? 1 : 0) +
+    (providerFilter !== 'all' ? 1 : 0) +
+    (familyMembersFilter !== 'all' ? 1 : 0) +
+    (incomeFilter !== 'all' ? 1 : 0) +
+    (hasGpsFilter !== 'all' ? 1 : 0) +
+    (sortField !== null ? 1 : 0);
+
+  const activeFiltersCount =
+    (searchQuery.trim() ? 1 : 0) +
+    (statusFilter !== 'all' ? 1 : 0) +
+    (categoryFilter !== 'all' ? 1 : 0) +
+    (governorateFilter !== 'all' ? 1 : 0) +
+    secondaryFiltersCount;
+
+  const resetAllFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setCategoryFilter('all');
+    setGovernorateFilter('all');
+    setGenderFilter('all');
+    setAgeFilter('all');
+    setFamilyHeadFilter('all');
+    setProviderFilter('all');
+    setFamilyMembersFilter('all');
+    setIncomeFilter('all');
+    setHasGpsFilter('all');
+    setSortField(null);
+    setSortOrder('asc');
+  };
+
+  // 1. Filtering across all table heads and criteria
+  const filteredBeneficiaries = useMemo(() => {
+    return beneficiaries.filter(b => {
+      // 1. Search Query (Name, ID, Mobile, Address, Provider name)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesSearch =
+          (b.fullName && b.fullName.toLowerCase().includes(q)) ||
+          (b.phone && b.phone.includes(q)) ||
+          (b.nationalId && b.nationalId.includes(q)) ||
+          (b.address && b.address.toLowerCase().includes(q)) ||
+          (b.governorate && b.governorate.toLowerCase().includes(q)) ||
+          (b.providerName && b.providerName.toLowerCase().includes(q));
+        if (!matchesSearch) return false;
+      }
+
+      // 2. Status Filter (دۆخی دۆسیە)
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'aided') {
+          const isAided = b.status === 'aided' || (b.aidHistory && b.aidHistory.length > 0);
+          if (!isAided) return false;
+        } else if (statusFilter === 'confidential') {
+          const isConf = b.status === 'confidential' || b.isConfidential === true;
+          if (!isConf) return false;
+        } else {
+          if (b.status !== statusFilter) return false;
+        }
+      }
+
+      // 3. Category Filter (حاڵەتی پێویستی)
+      if (categoryFilter !== 'all' && b.needCategory !== categoryFilter) {
+        return false;
+      }
+
+      // 4. Governorate Filter (پارێزگا)
+      if (governorateFilter !== 'all' && b.governorate !== governorateFilter) {
+        return false;
+      }
+
+      // 5. Gender Filter (Table head 1: ڕەگەز)
+      if (genderFilter !== 'all' && b.gender !== genderFilter) {
+        return false;
+      }
+
+      // 6. Age Group Filter (Table head 1: تەمەن)
+      if (ageFilter !== 'all') {
+        const age = Number(b.age) || 0;
+        if (ageFilter === 'under18' && (age <= 0 || age >= 18)) return false;
+        if (ageFilter === '18-35' && (age < 18 || age > 35)) return false;
+        if (ageFilter === '36-59' && (age < 36 || age > 59)) return false;
+        if (ageFilter === '60plus' && age < 60) return false;
+      }
+
+      // 7. Family Head Filter (Table head 4: سەرۆکی خێزان)
+      if (familyHeadFilter !== 'all') {
+        if (familyHeadFilter === 'head' && !b.isFamilyHead) return false;
+        if (familyHeadFilter === 'member' && b.isFamilyHead) return false;
+      }
+
+      // 8. Provider Filter (Table head 4: پێگەی خێزان و بژێوی)
+      if (providerFilter !== 'all') {
+        if (providerFilter === 'provider' && !b.isProvider) return false;
+        if (providerFilter === 'not_provider' && b.isProvider) return false;
+        if (providerFilter === 'only_provider' && (!b.isProvider || !b.isOnlyProvider)) return false;
+      }
+
+      // 9. Family Members Filter (Table head 5: حاڵەت / ئەندام)
+      if (familyMembersFilter !== 'all') {
+        const count = Number(b.familyMembers) || 1;
+        if (familyMembersFilter === '1' && count !== 1) return false;
+        if (familyMembersFilter === '2-3' && (count < 2 || count > 3)) return false;
+        if (familyMembersFilter === '4-6' && (count < 4 || count > 6)) return false;
+        if (familyMembersFilter === '7+' && count < 7) return false;
+      }
+
+      // 10. Income Filter (Table head 6: داهاتی مانگانە)
+      if (incomeFilter !== 'all') {
+        const inc = Number(b.monthlyIncomeIQD) || 0;
+        if (incomeFilter === 'zero' && inc !== 0) return false;
+        if (incomeFilter === 'low' && (inc <= 0 || inc > 300000)) return false;
+        if (incomeFilter === 'under300k' && inc > 300000) return false;
+        if (incomeFilter === '300k-600k' && (inc < 300000 || inc > 600000)) return false;
+        if (incomeFilter === 'above600k' && inc <= 600000) return false;
+      }
+
+      // 11. GPS Filter (Table head 3: پارێزگا / ناونیشان)
+      if (hasGpsFilter !== 'all') {
+        const hasLoc = !!(b.location && b.location.lat && b.location.lng);
+        if (hasGpsFilter === 'with_gps' && !hasLoc) return false;
+        if (hasGpsFilter === 'without_gps' && hasLoc) return false;
+      }
+
+      return true;
+    });
+  }, [
+    beneficiaries,
+    searchQuery,
+    statusFilter,
+    categoryFilter,
+    governorateFilter,
+    genderFilter,
+    ageFilter,
+    familyHeadFilter,
+    providerFilter,
+    familyMembersFilter,
+    incomeFilter,
+    hasGpsFilter
+  ]);
+
+  // 2. Sorting across all table heads
+  const sortedBeneficiaries = useMemo(() => {
+    if (!sortField) return filteredBeneficiaries;
+
+    return [...filteredBeneficiaries].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'fullName':
+          cmp = (a.fullName || '').localeCompare(b.fullName || '', 'ku', { sensitivity: 'base' });
+          break;
+        case 'age':
+          cmp = (Number(a.age) || 0) - (Number(b.age) || 0);
+          break;
+        case 'gender':
+          cmp = (a.gender || '').localeCompare(b.gender || '');
+          break;
+        case 'nationalId':
+          cmp = (a.nationalId || '').localeCompare(b.nationalId || '', undefined, { numeric: true });
+          break;
+        case 'phone':
+          cmp = (a.phone || '').localeCompare(b.phone || '', undefined, { numeric: true });
+          break;
+        case 'governorate':
+          cmp = (a.governorate || '').localeCompare(b.governorate || '', 'ku');
+          break;
+        case 'address':
+          cmp = (a.address || '').localeCompare(b.address || '', 'ku');
+          break;
+        case 'hasGps': {
+          const aGps = a.location?.lat && a.location?.lng ? 1 : 0;
+          const bGps = b.location?.lat && b.location?.lng ? 1 : 0;
+          cmp = aGps - bGps;
+          break;
+        }
+        case 'isProvider': {
+          const aP = a.isProvider ? 1 : 0;
+          const bP = b.isProvider ? 1 : 0;
+          cmp = aP - bP;
+          break;
+        }
+        case 'isFamilyHead': {
+          const aH = a.isFamilyHead ? 1 : 0;
+          const bH = b.isFamilyHead ? 1 : 0;
+          cmp = aH - bH;
+          break;
+        }
+        case 'needCategory': {
+          const labelA = categoryLabels[a.needCategory] || a.needCategory || '';
+          const labelB = categoryLabels[b.needCategory] || b.needCategory || '';
+          cmp = labelA.localeCompare(labelB, 'ku');
+          break;
+        }
+        case 'familyMembers':
+          cmp = (Number(a.familyMembers) || 0) - (Number(b.familyMembers) || 0);
+          break;
+        case 'monthlyIncomeIQD':
+          cmp = (Number(a.monthlyIncomeIQD) || 0) - (Number(b.monthlyIncomeIQD) || 0);
+          break;
+        case 'status': {
+          const labelA = statusLabels[a.status] || a.status || '';
+          const labelB = statusLabels[b.status] || b.status || '';
+          cmp = labelA.localeCompare(labelB, 'ku');
+          break;
+        }
+        default:
+          cmp = 0;
+      }
+      return sortOrder === 'desc' ? -cmp : cmp;
+    });
+  }, [filteredBeneficiaries, sortField, sortOrder]);
+
+  const totalMonthlyIncomeFiltered = useMemo(() => {
+    return sortedBeneficiaries.reduce((sum, b) => sum + (Number(b.monthlyIncomeIQD) || 0), 0);
+  }, [sortedBeneficiaries]);
+
+  const totalFamilyMembersFiltered = useMemo(() => {
+    return sortedBeneficiaries.reduce((sum, b) => sum + (Number(b.familyMembers) || 1), 0);
+  }, [sortedBeneficiaries]);
 
   // Process uploaded files to BeneficiaryDocument
   const processUploadedFiles = async (
@@ -758,15 +1067,6 @@ export const BeneficiariesView: React.FC = () => {
     if (updated) setSelectedBeneficiary(updated);
   };
 
-  const categoryLabels: Record<NeedCategory, string> = {
-    poor: 'هەژار و دەستکورت',
-    orphan: 'بێباوک و هەتیو',
-    sick: 'نەخۆشی درێژخایەن',
-    disabled: 'خاوەن پێداویستی تایبەت',
-    displaced: 'ئاوارە و پەنابەر',
-    student: 'خوێندکاری هەژار'
-  };
-
   return (
     <div className="space-y-6 pb-8 animate-in fade-in duration-300">
       
@@ -823,10 +1123,10 @@ export const BeneficiariesView: React.FC = () => {
         </div>
       )}
 
-      {/* Filter and Search Pill Bar */}
-      <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          
+      {/* Filter and Search Pill Bar with Table Head Filters & Sorting */}
+      <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-4 sm:p-5 border border-slate-200/90 shadow-sm space-y-3.5">
+        {/* Row 1: Primary Search, Status, Category, Governorate & Filter Bar Actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Search Input */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5 pointer-events-none" />
@@ -835,15 +1135,26 @@ export const BeneficiariesView: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="گەڕان بەپێی ناو، مۆبایل، ژمارەی نیشتمانی..."
-              className="w-full h-11 pr-10 pl-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 placeholder-slate-400 font-bold"
+              className="w-full h-10 pr-10 pl-8 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400 font-bold"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute left-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
+                title="پاککردنەوەی گەڕان"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
-          {/* Status Filter */}
+          {/* Status Filter (Table Head: دۆخی دۆسیە) */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full h-11 px-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+            className="w-full h-10 px-3 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+            title="فلتەر بەپێی دۆخی دۆسیە"
           >
             <option value="all">هەموو دۆخەکان ({beneficiaries.length})</option>
             <option value="pending">⏳ لەژێر لێکۆڵینەوە ({beneficiaries.filter(b => b.status === 'pending').length})</option>
@@ -857,11 +1168,12 @@ export const BeneficiariesView: React.FC = () => {
             <option value="archived">📁 دۆسیەی ئەرشیڤکراو ({beneficiaries.filter(b => b.status === 'archived').length})</option>
           </select>
 
-          {/* Category Filter */}
+          {/* Category Filter (Table Head: حاڵەت) */}
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full h-11 px-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+            className="w-full h-10 px-3 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+            title="فلتەر بەپێی حاڵەتی پێویستی"
           >
             <option value="all">هەموو حاڵەتەکان</option>
             <option value="poor">هەژار و دەستکورت</option>
@@ -869,13 +1181,15 @@ export const BeneficiariesView: React.FC = () => {
             <option value="sick">نەخۆشی درێژخایەن</option>
             <option value="disabled">خاوەن پێداویستی تایبەت</option>
             <option value="student">خوێندکاری هەژار</option>
+            <option value="displaced">ئاوارە و پەنابەر</option>
           </select>
 
-          {/* Governorate Filter */}
+          {/* Governorate Filter (Table Head: پارێزگا) */}
           <select
             value={governorateFilter}
             onChange={(e) => setGovernorateFilter(e.target.value)}
-            className="w-full h-11 px-3.5 text-xs sm:text-sm rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+            className="w-full h-10 px-3 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+            title="فلتەر بەپێی پارێزگا"
           >
             <option value="all">هەموو پارێزگاکان</option>
             <option value="هەولێر">هەولێر</option>
@@ -886,24 +1200,698 @@ export const BeneficiariesView: React.FC = () => {
             <option value="گەرمیان">گەرمیان</option>
             <option value="زاخۆ">زاخۆ</option>
           </select>
-
         </div>
+
+        {/* Row 2: Secondary Table Head Filters (Collapsible Section) */}
+        {isFiltersExpanded && (
+          <div className="pt-3 border-t border-slate-100 bg-slate-50/70 p-3.5 rounded-2xl animate-in fade-in duration-150">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {/* Gender Filter (Table Head: ڕەگەز) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  ڕەگەز (ناوی تەواو / ڕەگەز):
+                </label>
+                <select
+                  value={genderFilter}
+                  onChange={(e) => setGenderFilter(e.target.value)}
+                  className="w-full h-9 px-2.5 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+                >
+                  <option value="all">هەموو ڕەگەزەکان</option>
+                  <option value="male">👨 نێرینە</option>
+                  <option value="female">👩 مێینە</option>
+                </select>
+              </div>
+
+              {/* Age Group Filter (Table Head: تەمەن) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  تەمەن (ناوی تەواو / تەمەن):
+                </label>
+                <select
+                  value={ageFilter}
+                  onChange={(e) => setAgeFilter(e.target.value)}
+                  className="w-full h-9 px-2.5 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+                >
+                  <option value="all">هەموو تەمەنەکان</option>
+                  <option value="under18">👶 خوار ١٨ ساڵ (منداڵ و نەوجەوان)</option>
+                  <option value="18-35">🧑 ١٨ بۆ ٣٥ ساڵ (گەنجان)</option>
+                  <option value="36-59">👨‍💼 ٣٦ بۆ ٥٩ ساڵ (پێگەیشتوو)</option>
+                  <option value="60plus">👴 ٦٠ ساڵ و زیاتر (بەساڵاچوو)</option>
+                </select>
+              </div>
+
+              {/* Family Head Filter (Table Head: پێگەی خێزان) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  پێگەی خێزان (سەرۆکی خێزان):
+                </label>
+                <select
+                  value={familyHeadFilter}
+                  onChange={(e) => setFamilyHeadFilter(e.target.value)}
+                  className="w-full h-9 px-2.5 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+                >
+                  <option value="all">هەموو پێگەکانی خێزان</option>
+                  <option value="head">👑 تەنها سەرۆکی خێزان</option>
+                  <option value="member">👤 تەنها ئەندامی خێزان</option>
+                </select>
+              </div>
+
+              {/* Provider Filter (Table Head: پێگەی بژێوی) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  پێگەی بژێوی و دابینکەر:
+                </label>
+                <select
+                  value={providerFilter}
+                  onChange={(e) => setProviderFilter(e.target.value)}
+                  className="w-full h-9 px-2.5 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+                >
+                  <option value="all">هەموو پێگەکانی بژێوی</option>
+                  <option value="provider">💼 دابینکەری سەرەکی</option>
+                  <option value="not_provider">⚠️ دابینکەر نییە (پشتپێبەستراو)</option>
+                  <option value="only_provider">🛡️ تەنها دابینکەرە (بێ هاوکار)</option>
+                </select>
+              </div>
+
+              {/* Family Members Count Filter (Table Head: ئەندام) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  قەبارەی خێزان (ئەندامان):
+                </label>
+                <select
+                  value={familyMembersFilter}
+                  onChange={(e) => setFamilyMembersFilter(e.target.value)}
+                  className="w-full h-9 px-2.5 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+                >
+                  <option value="all">هەموو ژمارەی ئەندامان</option>
+                  <option value="1">تاکەکەسی (1 ئەندام)</option>
+                  <option value="2-3">خێزانی بچووک (2 - 3 ئەندام)</option>
+                  <option value="4-6">خێزانی مامناوەند (4 - 6 ئەندام)</option>
+                  <option value="7+">خێزانی گەورە (7 ئەندام و زیاتر)</option>
+                </select>
+              </div>
+
+              {/* Monthly Income Filter (Table Head: داهاتی مانگانە) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  ئاستی داهاتی مانگانە:
+                </label>
+                <select
+                  value={incomeFilter}
+                  onChange={(e) => setIncomeFilter(e.target.value)}
+                  className="w-full h-9 px-2.5 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+                >
+                  <option value="all">هەموو ئاستەکانی داهات</option>
+                  <option value="zero">🔴 بێ داهات (0 د.ع)</option>
+                  <option value="low">🟡 کەمداهات (1 - 300,000 د.ع)</option>
+                  <option value="under300k">🟠 کەمتر لە 300,000 د.ع (سفر و کەمداهات)</option>
+                  <option value="300k-600k">🟢 300,000 بۆ 600,000 د.ع</option>
+                  <option value="above600k">🔵 زیاتر لە 600,000 د.ع</option>
+                </select>
+              </div>
+
+              {/* GPS Location Filter (Table Head: ناونیشان / شوێن) */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  شوێنی GPS (ناونیشان / نەخشە):
+                </label>
+                <select
+                  value={hasGpsFilter}
+                  onChange={(e) => setHasGpsFilter(e.target.value)}
+                  className="w-full h-9 px-2.5 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+                >
+                  <option value="all">هەموو ناونیشانەکان</option>
+                  <option value="with_gps">📍 تەنها خاوەن GPS (لەسەر نەخشە)</option>
+                  <option value="without_gps">🗺️ بێ GPS</option>
+                </select>
+              </div>
+
+              {/* Table Head Synchronized Sorting Selector */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  ڕیزبەندکردنی خشتە:
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={sortField ? `${sortField}:${sortOrder}` : 'default'}
+                    onChange={(e) => handleTopFilterSortChange(e.target.value)}
+                    className="flex-1 h-9 px-2.5 text-xs rounded-xl liquid-input text-slate-900 cursor-pointer bg-white font-bold"
+                  >
+                    <option value="default">بنەڕەتی (بەرواری تۆمارکردن)</option>
+                    <option value="fullName:asc">ناوی تەواو (ئەلفوبێ ئ - ی)</option>
+                    <option value="fullName:desc">ناوی تەواو (پێچەوانە ی - ئ)</option>
+                    <option value="age:asc">تەمەن (بچووک بۆ گەورە)</option>
+                    <option value="age:desc">تەمەن (گەورە بۆ بچووک)</option>
+                    <option value="gender:asc">ڕەگەز (مێینە / نێرینە)</option>
+                    <option value="nationalId:asc">ژمارەی ناسنامە (سەرکەوتوو)</option>
+                    <option value="nationalId:desc">ژمارەی ناسنامە (دابەزیو)</option>
+                    <option value="phone:asc">ژمارەی مۆبایل</option>
+                    <option value="governorate:asc">پارێزگا (ئەلفوبێ)</option>
+                    <option value="address:asc">ناونیشان (ئەلفوبێ)</option>
+                    <option value="hasGps:desc">شوێنی GPS (خاوەن شوێن لەپێشەوە)</option>
+                    <option value="isProvider:desc">پێگەی بژێوی (دابینکەر لەپێشەوە)</option>
+                    <option value="isFamilyHead:desc">سەرۆکی خێزان لەپێشەوە</option>
+                    <option value="needCategory:asc">حاڵەتی پێویستی</option>
+                    <option value="familyMembers:desc">ئەندامانی خێزان (زۆر بۆ کەم)</option>
+                    <option value="familyMembers:asc">ئەندامانی خێزان (کەم بۆ زۆر)</option>
+                    <option value="monthlyIncomeIQD:asc">داهاتی مانگانە (کەم بۆ زۆر)</option>
+                    <option value="monthlyIncomeIQD:desc">داهاتی مانگانە (زۆر بۆ کەم)</option>
+                    <option value="status:asc">دۆخی دۆسیە (بەپێی پۆلێنکردن)</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!sortField) {
+                        setSortField('fullName');
+                        setSortOrder('asc');
+                      } else {
+                        setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+                      }
+                    }}
+                    className={`h-9 px-2.5 rounded-xl border flex items-center justify-center text-xs font-bold transition-all shadow-xs shrink-0 ${
+                      sortField
+                        ? 'bg-cyan-50 border-cyan-200 text-cyan-800'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                    title={sortOrder === 'asc' ? 'ڕیزبەندی سەرکەوتوو (کەم بۆ زۆر) - کلیک بکە بۆ گۆڕین' : 'ڕیزبەندی دابەزیو (زۆر بۆ کەم) - کلیک بکە بۆ گۆڕین'}
+                  >
+                    {sortOrder === 'asc' ? (
+                      <ArrowUp className="w-3.5 h-3.5 text-cyan-700" />
+                    ) : (
+                      <ArrowDown className="w-3.5 h-3.5 text-cyan-700" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Row 3: Action Bar (Expand Toggle, Reset Filters Button, Results Count) */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Toggle Table Head Filters Expansion */}
+            <button
+              type="button"
+              onClick={() => setIsFiltersExpanded(prev => !prev)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs ${
+                isFiltersExpanded
+                  ? 'bg-cyan-50 border-cyan-200 text-cyan-800'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5 text-cyan-600" />
+              <span>فلتەرەکانی تری خشتە</span>
+              {secondaryFiltersCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-cyan-600 text-white text-[10px] flex items-center justify-center font-black">
+                  {secondaryFiltersCount}
+                </span>
+              )}
+              {isFiltersExpanded ? (
+                <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              )}
+            </button>
+
+            {/* Reset Filters Button */}
+            {activeFiltersCount > 0 && (
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-all shadow-xs"
+                title="سڕینەوەی سەرجەم فلتەر و ڕیزبەندییەکان"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                <span>سڕینەوەی فلتەرەکان</span>
+                <span className="w-4 h-4 rounded-full bg-amber-200 text-amber-900 text-[10px] flex items-center justify-center font-black">
+                  {activeFiltersCount}
+                </span>
+              </button>
+            )}
+          </div>
+
+          <div className="text-[11px] font-bold text-slate-600 bg-slate-100/90 px-3 py-1.5 rounded-xl border border-slate-200">
+            دۆزراوەتەوە: <span className="text-cyan-800 font-black">{sortedBeneficiaries.length}</span> لە کۆی <span className="text-slate-900 font-bold">{beneficiaries.length}</span>
+          </div>
+        </div>
+
+        {/* Active Filter Chips / Pills */}
+        {activeFiltersCount > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100/80 text-[11px]">
+            <span className="text-slate-400 font-bold ml-1">فلتەرە چالاکەکان:</span>
+            
+            {searchQuery.trim() && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                گەڕان: {searchQuery}
+                <button type="button" onClick={() => setSearchQuery('')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+            
+            {statusFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                دۆخ: {statusLabels[statusFilter] || statusFilter}
+                <button type="button" onClick={() => setStatusFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+
+            {categoryFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                حاڵەت: {categoryLabels[categoryFilter as NeedCategory] || categoryFilter}
+                <button type="button" onClick={() => setCategoryFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+
+            {governorateFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                پارێزگا: {governorateFilter}
+                <button type="button" onClick={() => setGovernorateFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+
+            {genderFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                ڕەگەز: {genderFilter === 'male' ? 'نێرینە' : 'مێینە'}
+                <button type="button" onClick={() => setGenderFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+
+            {ageFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                تەمەن: {ageFilter === 'under18' ? 'خوار ١٨ ساڵ' : ageFilter === '18-35' ? '١٨ - ٣٥ ساڵ' : ageFilter === '36-59' ? '٣٦ - ٥٩ ساڵ' : '٦٠ ساڵ و زیاتر'}
+                <button type="button" onClick={() => setAgeFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+
+            {familyHeadFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                پێگەی خێزان: {familyHeadFilter === 'head' ? 'سەرۆکی خێزان' : 'ئەندامی خێزان'}
+                <button type="button" onClick={() => setFamilyHeadFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+
+            {providerFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                بژێوی: {providerFilter === 'provider' ? 'دابینکەری سەرەکی' : providerFilter === 'not_provider' ? 'دابینکەر نییە' : 'تەنها دابینکەر'}
+                <button type="button" onClick={() => setProviderFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+
+            {familyMembersFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                ئەندامان: {familyMembersFilter} ئەندام
+                <button type="button" onClick={() => setFamilyMembersFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+
+            {incomeFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                داهات: {incomeFilter === 'zero' ? 'بێ داهات' : incomeFilter === 'low' ? '1 - 300,000 د.ع' : incomeFilter === 'under300k' ? '< 300,000 د.ع' : incomeFilter === '300k-600k' ? '300k - 600k د.ع' : '> 600,000 د.ع'}
+                <button type="button" onClick={() => setIncomeFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+
+            {hasGpsFilter !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold shadow-2xs">
+                GPS: {hasGpsFilter === 'with_gps' ? 'خاوەن GPS' : 'بێ GPS'}
+                <button type="button" onClick={() => setHasGpsFilter('all')} className="hover:text-cyan-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+
+            {sortField && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-purple-50 border border-purple-200 text-purple-800 font-bold shadow-2xs">
+                ڕیزبەندی: {sortFieldLabels[sortField]} ({sortOrder === 'asc' ? 'سەرکەوتوو ↑' : 'دابەزیو ↓'})
+                <button type="button" onClick={() => { setSortField(null); setSortOrder('asc'); }} className="hover:text-purple-950 font-bold ml-0.5">×</button>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Beneficiaries Table */}
-      <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-right text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
+      {/* Beneficiaries Table with Screen Interactive Layout & Custom Scrollbar */}
+      <div
+        className={`rounded-3xl bg-white/95 backdrop-blur-2xl border border-slate-200/90 shadow-sm overflow-hidden flex flex-col transition-all duration-300 ${
+          isFullscreenTable
+            ? 'fixed inset-2 sm:inset-4 z-40 bg-white shadow-2xl border-2 border-cyan-500 p-2 sm:p-4'
+            : ''
+        }`}
+      >
+        {/* Table Top Interactive Controls Bar */}
+        <div className="p-3 sm:p-3.5 bg-slate-50/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-cyan-100 text-cyan-700">
+              <Users className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-800 text-xs sm:text-sm">خشتەی زانیارییەکانی سوودمەندان</span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                  {sortedBeneficiaries.length} لە کۆی {beneficiaries.length} کەس
+                </span>
+                {sortField && (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-900 border border-cyan-200">
+                    ڕیزبەندی: {sortFieldLabels[sortField]} ({sortOrder === 'asc' ? 'سەرکەوتوو ↑' : 'دابەزیو ↓'})
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Density Toggle (Compact vs Comfortable) */}
+            <button
+              type="button"
+              onClick={() => setTableDensity(d => d === 'comfortable' ? 'compact' : 'comfortable')}
+              className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+              title="گۆڕینی چڕیی خشتەکە (Compact / Comfortable)"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+              <span>{tableDensity === 'comfortable' ? 'دیمەنی چڕ' : 'دیمەنی فراوان'}</span>
+            </button>
+
+            {/* Screen Interactive Layout Fullscreen / Expand Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsFullscreenTable(f => !f)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                isFullscreenTable
+                  ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+              }`}
+              title={isFullscreenTable ? 'داخستنی شاشەی تەواو (Escape)' : 'فراوانکردنی خشتە بۆ هەموو شاشەکە'}
+            >
+              {isFullscreenTable ? (
+                <>
+                  <Minimize2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>داخستنی تەواوی شاشە</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>شاشەی تەواو</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Scroll Container with Screen-Interactive Layout & Prominent Scrollbar */}
+        <div
+          ref={tableContainerRef}
+          className={`overflow-x-auto overflow-y-auto interactive-table-scrollbar ${
+            isFullscreenTable ? 'flex-1 min-h-0' : 'max-h-[calc(100vh-270px)] min-h-[420px]'
+          }`}
+        >
+          <table className="w-full text-right text-xs min-w-[1200px] border-collapse select-text">
+            <thead className="sticky top-0 z-20 bg-slate-100/95 backdrop-blur-md border-b-2 border-slate-200 text-slate-700 font-bold shadow-xs">
               <tr>
-                <th className="py-3.5 px-4">ناوی تەواو / تەمەن و ڕەگەز</th>
-                <th className="py-3.5 px-4">ناسنامە / مۆبایل</th>
-                <th className="py-3.5 px-4">پارێزگا / ناونیشان</th>
-                <th className="py-3.5 px-4">پێگەی خێزان و بژێوی</th>
-                <th className="py-3.5 px-4">حاڵەت / ئەندام</th>
-                <th className="py-3.5 px-4">داهاتی مانگانە</th>
-                <th className="py-3.5 px-4">دۆخی دۆسیە</th>
-                <th className="py-3.5 px-4 text-center">کردارەکان</th>
+                {/* 1. ناوی تەواو / تەمەن و ڕەگەز */}
+                <th
+                  scope="col"
+                  className={`py-3 px-3.5 select-none transition-colors border-b ${
+                    sortField === 'fullName' || sortField === 'age' || sortField === 'gender'
+                      ? 'bg-cyan-100/90 text-cyan-950 border-b-2 border-cyan-500'
+                      : 'hover:bg-slate-200/70'
+                  }`}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <div
+                      onClick={() => handleSort('fullName')}
+                      className="flex items-center justify-between gap-1.5 cursor-pointer group hover:text-cyan-800 transition-colors"
+                      title="کلیک بکە بۆ ڕیزبەندکردن بەپێی ناوی تەواو"
+                    >
+                      <span className="font-extrabold text-xs">ناوی تەواو</span>
+                      <span className="flex items-center">
+                        {sortField === 'fullName' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-cyan-700" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-700" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-40 group-hover:opacity-100" />
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('age')}
+                        className={`px-1.5 py-0.5 rounded font-bold transition-all flex items-center gap-0.5 cursor-pointer ${
+                          sortField === 'age'
+                            ? 'bg-cyan-600 text-white shadow-xs'
+                            : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'
+                        }`}
+                        title="ڕیزبەندکردن بەپێی تەمەن"
+                      >
+                        <span>تەمەن</span>
+                        {sortField === 'age' && (sortOrder === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSort('gender')}
+                        className={`px-1.5 py-0.5 rounded font-bold transition-all flex items-center gap-0.5 cursor-pointer ${
+                          sortField === 'gender'
+                            ? 'bg-cyan-600 text-white shadow-xs'
+                            : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'
+                        }`}
+                        title="ڕیزبەندکردن بەپێی ڕەگەز"
+                      >
+                        <span>ڕەگەز</span>
+                        {sortField === 'gender' && (sortOrder === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}
+                      </button>
+                    </div>
+                  </div>
+                </th>
+
+                {/* 2. ناسنامە / مۆبایل */}
+                <th
+                  scope="col"
+                  className={`py-3 px-3.5 select-none transition-colors border-b ${
+                    sortField === 'nationalId' || sortField === 'phone'
+                      ? 'bg-cyan-100/90 text-cyan-950 border-b-2 border-cyan-500'
+                      : 'hover:bg-slate-200/70'
+                  }`}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <div
+                      onClick={() => handleSort('nationalId')}
+                      className="flex items-center justify-between gap-1.5 cursor-pointer group hover:text-cyan-800 transition-colors"
+                      title="کلیک بکە بۆ ڕیزبەندکردن بەپێی ژمارەی ناسنامە"
+                    >
+                      <span className="font-extrabold text-xs">ناسنامە</span>
+                      <span className="flex items-center">
+                        {sortField === 'nationalId' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-cyan-700" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-700" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-40 group-hover:opacity-100" />
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('phone')}
+                        className={`px-1.5 py-0.5 rounded font-bold transition-all flex items-center gap-0.5 cursor-pointer ${
+                          sortField === 'phone'
+                            ? 'bg-cyan-600 text-white shadow-xs'
+                            : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'
+                        }`}
+                        title="ڕیزبەندکردن بەپێی ژمارەی مۆبایل"
+                      >
+                        <span>مۆبایل</span>
+                        {sortField === 'phone' && (sortOrder === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}
+                      </button>
+                    </div>
+                  </div>
+                </th>
+
+                {/* 3. پارێزگا / ناونیشان */}
+                <th
+                  scope="col"
+                  className={`py-3 px-3.5 select-none transition-colors border-b ${
+                    sortField === 'governorate' || sortField === 'address' || sortField === 'hasGps'
+                      ? 'bg-cyan-100/90 text-cyan-950 border-b-2 border-cyan-500'
+                      : 'hover:bg-slate-200/70'
+                  }`}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <div
+                      onClick={() => handleSort('governorate')}
+                      className="flex items-center justify-between gap-1.5 cursor-pointer group hover:text-cyan-800 transition-colors"
+                      title="کلیک بکە بۆ ڕیزبەندکردن بەپێی پارێزگا"
+                    >
+                      <span className="font-extrabold text-xs">پارێزگا</span>
+                      <span className="flex items-center">
+                        {sortField === 'governorate' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-cyan-700" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-700" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-40 group-hover:opacity-100" />
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('address')}
+                        className={`px-1.5 py-0.5 rounded font-bold transition-all flex items-center gap-0.5 cursor-pointer ${
+                          sortField === 'address'
+                            ? 'bg-cyan-600 text-white shadow-xs'
+                            : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'
+                        }`}
+                        title="ڕیزبەندکردن بەپێی ناونیشان"
+                      >
+                        <span>ناونیشان</span>
+                        {sortField === 'address' && (sortOrder === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSort('hasGps')}
+                        className={`px-1.5 py-0.5 rounded font-bold transition-all flex items-center gap-0.5 cursor-pointer ${
+                          sortField === 'hasGps'
+                            ? 'bg-cyan-600 text-white shadow-xs'
+                            : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'
+                        }`}
+                        title="ڕیزبەندکردن بەپێی بوونی GPS لەسەر نەخشە"
+                      >
+                        <span>GPS</span>
+                        {sortField === 'hasGps' && (sortOrder === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}
+                      </button>
+                    </div>
+                  </div>
+                </th>
+
+                {/* 4. پێگەی خێزان و بژێوی */}
+                <th
+                  scope="col"
+                  className={`py-3 px-3.5 select-none transition-colors border-b ${
+                    sortField === 'isProvider' || sortField === 'isFamilyHead'
+                      ? 'bg-cyan-100/90 text-cyan-950 border-b-2 border-cyan-500'
+                      : 'hover:bg-slate-200/70'
+                  }`}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <div
+                      onClick={() => handleSort('isProvider')}
+                      className="flex items-center justify-between gap-1.5 cursor-pointer group hover:text-cyan-800 transition-colors"
+                      title="کلیک بکە بۆ ڕیزبەندکردن بەپێی پێگەی بژێوی"
+                    >
+                      <span className="font-extrabold text-xs">پێگەی بژێوی</span>
+                      <span className="flex items-center">
+                        {sortField === 'isProvider' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-cyan-700" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-700" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-40 group-hover:opacity-100" />
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('isFamilyHead')}
+                        className={`px-1.5 py-0.5 rounded font-bold transition-all flex items-center gap-0.5 cursor-pointer ${
+                          sortField === 'isFamilyHead'
+                            ? 'bg-cyan-600 text-white shadow-xs'
+                            : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'
+                        }`}
+                        title="ڕیزبەندکردن بەپێی سەرۆکایەتی خێزان"
+                      >
+                        <span>سەرۆکی خێزان</span>
+                        {sortField === 'isFamilyHead' && (sortOrder === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}
+                      </button>
+                    </div>
+                  </div>
+                </th>
+
+                {/* 5. حاڵەت / ئەندام */}
+                <th
+                  scope="col"
+                  className={`py-3 px-3.5 select-none transition-colors border-b ${
+                    sortField === 'needCategory' || sortField === 'familyMembers'
+                      ? 'bg-cyan-100/90 text-cyan-950 border-b-2 border-cyan-500'
+                      : 'hover:bg-slate-200/70'
+                  }`}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <div
+                      onClick={() => handleSort('needCategory')}
+                      className="flex items-center justify-between gap-1.5 cursor-pointer group hover:text-cyan-800 transition-colors"
+                      title="کلیک بکە بۆ ڕیزبەندکردن بەپێی حاڵەتی پێویستی"
+                    >
+                      <span className="font-extrabold text-xs">حاڵەتی پێویستی</span>
+                      <span className="flex items-center">
+                        {sortField === 'needCategory' ? (
+                          sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-cyan-700" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-700" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-40 group-hover:opacity-100" />
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => handleSort('familyMembers')}
+                        className={`px-1.5 py-0.5 rounded font-bold transition-all flex items-center gap-0.5 cursor-pointer ${
+                          sortField === 'familyMembers'
+                            ? 'bg-cyan-600 text-white shadow-xs'
+                            : 'bg-slate-200/80 hover:bg-slate-300 text-slate-700'
+                        }`}
+                        title="ڕیزبەندکردن بەپێی ژمارەی ئەندامان"
+                      >
+                        <span>ئەندامانی خێزان</span>
+                        {sortField === 'familyMembers' && (sortOrder === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}
+                      </button>
+                    </div>
+                  </div>
+                </th>
+
+                {/* 6. داهاتی مانگانە */}
+                <th
+                  scope="col"
+                  onClick={() => handleSort('monthlyIncomeIQD')}
+                  className={`py-3 px-3.5 select-none cursor-pointer transition-colors border-b group ${
+                    sortField === 'monthlyIncomeIQD'
+                      ? 'bg-cyan-100/90 text-cyan-950 border-b-2 border-cyan-500'
+                      : 'hover:bg-slate-200/70'
+                  }`}
+                  title="کلیک بکە بۆ ڕیزبەندکردن بەپێی داهاتی مانگانە"
+                >
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="font-extrabold text-xs">داهاتی مانگانە</span>
+                    <span className="flex items-center">
+                      {sortField === 'monthlyIncomeIQD' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-cyan-700" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-700" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-40 group-hover:opacity-100" />
+                      )}
+                    </span>
+                  </div>
+                </th>
+
+                {/* 7. دۆخی دۆسیە */}
+                <th
+                  scope="col"
+                  onClick={() => handleSort('status')}
+                  className={`py-3 px-3.5 select-none cursor-pointer transition-colors border-b group ${
+                    sortField === 'status'
+                      ? 'bg-cyan-100/90 text-cyan-950 border-b-2 border-cyan-500'
+                      : 'hover:bg-slate-200/70'
+                  }`}
+                  title="کلیک بکە بۆ ڕیزبەندکردن بەپێی دۆخی دۆسیە"
+                >
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="font-extrabold text-xs">دۆخی دۆسیە</span>
+                    <span className="flex items-center">
+                      {sortField === 'status' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-cyan-700" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-700" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-40 group-hover:opacity-100" />
+                      )}
+                    </span>
+                  </div>
+                </th>
+
+                {/* 8. کردارەکان */}
+                <th scope="col" className="py-3 px-3.5 text-center font-extrabold text-xs border-b">
+                  کردارەکان
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -917,19 +1905,38 @@ export const BeneficiariesView: React.FC = () => {
                     </p>
                   </td>
                 </tr>
-              ) : filteredBeneficiaries.length === 0 ? (
+              ) : sortedBeneficiaries.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
-                    هیچ کەسێک نەدۆزرایەوە بەپێی ئەم فلتەرە
+                  <td colSpan={8} className="py-14 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2 text-slate-400">
+                      <Search className="w-8 h-8 text-slate-300" />
+                      <p className="font-bold text-slate-600 text-sm">هیچ کەسێک نەدۆزرایەوە بەپێی ئەم فلتەرانە</p>
+                      <p className="text-xs text-slate-400">دەتوانیت فلتەرەکان پاکبکەیتەوە تا هەموو لیستەکە دەربکەوێت</p>
+                      <button
+                        type="button"
+                        onClick={resetAllFilters}
+                        className="mt-2 px-3.5 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 text-xs font-bold transition-all shadow-xs"
+                      >
+                        سڕینەوەی سەرجەم فلتەرەکان
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                filteredBeneficiaries.map(ben => (
-                  <tr key={ben.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3.5 px-4">
+                sortedBeneficiaries.map(ben => (
+                  <tr
+                    key={ben.id}
+                    onClick={() => setSelectedBeneficiary(ben)}
+                    className={`cursor-pointer transition-colors group ${
+                      selectedBeneficiary?.id === ben.id
+                        ? 'bg-cyan-50/90 hover:bg-cyan-100/90'
+                        : 'odd:bg-white even:bg-slate-50/40 hover:bg-cyan-50/50'
+                    }`}
+                  >
+                    <td className={`${tableDensity === 'compact' ? 'py-2 px-3 text-[11px]' : 'py-3.5 px-4 text-xs'}`}>
                       <div className="flex items-center gap-2">
                         <span
-                          className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs ${
+                          className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
                             ben.gender === 'female'
                               ? 'bg-rose-100 text-rose-700'
                               : 'bg-cyan-100 text-cyan-700'
@@ -940,7 +1947,9 @@ export const BeneficiariesView: React.FC = () => {
                         </span>
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="font-bold text-slate-900 text-sm">{ben.fullName}</p>
+                            <p className="font-bold text-slate-900 group-hover:text-cyan-800 transition-colors">
+                              {ben.fullName}
+                            </p>
                             {(ben.isConfidential || ben.status === 'confidential') && (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold" title="دۆسیەی هەستیار و پارێزراو">
                                 <Lock className="w-2.5 h-2.5 text-purple-600" />
@@ -954,17 +1963,17 @@ export const BeneficiariesView: React.FC = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className={`${tableDensity === 'compact' ? 'py-2 px-3 text-[11px]' : 'py-3.5 px-4 text-xs'}`}>
                       <p className="font-mono font-bold text-cyan-700">{ben.nationalId}</p>
                       <p className="text-slate-600 text-[11px]">{ben.phone}</p>
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className={`${tableDensity === 'compact' ? 'py-2 px-3 text-[11px]' : 'py-3.5 px-4 text-xs'}`}>
                       <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold mb-1 border border-slate-200/60">
                         {ben.governorate}
                       </span>
                       <p className="text-[11px] text-slate-600 max-w-xs truncate">{ben.address}</p>
                       {ben.location && (
-                        <div className="flex items-center gap-1.5 mt-1">
+                        <div className="flex items-center gap-1.5 mt-1" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => navigateToLocationOnMap(ben.location!.lat, ben.location!.lng, ben.location!.label || ben.fullName, ben.id)}
@@ -986,7 +1995,7 @@ export const BeneficiariesView: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className={`${tableDensity === 'compact' ? 'py-2 px-3 text-[11px]' : 'py-3.5 px-4 text-xs'}`}>
                       {ben.isProvider ? (
                         <div>
                           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 block w-fit mb-0.5">
@@ -1007,18 +2016,18 @@ export const BeneficiariesView: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className={`${tableDensity === 'compact' ? 'py-2 px-3 text-[11px]' : 'py-3.5 px-4 text-xs'}`}>
                       <span className="text-amber-800 font-bold block">{categoryLabels[ben.needCategory] || ben.needCategory}</span>
                       <span className="text-[11px] text-slate-500">{ben.familyMembers} ئەندامی خێزان</span>
                     </td>
-                    <td className="py-3.5 px-4 font-bold text-slate-800">
+                    <td className={`${tableDensity === 'compact' ? 'py-2 px-3 font-bold text-slate-800 text-[11px]' : 'py-3.5 px-4 font-bold text-slate-800 text-xs'}`}>
                       {ben.monthlyIncomeIQD === 0 ? (
                         <span className="text-rose-600 font-bold">بێ داهات</span>
                       ) : (
                         `${ben.monthlyIncomeIQD.toLocaleString()} د.ع`
                       )}
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td className={`${tableDensity === 'compact' ? 'py-2 px-3 text-[11px]' : 'py-3.5 px-4 text-xs'}`}>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {/* 1. Primary Case Status Badge */}
                         {ben.status === 'pending' ? (
@@ -1078,8 +2087,8 @@ export const BeneficiariesView: React.FC = () => {
                         )}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
+                    <td className={`${tableDensity === 'compact' ? 'py-2 px-3 text-center' : 'py-3.5 px-4 text-center'}`}>
+                      <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => setSelectedBeneficiary(ben)}
                           className="p-1.5 rounded-xl bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors border border-cyan-200/60"
@@ -1115,6 +2124,35 @@ export const BeneficiariesView: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Table Interactive Footer with Metrics & Scroll-to-Top */}
+        <div className="p-3 sm:p-3.5 bg-slate-50/95 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 font-medium shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+            <span className="font-bold text-slate-800">
+              کۆی سوودمەندان: <span className="text-cyan-700 font-black">{sortedBeneficiaries.length}</span> کەس
+            </span>
+            <span className="text-slate-300 hidden sm:inline">|</span>
+            <span>
+              کۆی ئەندامانی خێزان: <span className="text-slate-900 font-bold">{totalFamilyMembersFiltered}</span> ئەندام
+            </span>
+            <span className="text-slate-300 hidden sm:inline">|</span>
+            <span>
+              کۆی داهاتی مانگانە: <span className="text-emerald-700 font-bold">{totalMonthlyIncomeFiltered.toLocaleString()} د.ع</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => tableContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="px-3 py-1 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold transition-colors shadow-xs flex items-center gap-1"
+              title="گەڕانەوە بۆ سەرەوەی خشتەکە"
+            >
+              <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+              <span>سەرەوەی خشتە</span>
+            </button>
+          </div>
         </div>
       </div>
 

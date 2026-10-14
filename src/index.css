@@ -57,6 +57,40 @@
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(100, 116, 139, 0.35);
   }
+
+}
+
+/* Screen Interactive Table Scrollbar */
+@layer utilities {
+  .interactive-table-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #0891b2 #f1f5f9;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  .interactive-table-scrollbar::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  .interactive-table-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 9999px;
+  }
+  .interactive-table-scrollbar::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 9999px;
+    border: 2px solid #f1f5f9;
+    transition: background-color 0.2s ease;
+  }
+  .interactive-table-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #0891b2;
+  }
+  .interactive-table-scrollbar::-webkit-scrollbar-thumb:active {
+    background: #0e7490;
+  }
+  .interactive-table-scrollbar::-webkit-scrollbar-corner {
+    background: #f1f5f9;
+  }
 }
 
 /* iOS 26 Liquid Glass White Theme Utilities */
