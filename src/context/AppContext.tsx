@@ -166,6 +166,7 @@ interface AppContextType {
   documents: DocumentItem[];
   allConnectedDocuments: DocumentItem[];
   addDocument: (doc: Omit<DocumentItem, 'id' | 'uploadDate'>) => void;
+  addDocumentsBulk: (docs: Array<Omit<DocumentItem, 'id' | 'uploadDate'>>) => Promise<{ success: boolean; count: number }>;
   deleteDocument: (id: string) => void;
 
   // Notifications & Communications
@@ -2754,6 +2755,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('بارکردنی بەڵگەنامە', `بەڵگەنامەی [${newDoc.title}] بۆ [${newDoc.relatedEntity || 'سیستەم'}] بارکرا`);
   };
 
+  const addDocumentsBulk = async (docs: Array<Omit<DocumentItem, 'id' | 'uploadDate'>>) => {
+    if (!docs || docs.length === 0) return { success: true, count: 0 };
+
+    const today = new Date().toISOString().split('T')[0];
+    const newDocs: DocumentItem[] = docs.map((d, index) => ({
+      ...d,
+      id: `doc-${Date.now()}-${index}-${Math.random().toString(36).substring(2, 6)}`,
+      uploadDate: today
+    }));
+
+    // Group docs that belong to beneficiaries
+    const benDocsMap = new Map<string, BeneficiaryDocument[]>();
+    newDocs.forEach(doc => {
+      const bId = doc.beneficiaryId || (doc.entityType === 'beneficiary' ? doc.entityId : undefined);
+      if (bId) {
+        const benDoc: BeneficiaryDocument = {
+          id: doc.id,
+          title: doc.title,
+          category: (doc.category as BeneficiaryDocCategory) || 'ناسنامە',
+          fileName: doc.fileName || `${doc.title}.${doc.fileType?.toLowerCase() || 'pdf'}`,
+          fileSize: doc.fileSize,
+          fileType: doc.fileType,
+          fileData: doc.fileData,
+          uploadDate: today
+        };
+        const list = benDocsMap.get(bId) || [];
+        list.push(benDoc);
+        benDocsMap.set(bId, list);
+      }
+    });
+
+    if (benDocsMap.size > 0) {
+      setBeneficiaries(prev => prev.map(b => {
+        const newBenDocs = benDocsMap.get(b.id);
+        if (newBenDocs && newBenDocs.length > 0) {
+          const updatedBen = {
+            ...b,
+            documents: [...newBenDocs, ...(b.documents || [])]
+          };
+          safeSupabaseSync(supabase.from('beneficiaries').upsert(mapBeneficiaryToDb(updatedBen)));
+          return updatedBen;
+        }
+        return b;
+      }));
+    }
+
+    setDocuments(prev => [...newDocs, ...prev]);
+    safeSupabaseSync(supabase.from('documents').upsert(newDocs.map(mapDocumentToDb)));
+    logAction('بارکردنی بەکۆمەڵی بەڵگەنامەکان', `${newDocs.length} بەڵگەنامە بە سەرکەوتوویی بارکران و بەسترانەوە بە دۆسیەکان`, 'create');
+
+    return { success: true, count: newDocs.length };
+  };
+
   const deleteDocument = (id: string) => {
     const doc = allConnectedDocuments.find(d => d.id === id) || documents.find(d => d.id === id);
 
@@ -3079,6 +3133,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         documents: allConnectedDocuments,
         allConnectedDocuments,
         addDocument,
+        addDocumentsBulk,
         deleteDocument,
         notifications,
         markNotificationRead,
