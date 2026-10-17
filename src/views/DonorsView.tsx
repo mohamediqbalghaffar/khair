@@ -26,11 +26,15 @@ import {
   Edit3,
   Calendar,
   TrendingUp,
-  BadgeCheck
+  BadgeCheck,
+  MessageCircle,
+  Award
 } from 'lucide-react';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 import { getExchangeRateForDate, convertByDateRate, aggregateAmountsByDayRate } from '../utils/exchangeRates';
 import { getDonationCashMetrics } from '../utils/donationDistributionUtils';
+import { useFeedback } from '../components/ui/FeedbackProvider';
+import { PaginationBar } from '../components/ui/PaginationBar';
 
 export const DonorsView: React.FC = () => {
   const {
@@ -48,9 +52,12 @@ export const DonorsView: React.FC = () => {
     openDistributionForDonation,
     sendSMS
   } = useApp();
+  const { showToast, confirmAction } = useFeedback();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSubTab, setActiveSubTab] = useState<'donors' | 'donations'>('donors');
+  const [donationsPage, setDonationsPage] = useState<number>(1);
+  const [donationsPageSize, setDonationsPageSize] = useState<number>(25);
   const [isAddDonorModalOpen, setIsAddDonorModalOpen] = useState(false);
   const [isAddDonationModalOpen, setIsAddDonationModalOpen] = useState(false);
   const [activeReceipt, setActiveReceipt] = useState<Donation | null>(null);
@@ -167,6 +174,11 @@ export const DonorsView: React.FC = () => {
     );
   });
 
+  const paginatedDonations = useMemo(() => {
+    const startIdx = (donationsPage - 1) * donationsPageSize;
+    return filteredDonations.slice(startIdx, startIdx + donationsPageSize);
+  }, [filteredDonations, donationsPage, donationsPageSize]);
+
   const handleAddDonorSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     addDonor(donorForm);
@@ -180,6 +192,7 @@ export const DonorsView: React.FC = () => {
       status: 'active',
       notes: ''
     });
+    showToast('بەخشەری نوێ بە سەرکەوتوویی تۆمارکرا.', 'success');
   };
 
   // Reset donation form
@@ -368,7 +381,7 @@ export const DonorsView: React.FC = () => {
     e.preventDefault();
     const targetDonor = donors.find(d => d.id === donationForm.donorId);
     if (!targetDonor) {
-      alert('تکایە بەخشەرێک هەڵبژێرە');
+      showToast('تکایە بەخشەرێک هەڵبژێرە', 'warning');
       return;
     }
 
@@ -630,7 +643,10 @@ export const DonorsView: React.FC = () => {
     if (!isCash) {
       const requestedQty = Number(editDonationForm.quantity) || 1;
       if (alreadyDistributedCount > 0 && requestedQty < alreadyDistributedCount) {
-        alert(`هەڵە! ناکرێت بڕی کۆی بەخشین (${requestedQty}) لەو بڕە کەمتر بێت کە پێشتر دابەشکراوە بەسەر خێزانەکاندا (${alreadyDistributedCount})!`);
+        showToast(
+          `هەڵە! ناکرێت بڕی کۆی بەخشین (${requestedQty}) لەو بڕە کەمتر بێت کە پێشتر دابەشکراوە بەسەر خێزانەکاندا (${alreadyDistributedCount})!`,
+          'error'
+        );
         return;
       }
 
@@ -680,12 +696,20 @@ export const DonorsView: React.FC = () => {
     updateDonation(updatedDonation);
     setIsEditDonationModalOpen(false);
     setEditingDonation(null);
+    showToast('پسوولەی بەخشین بە سەرکەوتوویی نوێکرایەوە.', 'success');
   };
 
-  const handleDeleteDonation = (don: Donation) => {
-    const confirmMsg = `دڵنیایت لە سڕینەوەی پسوولەی بەخشینی [${don.receiptNumber}] بە بڕی (${don.amount.toLocaleString()} ${don.currency === 'IQD' ? 'د.ع' : '$'}) لەلایەن [${don.donorName}]؟\n\nئەم کردارە بڕەکە لە کۆی بەخشینی بەخشەر و کاڵاکانی کۆگاش دەسڕێتەوە.`;
-    if (window.confirm(confirmMsg)) {
+  const handleDeleteDonation = async (don: Donation) => {
+    const confirmMsg = `دڵنیایت لە سڕینەوەی پسوولەی بەخشینی [${don.receiptNumber}] بە بڕی (${don.amount.toLocaleString()} ${don.currency === 'IQD' ? 'د.ع' : '$'}) لەلایەن [${don.donorName}]؟ ئەم کردارە بڕەکە لە کۆی بەخشینی بەخشەر و کاڵاکانی کۆگاش دەسڕێتەوە.`;
+    const ok = await confirmAction({
+      title: 'سڕینەوەی پسوولەی بەخشین',
+      message: confirmMsg,
+      confirmLabel: 'بەڵێ، پسوولەکە بسڕەوە',
+      variant: 'danger'
+    });
+    if (ok) {
       deleteDonation(don.id);
+      showToast(`پسوولەی [${don.receiptNumber}] سڕایەوە.`, 'info');
     }
   };
 
@@ -718,6 +742,7 @@ export const DonorsView: React.FC = () => {
     });
     setIsEditDonorModalOpen(false);
     setEditingDonor(null);
+    showToast('زانیاری بەخشەر نوێکرایەوە.', 'success');
   };
 
   return (
@@ -787,7 +812,10 @@ export const DonorsView: React.FC = () => {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setDonationsPage(1);
+            }}
             placeholder="گەڕان بەدوای ناو، ژمارەی پسوولە..."
             className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
           />
@@ -811,6 +839,17 @@ export const DonorsView: React.FC = () => {
               const dispIQD = donorAgg.totalIQD;
               const dispUSD = donorAgg.totalUSD;
 
+              const tier = dispUSD >= 5000 || dispIQD >= 7500000
+                ? { label: 'پشتیوانی ئەڵماسی', className: 'bg-cyan-50 text-cyan-800 border-cyan-200' }
+                : dispUSD >= 1000 || dispIQD >= 1500000
+                ? { label: 'پشتیوانی زێڕین', className: 'bg-amber-50 text-amber-800 border-amber-200' }
+                : hasDonations
+                ? { label: 'بەخشەری بەردەوام', className: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
+                : null;
+
+              const cleanPhone = (donor.phone || '').replace(/[^0-9]/g, '');
+              const waPhone = cleanPhone.startsWith('07') ? `964${cleanPhone.slice(1)}` : cleanPhone;
+
               return (
               <div
                 key={donor.id}
@@ -824,14 +863,28 @@ export const DonorsView: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="font-bold text-slate-900 text-sm">{donor.fullName}</h3>
-                        <span className="text-[10px] text-emerald-700 font-bold">
-                          {donor.type === 'corporate' ? 'کۆمپانیا و بازرگان' : donor.type === 'organization' ? 'دەزگا و ڕێکخراو' : 'بەخشەری کەسی'}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span className="text-[10px] text-emerald-700 font-bold">
+                            {donor.type === 'corporate' ? 'کۆمپانیا و بازرگان' : donor.type === 'organization' ? 'دەزگا و ڕێکخراو' : 'بەخشەری کەسی'}
+                          </span>
+                          {tier && (
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold ${tier.className}`}>
+                              <Award className="w-3 h-3" />
+                              <span>{tier.label}</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      چالاک
-                    </span>
+                    {donor.status === 'inactive' ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                        ناچالاک
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        چالاک
+                      </span>
+                    )}
                   </div>
 
                   <div className="space-y-2 py-3 border-y border-slate-100 text-xs">
@@ -849,29 +902,43 @@ export const DonorsView: React.FC = () => {
                       </div>
                     )}
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">مۆبایل:</span>
+                      <span className="text-slate-500">مۆبایل ({donorDonations.length} پسوولە):</span>
                       <span className="font-mono font-bold text-slate-700">{donor.phone}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-2 flex items-center justify-between gap-2">
+                <div className="mt-4 pt-2 flex items-center justify-between gap-1.5">
                   <button
                     onClick={() => {
                       sendSMS(donor.phone, donor.fullName, `بەڕێز ${donor.fullName}، سوپاس و پێزانینی بێپایانی ڕێکخراوی بۆتان بامۆکی قبوڵ بفەرموون بۆ هاوکاری و بەخشندەییتان.`);
+                      showToast(`کورتەنامەی سوپاسگوزاری بۆ (${donor.fullName}) نێردرا.`, 'success');
                     }}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
+                    title="ناردنی کورتەنامەی سوپاسگوزاری"
                   >
                     <Send className="w-3.5 h-3.5 text-emerald-600" />
-                    نامەی سوپاس (SMS)
+                    <span>SMS</span>
                   </button>
+
+                  {waPhone && (
+                    <a
+                      href={`https://wa.me/${waPhone}?text=${encodeURIComponent(`بەڕێز ${donor.fullName}، سوپاس و پێزانینی بێپایانی ڕێکخراوی خێرخوازی بۆتان بامۆکی قبوڵ بفەرموون بۆ هاوکاری و بەخشندەییتان.`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                      title="ناردنی پەیامی سوپاس بە وەتسئەپ (WhatsApp)"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </a>
+                  )}
 
                   <button
                     onClick={() => {
                       resetDonationForm(donor.id);
                       setIsAddDonationModalOpen(true);
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition-colors border border-emerald-200"
+                    className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition-colors border border-emerald-200"
                     title="تۆمارکردنی بەخشینی نوێ"
                   >
                     + بەخشین
@@ -886,13 +953,20 @@ export const DonorsView: React.FC = () => {
                   </button>
 
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const donCount = donations.filter(d => d.donorId === donor.id).length;
                       const msg = donCount > 0
-                        ? `دڵنیایت لە سڕینەوەی بەخشەر [${donor.fullName}]؟\n\nئاگاداری: ئەم بەخشەرە (${donCount}) پسوولەی بەخشینی تۆمارکراوی هەیە. سڕینەوەی بەخشەرەکە دەبێتە هۆی سڕینەوەی تەواوی پسوولەکانی و نوێبوونەوەی بودجەی پڕۆژەکان بۆ ئەوەی هیچ پارەیەکی نادیار نەمێنێتەوە.`
+                        ? `دڵنیایت لە سڕینەوەی بەخشەر [${donor.fullName}]؟ ئاگاداری: ئەم بەخشەرە (${donCount}) پسوولەی بەخشینی تۆمارکراوی هەیە و سڕینەوەی دەبێتە هۆی سڕینەوەی تەواوی پسوولەکانی.`
                         : `دڵنیایت لە سڕینەوەی بەخشەر [${donor.fullName}]؟`;
-                      if (confirm(msg)) {
+                      const ok = await confirmAction({
+                        title: 'سڕینەوەی تۆماری بەخشەر',
+                        message: msg,
+                        confirmLabel: 'بەڵێ، بیسڕەوە',
+                        variant: 'danger'
+                      });
+                      if (ok) {
                         deleteDonor(donor.id);
+                        showToast(`بەخشەر (${donor.fullName}) سڕایەوە.`, 'info');
                       }
                     }}
                     className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors border border-rose-200"
@@ -934,7 +1008,7 @@ export const DonorsView: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredDonations.map(don => (
+                  paginatedDonations.map(don => (
                     <tr key={don.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-bold text-cyan-700">
                         {don.receiptNumber}
@@ -1042,6 +1116,17 @@ export const DonorsView: React.FC = () => {
               </tbody>
             </table>
           </div>
+          <PaginationBar
+            currentPage={donationsPage}
+            pageSize={donationsPageSize}
+            totalItems={filteredDonations.length}
+            onPageChange={setDonationsPage}
+            onPageSizeChange={(sz) => {
+              setDonationsPageSize(sz);
+              setDonationsPage(1);
+            }}
+            itemLabel="پسوولەی بەخشین"
+          />
         </div>
       )}
 
@@ -1383,7 +1468,7 @@ export const DonorsView: React.FC = () => {
                               min={1}
                               required
                               value={donationForm.quantity}
-                              onChange={(e) => setDonationForm({ ...donationForm, quantity: Number(e.target.value) })}
+                              onChange={(e) => handleAddDonationQuantityChange(Number(e.target.value))}
                               className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
                             />
                           </div>
@@ -1423,7 +1508,7 @@ export const DonorsView: React.FC = () => {
                               min={1}
                               required
                               value={donationForm.quantity}
-                              onChange={(e) => setDonationForm({ ...donationForm, quantity: Number(e.target.value) })}
+                              onChange={(e) => handleAddDonationQuantityChange(Number(e.target.value))}
                               className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
                             />
                           </div>
@@ -1466,7 +1551,7 @@ export const DonorsView: React.FC = () => {
                               min={1}
                               required
                               value={donationForm.quantity}
-                              onChange={(e) => setDonationForm({ ...donationForm, quantity: Number(e.target.value) })}
+                              onChange={(e) => handleAddDonationQuantityChange(Number(e.target.value))}
                               className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
                             />
                           </div>
@@ -1508,7 +1593,7 @@ export const DonorsView: React.FC = () => {
                             min={1}
                             required
                             value={donationForm.quantity}
-                            onChange={(e) => setDonationForm({ ...donationForm, quantity: Number(e.target.value) })}
+                            onChange={(e) => handleAddDonationQuantityChange(Number(e.target.value))}
                             className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
                           />
                         </div>
@@ -1983,7 +2068,7 @@ export const DonorsView: React.FC = () => {
                               min={1}
                               required
                               value={editDonationForm.quantity}
-                              onChange={(e) => setEditDonationForm({ ...editDonationForm, quantity: Number(e.target.value) })}
+                              onChange={(e) => handleEditDonationQuantityChange(Number(e.target.value))}
                               className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
                             />
                           </div>
@@ -2022,7 +2107,7 @@ export const DonorsView: React.FC = () => {
                               min={1}
                               required
                               value={editDonationForm.quantity}
-                              onChange={(e) => setEditDonationForm({ ...editDonationForm, quantity: Number(e.target.value) })}
+                              onChange={(e) => handleEditDonationQuantityChange(Number(e.target.value))}
                               className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
                             />
                           </div>
@@ -2064,7 +2149,7 @@ export const DonorsView: React.FC = () => {
                               min={1}
                               required
                               value={editDonationForm.quantity}
-                              onChange={(e) => setEditDonationForm({ ...editDonationForm, quantity: Number(e.target.value) })}
+                              onChange={(e) => handleEditDonationQuantityChange(Number(e.target.value))}
                               className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
                             />
                           </div>
@@ -2105,7 +2190,7 @@ export const DonorsView: React.FC = () => {
                             min={1}
                             required
                             value={editDonationForm.quantity}
-                            onChange={(e) => setEditDonationForm({ ...editDonationForm, quantity: Number(e.target.value) })}
+                            onChange={(e) => handleEditDonationQuantityChange(Number(e.target.value))}
                             className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
                           />
                         </div>

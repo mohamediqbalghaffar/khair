@@ -1,7 +1,8 @@
 import React from 'react';
 import { Donation } from '../types';
-import { Printer, X, ShieldCheck, QrCode, Package, HeartHandshake, TrendingUp, BadgeCheck } from 'lucide-react';
+import { Printer, X, ShieldCheck, QrCode, Package, TrendingUp, BadgeCheck } from 'lucide-react';
 import { getExchangeRateForDate } from '../utils/exchangeRates';
+import { useModalFocusTrap } from '../utils/useModalFocusTrap';
 
 interface OfficialReceiptModalProps {
   donation: Donation | null;
@@ -9,6 +10,8 @@ interface OfficialReceiptModalProps {
 }
 
 export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ donation, onClose }) => {
+  const modalRef = useModalFocusTrap(!!donation, onClose);
+
   if (!donation) return null;
 
   const handlePrint = () => {
@@ -26,20 +29,30 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
   const rateSource = donation.exchangeRateSource || 'بۆرسەی کیفاح و هەولێر (AlanChand)';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-        
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="receipt-modal-title"
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200"
+      >
         {/* Close Button */}
         <button
+          type="button"
           onClick={onClose}
-          className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
+          aria-label="داخستنی پسوولە"
+          className="no-print absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Printable Area */}
-        <div id="printable-receipt" className="space-y-6 text-slate-900">
-          
+        <div id="printable-receipt" className="space-y-6 text-slate-900 p-2 sm:p-4">
           {/* Header */}
           <div className="text-center border-b border-slate-200 pb-5">
             <div className="flex items-center justify-center gap-2 mb-2">
@@ -47,7 +60,9 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
                 بـ
               </div>
               <div>
-                <h2 className="text-xl font-bold tracking-tight text-slate-900">ڕێکخراوی بۆتان بامۆکی بۆ کاری خێرخوازی</h2>
+                <h2 id="receipt-modal-title" className="text-xl font-bold tracking-tight text-slate-900">
+                  ڕێکخراوی بۆتان بامۆکی بۆ کاری خێرخوازی
+                </h2>
                 <p className="text-xs text-cyan-700 font-bold">مۆڵەتی فەرمی ژمارە: NGO-KRG-2024-9412</p>
               </div>
             </div>
@@ -169,7 +184,7 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
                         </span>
                       </div>
                     </div>
-                    <div className="text-[10px] text-slate-500 text-start pt-0.5">
+                    <div className="text-[11px] text-slate-500 text-start pt-0.5">
                       ✓ پشتڕاستکراوە بەپێی بۆرسەی بازاڕی عێراق ({rateSource})
                     </div>
                   </div>
@@ -195,7 +210,6 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
 
           {/* Official Verification & Stamp */}
           <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-            
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
                 <QrCode className="w-12 h-12 text-slate-700" />
@@ -212,22 +226,24 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
 
             {/* Official Organization Stamp */}
             <div className="relative border-2 border-dashed border-cyan-600/60 rounded-2xl p-3 text-center rotate-[-3deg] bg-cyan-50/70">
-              <p className="text-[10px] text-cyan-800 font-bold uppercase tracking-wider">مۆری فەرمی ڕێکخراو</p>
+              <p className="text-[11px] text-cyan-800 font-bold uppercase tracking-wider">مۆری فەرمی ڕێکخراو</p>
               <p className="text-xs font-black text-cyan-900">بەشی دارایی و وەرگرتن</p>
-              <p className="text-[10px] text-emerald-700 font-bold">پەسەندکراوە ✓</p>
+              <p className="text-[11px] text-emerald-700 font-bold">پەسەندکراوە ✓</p>
             </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-8 pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+        <div className="no-print mt-8 pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
           <button
+            type="button"
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
           >
             داخستن
           </button>
           <button
+            type="button"
             onClick={handlePrint}
             className="flex items-center gap-2 px-6 py-2.5 rounded-xl liquid-button-primary text-white text-xs font-bold"
           >
@@ -235,7 +251,6 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
             چاپکردنی پسوولە (Print)
           </button>
         </div>
-
       </div>
     </div>
   );

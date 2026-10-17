@@ -21,6 +21,7 @@ import {
 import { OnlinePaymentModal } from '../components/OnlinePaymentModal';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 import { getExchangeRateForDate, aggregateAmountsByDayRate } from '../utils/exchangeRates';
+import { PaginationBar } from '../components/ui/PaginationBar';
 
 export const FinanceView: React.FC = () => {
   const {
@@ -35,6 +36,8 @@ export const FinanceView: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense' | 'in_kind' | 'cash'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isOnlinePayOpen, setIsOnlinePayOpen] = useState(false);
   const [activeReceiptDonation, setActiveReceiptDonation] = useState<Donation | null>(null);
@@ -163,29 +166,36 @@ export const FinanceView: React.FC = () => {
   // Dynamic Category Breakdown linked directly to projects and transactions
   const categoryTemplates = [
     {
-      title: 'کڕینی خۆراک و سەبەتە',
-      categoryKey: 'خۆراک',
+      title: 'خۆراک و بژێوی',
+      categoryKey: 'خۆراک و بژێوی',
+      keywords: ['خۆراک', 'سەبەتە', 'بژێوی'],
       color: 'from-emerald-500 to-teal-600'
     },
     {
-      title: 'دەرمان و چارەسەری نەخۆش',
-      categoryKey: 'تەندروستی',
+      title: 'تەندروستی و پزیشکی',
+      categoryKey: 'تەندروستی و پزیشکی',
+      keywords: ['تەندروستی', 'پزیشکی', 'دەرمان', 'نەخۆش'],
       color: 'from-cyan-500 to-blue-600'
     },
     {
-      title: 'سندووقی بێباوک و پەروەردە',
-      categoryKey: 'پەروەردە و فێرکردن',
+      title: 'پەروەردە و خوێندکاران',
+      categoryKey: 'پەروەردە و خوێندکاران',
+      keywords: ['پەروەردە', 'خوێندکار', 'فێرکردن'],
       color: 'from-purple-500 to-indigo-600'
     },
     {
-      title: 'تێچووی گواستنەوە و فریاگوزاری',
-      categoryKey: 'فریاگوزاری خێرا',
+      title: 'چاودێری هەتیوان و نیشتەجێبوون',
+      categoryKey: 'چاودێری هەتیوان',
+      keywords: ['هەتیو', 'بێباوک', 'ئاوەدانکردنەوە', 'نیشتەجێبوون', 'فریاگوزاری'],
       color: 'from-amber-500 to-orange-600'
     }
   ];
 
   const budgetCategories = categoryTemplates.map(cat => {
-    const matchingProjects = projects.filter(p => p.category === cat.categoryKey || p.title.includes(cat.categoryKey));
+    const matchingProjects = projects.filter(p =>
+      p.category === cat.categoryKey ||
+      cat.keywords.some(kw => p.category.includes(kw) || p.title.includes(kw))
+    );
     let catBudgetUSD = 0;
     let catBudgetIQD = 0;
     for (const p of matchingProjects) {
@@ -197,7 +207,12 @@ export const FinanceView: React.FC = () => {
     }
     catBudgetUSD = Number(catBudgetUSD.toFixed(2));
 
-    const matchingTx = transactions.filter(t => t.type === 'expense' && (t.category.includes(cat.categoryKey) || matchingProjects.some(p => p.id === t.relatedProjectId)));
+    const matchingTx = transactions.filter(t =>
+      t.type === 'expense' && (
+        cat.keywords.some(kw => t.category.includes(kw) || t.description.includes(kw)) ||
+        matchingProjects.some(p => p.id === t.relatedProjectId)
+      )
+    );
     const txAgg = aggregateAmountsByDayRate(matchingTx);
 
     let projSpentUSD = 0;
@@ -241,6 +256,10 @@ export const FinanceView: React.FC = () => {
     else if (typeFilter === 'cash') matchesType = !inKind;
     return matchesSearch && matchesType;
   });
+
+  const totalTxPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+  const safeTxPage = Math.min(currentPage, totalTxPages);
+  const paginatedTransactions = filteredTransactions.slice((safeTxPage - 1) * pageSize, safeTxPage * pageSize);
 
   const handleTxCurrencySwitch = (newCurr: 'IQD' | 'USD') => {
     if (newCurr === txForm.currency) return;
@@ -448,25 +467,25 @@ export const FinanceView: React.FC = () => {
 
       </div>
 
-      {/* In-Kind Donations & Warehouse Assets Section */}
-      <div className="rounded-3xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 p-5 sm:p-6 text-white shadow-xl relative overflow-hidden border border-indigo-700/40 space-y-4">
-        <div className="absolute -top-12 -left-12 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+      {/* In-Kind Donations & Warehouse Assets Section (Light Liquid Glass) */}
+      <div className="rounded-3xl bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/80 p-5 sm:p-6 text-slate-900 shadow-sm relative overflow-hidden border border-indigo-200/80 space-y-4">
+        <div className="absolute -top-12 -left-12 w-64 h-64 bg-cyan-400/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-100 pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-cyan-400 shadow-inner">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-100/80 border border-indigo-200 flex items-center justify-center text-indigo-700 shadow-xs">
                 <Package className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2 flex-wrap">
                   پوختەی بەخشینە عەینییەکان و بەهای کۆگا (In-Kind & Warehouse Ledger)
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
                     بەستراوە بە دارایی
                   </span>
                 </h3>
-                <p className="text-[11px] text-slate-300 mt-0.5">
+                <p className="text-xs text-slate-600 mt-0.5">
                   داشکاندنی ئۆتۆماتیکی بەهای کەرەستە و سەبەتە لە دارایی لە کاتی دابەشکردن بەسەر سوودمەنداندا
                 </p>
               </div>
@@ -474,9 +493,9 @@ export const FinanceView: React.FC = () => {
 
             <button
               onClick={() => setActiveTab('inventory')}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-bold text-cyan-200 transition-all self-start sm:self-center"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-800 transition-all shadow-xs self-start sm:self-center"
             >
-              <Boxes className="w-3.5 h-3.5 text-cyan-400" />
+              <Boxes className="w-3.5 h-3.5 text-indigo-600" />
               بەڕێوەبردنی کۆگا ({inventory.length}) ←
             </button>
           </div>
@@ -484,27 +503,27 @@ export const FinanceView: React.FC = () => {
           {/* 3 Interactive Highlight Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
             {/* 1. Received */}
-            <div className="rounded-2xl bg-white/[0.06] border border-white/10 p-4 space-y-2 backdrop-blur-md">
+            <div className="rounded-2xl bg-white/90 border border-emerald-200/80 p-4 space-y-2 shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-                  <ArrowDownRight className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                  <ArrowDownRight className="w-4 h-4 text-emerald-600" />
                   کۆی بەهای وەرگیراو (Inflow)
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
                   داهاتی عەینی
                 </span>
               </div>
-              <div className="text-2xl font-black font-mono text-emerald-400">
+              <div className="text-2xl font-black font-mono text-emerald-800">
                 {currencyView === 'IQD' ? `${inKindIncomeAgg.totalIQD.toLocaleString()} د.ع` : `$${inKindIncomeAgg.totalUSD.toLocaleString()}`}
               </div>
-              <div className="text-[11px] text-slate-300 space-y-1 pt-1.5 border-t border-white/10 font-mono">
+              <div className="text-[11px] text-slate-600 space-y-1 pt-1.5 border-t border-slate-100 font-mono">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">بڕی وەرگیراو:</span>
-                  <span className="font-bold text-white">{totalInKindReceivedUnits} دانە / کارتۆن</span>
+                  <span className="text-slate-500">بڕی وەرگیراو:</span>
+                  <span className="font-bold text-slate-900">{totalInKindReceivedUnits} دانە / کارتۆن</span>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                <div className="flex items-center justify-between text-[10px] text-slate-500">
                   <span>نرخی تاک:</span>
-                  <span className="text-emerald-300 font-bold">
+                  <span className="text-emerald-700 font-bold">
                     {inKindIncomeTx[0]?.itemUnitPrice
                       ? `${inKindIncomeTx[0].itemUnitPrice.toLocaleString()} د.ع`
                       : (totalInKindReceivedUnits > 0 ? `${Math.round(inKindIncomeAgg.totalIQD / totalInKindReceivedUnits).toLocaleString()} د.ع` : '—')}
@@ -514,27 +533,27 @@ export const FinanceView: React.FC = () => {
             </div>
 
             {/* 2. Distributed */}
-            <div className="rounded-2xl bg-white/[0.06] border border-white/10 p-4 space-y-2 backdrop-blur-md">
+            <div className="rounded-2xl bg-white/90 border border-rose-200/80 p-4 space-y-2 shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
-                  <Gift className="w-4 h-4 text-rose-400" />
+                <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
+                  <Gift className="w-4 h-4 text-rose-600" />
                   کۆی بەهای دابەشکراو (Outflow)
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-rose-50 text-rose-800 font-bold border border-rose-200">
                   داشکێنراو لە باڵانس
                 </span>
               </div>
-              <div className="text-2xl font-black font-mono text-rose-400">
+              <div className="text-2xl font-black font-mono text-rose-800">
                 {currencyView === 'IQD' ? `${inKindExpenseAgg.totalIQD.toLocaleString()} د.ع` : `$${inKindExpenseAgg.totalUSD.toLocaleString()}`}
               </div>
-              <div className="text-[11px] text-slate-300 space-y-1 pt-1.5 border-t border-white/10 font-mono">
+              <div className="text-[11px] text-slate-600 space-y-1 pt-1.5 border-t border-slate-100 font-mono">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">بڕی بەخشراو بە خێزانەکان:</span>
-                  <span className="font-bold text-white">{totalInKindDistributedUnits} دانە / کارتۆن</span>
+                  <span className="text-slate-500">بڕی بەخشراو بە خێزانەکان:</span>
+                  <span className="font-bold text-slate-900">{totalInKindDistributedUnits} دانە / کارتۆن</span>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                <div className="flex items-center justify-between text-[10px] text-slate-500">
                   <span>نرخی داشکێنراوی تاک:</span>
-                  <span className="text-rose-300 font-bold">
+                  <span className="text-rose-700 font-bold">
                     {inKindExpenseTx[0]?.itemUnitPrice
                       ? `${inKindExpenseTx[0].itemUnitPrice.toLocaleString()} د.ع`
                       : (totalInKindDistributedUnits > 0 ? `${Math.round(inKindExpenseAgg.totalIQD / totalInKindDistributedUnits).toLocaleString()} د.ع` : '—')}
@@ -544,27 +563,27 @@ export const FinanceView: React.FC = () => {
             </div>
 
             {/* 3. Warehouse Remaining */}
-            <div className="rounded-2xl bg-white/[0.06] border border-white/10 p-4 space-y-2 backdrop-blur-md">
+            <div className="rounded-2xl bg-white/90 border border-cyan-200/80 p-4 space-y-2 shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                  <Boxes className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-bold text-cyan-800 flex items-center gap-1.5">
+                  <Boxes className="w-4 h-4 text-cyan-600" />
                   بەهای ماوە لە کۆگا (Warehouse Stock)
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-800 font-bold border border-cyan-200">
                   سەروەتی ماوە
                 </span>
               </div>
-              <div className="text-2xl font-black font-mono text-cyan-400">
+              <div className="text-2xl font-black font-mono text-cyan-900">
                 {currencyView === 'IQD' ? `${totalWarehouseValuationIQD.toLocaleString()} د.ع` : `$${totalWarehouseValuationUSD.toLocaleString()}`}
               </div>
-              <div className="text-[11px] text-slate-300 space-y-1 pt-1.5 border-t border-white/10 font-mono">
+              <div className="text-[11px] text-slate-600 space-y-1 pt-1.5 border-t border-slate-100 font-mono">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">ماوەی فیزیکی لە کۆگا:</span>
-                  <span className="font-bold text-white">{totalWarehouseUnits} دانە / کارتۆن</span>
+                  <span className="text-slate-500">ماوەی فیزیکی لە کۆگا:</span>
+                  <span className="font-bold text-slate-900">{totalWarehouseUnits} دانە / کارتۆن</span>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                <div className="flex items-center justify-between text-[10px] text-slate-500">
                   <span>نرخی خەمڵێنراوی تاک:</span>
-                  <span className="text-cyan-300 font-bold">
+                  <span className="text-cyan-800 font-bold">
                     {totalWarehouseUnits > 0 ? `${Math.round(totalWarehouseValuationIQD / totalWarehouseUnits).toLocaleString()} د.ع` : '—'}
                   </span>
                 </div>
@@ -573,37 +592,37 @@ export const FinanceView: React.FC = () => {
           </div>
 
           {/* Visual Equation Pill */}
-          <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center flex-wrap gap-2 text-slate-200">
-              <span className="font-bold text-white">هاوکێشەی وردی کۆگا:</span>
-              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/30">
+          <div className="p-3.5 rounded-2xl bg-white/95 border border-indigo-200/70 flex flex-col md:flex-row items-center justify-between gap-3 text-xs shadow-2xs">
+            <div className="flex items-center flex-wrap gap-2 text-slate-700">
+              <span className="font-bold text-slate-900">هاوکێشەی وردی کۆگا:</span>
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-mono font-bold border border-emerald-200">
                 وەرگیراو: {totalInKindReceivedUnits} دانە ({inKindIncomeAgg.totalIQD.toLocaleString()} د.ع)
               </span>
               <span className="text-slate-400 font-bold">−</span>
-              <span className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 font-mono font-bold border border-rose-500/30">
+              <span className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-800 font-mono font-bold border border-rose-200">
                 دابەشکراو: {totalInKindDistributedUnits} دانە ({inKindExpenseAgg.totalIQD.toLocaleString()} د.ع)
               </span>
               <span className="text-slate-400 font-bold">=</span>
-              <span className="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 font-mono font-bold border border-cyan-500/30">
+              <span className="px-2.5 py-1 rounded-lg bg-cyan-50 text-cyan-800 font-mono font-bold border border-cyan-200">
                 ماوە لە کۆگا: {totalWarehouseUnits} دانە ({totalWarehouseValuationIQD.toLocaleString()} د.ع)
               </span>
             </div>
 
             {totalInKindReceivedUnits > 0 && (
               <div className="flex items-center gap-3 w-full md:w-52 text-[11px]">
-                <div className="w-full bg-slate-700/60 rounded-full h-2.5 overflow-hidden flex">
+                <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden flex">
                   <div
                     className="bg-gradient-to-r from-rose-500 to-rose-400 h-full"
                     style={{ width: `${Math.min(100, Math.round((totalInKindDistributedUnits / totalInKindReceivedUnits) * 100))}%` }}
                     title={`دابەشکراو: ${Math.round((totalInKindDistributedUnits / totalInKindReceivedUnits) * 100)}%`}
                   />
                   <div
-                    className="bg-gradient-to-r from-cyan-400 to-cyan-300 h-full"
+                    className="bg-gradient-to-r from-cyan-500 to-cyan-400 h-full"
                     style={{ width: `${Math.min(100, Math.round((totalWarehouseUnits / totalInKindReceivedUnits) * 100))}%` }}
                     title={`ماوە لە کۆگا: ${Math.round((totalWarehouseUnits / totalInKindReceivedUnits) * 100)}%`}
                   />
                 </div>
-                <span className="text-[10px] font-mono text-cyan-200 font-bold whitespace-nowrap">
+                <span className="text-[10px] font-mono text-indigo-800 font-bold whitespace-nowrap">
                   {Math.round((totalInKindDistributedUnits / totalInKindReceivedUnits) * 100)}٪ بەخشرا
                 </span>
               </div>
@@ -725,7 +744,7 @@ export const FinanceView: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center p-1 rounded-2xl bg-slate-100 border border-slate-200 shadow-sm w-full sm:w-auto overflow-x-auto">
           <button
-            onClick={() => setTypeFilter('all')}
+            onClick={() => { setTypeFilter('all'); setCurrentPage(1); }}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               typeFilter === 'all' ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -733,7 +752,7 @@ export const FinanceView: React.FC = () => {
             هەموو ({transactions.length})
           </button>
           <button
-            onClick={() => setTypeFilter('income')}
+            onClick={() => { setTypeFilter('income'); setCurrentPage(1); }}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               typeFilter === 'income' ? 'bg-white text-emerald-800 shadow-sm border border-slate-200/60' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -741,7 +760,7 @@ export const FinanceView: React.FC = () => {
             داهات ({incomeTx.length})
           </button>
           <button
-            onClick={() => setTypeFilter('expense')}
+            onClick={() => { setTypeFilter('expense'); setCurrentPage(1); }}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               typeFilter === 'expense' ? 'bg-white text-rose-800 shadow-sm border border-slate-200/60' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -749,7 +768,7 @@ export const FinanceView: React.FC = () => {
             خەرجی ({expenseTx.length})
           </button>
           <button
-            onClick={() => setTypeFilter('in_kind')}
+            onClick={() => { setTypeFilter('in_kind'); setCurrentPage(1); }}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               typeFilter === 'in_kind' ? 'bg-white text-indigo-900 shadow-sm border border-slate-200/60' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -757,7 +776,7 @@ export const FinanceView: React.FC = () => {
             📦 کاڵا و عەینی ({inKindIncomeTx.length + inKindExpenseTx.length})
           </button>
           <button
-            onClick={() => setTypeFilter('cash')}
+            onClick={() => { setTypeFilter('cash'); setCurrentPage(1); }}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               typeFilter === 'cash' ? 'bg-white text-emerald-900 shadow-sm border border-slate-200/60' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -771,7 +790,7 @@ export const FinanceView: React.FC = () => {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             placeholder="گەڕان لە خەرجی، داهات، پسوولە..."
             className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
           />
@@ -809,7 +828,7 @@ export const FinanceView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map(tx => {
+                paginatedTransactions.map(tx => {
                   const inKind = isInKindTx(tx);
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50/70 transition-colors">
@@ -904,6 +923,13 @@ export const FinanceView: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          currentPage={safeTxPage}
+          totalItems={filteredTransactions.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+        />
       </div>
 
       {/* Add Transaction Modal */}

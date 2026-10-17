@@ -1,13 +1,19 @@
-import { useEffect, RefObject } from 'react';
+import { useEffect, useRef, RefObject } from 'react';
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function useModalFocusTrap(
+export function useModalFocusTrap<T extends HTMLElement = HTMLDivElement>(
   isOpen: boolean,
-  containerRef: RefObject<HTMLElement | null>,
-  onClose?: () => void
-): void {
+  containerRefOrOnClose?: RefObject<T | null> | (() => void),
+  maybeOnClose?: () => void
+): RefObject<T | null> {
+  const internalRef = useRef<T | null>(null);
+
+  const isCallback = typeof containerRefOrOnClose === 'function';
+  const containerRef = (isCallback ? internalRef : containerRefOrOnClose || internalRef) as RefObject<T | null>;
+  const onClose = isCallback ? (containerRefOrOnClose as () => void) : maybeOnClose;
+
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
     const container = containerRef.current;
@@ -44,4 +50,6 @@ export function useModalFocusTrap(
       previouslyFocused?.focus?.();
     };
   }, [isOpen, containerRef, onClose]);
+
+  return containerRef;
 }

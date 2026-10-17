@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useFeedback } from './ui/FeedbackProvider';
 import { UserRole, NavTab, NavItemConfig } from '../types';
 import {
   Compass,
@@ -55,12 +56,14 @@ export const NavigationPermissionsManager: React.FC = () => {
     toggleRoleForNavSection,
     resetNavConfigs
   } = useApp();
+  const { confirmAction, showToast } = useFeedback();
 
   const [previewRole, setPreviewRole] = useState<UserRole>('head_of_organization');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const showNotification = (msg: string) => {
     setSuccessMessage(msg);
+    showToast(msg, 'success');
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
@@ -93,8 +96,14 @@ export const NavigationPermissionsManager: React.FC = () => {
     showNotification('ڕۆڵی بەکارهێنەر سنووردار کرا تەنها بۆ (داشبۆرد، سوودمەندان، کۆگا، نەخشە)');
   };
 
-  const handleReset = () => {
-    if (window.confirm('ئایا دڵنیایت لە گەڕاندنەوەی سەرجەم ڕێکخستنەکانی ناڤیگەیشن بۆ دۆخی بنەڕەتی؟')) {
+  const handleReset = async () => {
+    const ok = await confirmAction({
+      title: 'گەڕاندنەوە بۆ دۆخی بنەڕەتی',
+      message: 'ئایا دڵنیایت لە گەڕاندنەوەی سەرجەم ڕێکخستنەکانی ناڤیگەیشن بۆ دۆخی بنەڕەتی؟',
+      confirmText: 'بەڵێ، بیگەڕێنەوە',
+      variant: 'warning'
+    });
+    if (ok) {
       resetNavConfigs();
       showNotification('سەرجەم بەشەکان گەڕێنرانەوە بۆ دۆخی بنەڕەتی');
     }

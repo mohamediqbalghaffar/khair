@@ -4,6 +4,7 @@ import { GOVERNORATE_STATS } from '../data/initialData';
 import { GovernorateStats, Beneficiary, NeedCategory } from '../types';
 import { useApp } from '../context/AppContext';
 import { KURDISTAN_REGION_GEOJSON, REGION_CENTERS } from '../data/kurdistanGeoJson';
+import { useFeedback } from '../components/ui/FeedbackProvider';
 import {
   MapPin,
   Users,
@@ -54,6 +55,7 @@ export const GeoMapView: React.FC = () => {
     setMapFocusLocation
   } = useApp();
 
+  const { showToast, confirmAction } = useFeedback();
   const [selectedGov, setSelectedGov] = useState<string>('هەولێر');
   const [tileStyle, setTileStyle] = useState<MapTileStyle>('street');
   const [showSatelliteLabels, setShowSatelliteLabels] = useState<boolean>(true);
@@ -642,8 +644,8 @@ export const GeoMapView: React.FC = () => {
   };
 
   // Remove Tagged House Location
-  const handleRemoveLocation = (benId: string) => {
-    if (window.confirm('ئایا دڵنیایت دەتەوێت نیشانەی ئەم ماڵە لەسەر نەخشە بسڕیتەوە؟')) {
+  const handleRemoveLocation = async (benId: string) => {
+    if (await confirmAction({ title: 'سڕینەوەی نیشانەی ماڵ', message: 'ئایا دڵنیایت دەتەوێت نیشانەی ئەم ماڵە لەسەر نەخشە بسڕیتەوە؟', confirmLabel: 'بەڵێ، بیسڕەوە', variant: 'danger' })) {
       const target = beneficiaries.find(b => b.id === benId);
       if (target) {
         updateBeneficiary({
@@ -1084,7 +1086,7 @@ export const GeoMapView: React.FC = () => {
       {/* Unified Main Container (Seamless for Normal & Fullscreen views without unmounting Leaflet DOM) */}
       <div className={isFullScreen ? "flex-1 flex flex-col h-full overflow-hidden" : "grid grid-cols-1 lg:grid-cols-12 gap-6"}>
         {/* Fullscreen Map Controls Header */}
-        {isFullScreen && <MapToolbar inFullScreen={true} />}
+        {isFullScreen && MapToolbar({ inFullScreen: true })}
 
         <div className={isFullScreen ? "flex-1 relative flex overflow-hidden" : "contents"}>
           {/* Sidebar */}
@@ -1092,7 +1094,7 @@ export const GeoMapView: React.FC = () => {
             ? "w-80 sm:w-96 bg-slate-900/95 border-r border-slate-800 p-4 flex flex-col z-10 text-white backdrop-blur-2xl shrink-0" 
             : "lg:col-span-4 rounded-3xl bg-white/90 backdrop-blur-2xl p-6 border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[580px]"
           }>
-            <SidebarContent isDark={isFullScreen} />
+            {SidebarContent({ isDark: isFullScreen })}
           </div>
 
           {/* Map Area Card */}
@@ -1100,7 +1102,7 @@ export const GeoMapView: React.FC = () => {
             ? "flex-1 h-full relative flex flex-col" 
             : "lg:col-span-8 rounded-3xl bg-white/90 backdrop-blur-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[580px]"
           }>
-            {!isFullScreen && <MapToolbar inFullScreen={false} />}
+            {!isFullScreen && MapToolbar({ inFullScreen: false })}
 
             {/* Leaflet Map Frame */}
             <div className={isFullScreen ? "flex-1 w-full h-full relative overflow-hidden" : "relative w-full h-[470px] rounded-2xl border border-slate-200 overflow-hidden shadow-inner"}>

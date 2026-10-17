@@ -25,6 +25,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { getExchangeRateForDate, aggregateAmountsByDayRate } from '../utils/exchangeRates';
+import { useFeedback } from '../components/ui/FeedbackProvider';
 
 const PROJECT_CATEGORIES: { id: ProjectCategory; name: string; image: string }[] = [
   {
@@ -79,6 +80,7 @@ const DEFAULT_MILESTONES: ProjectMilestone[] = [
 
 export const ProjectsView: React.FC = () => {
   const { projects, addProject, updateProject, deleteProject, donations, transactions, currencyView } = useApp();
+  const { showToast, confirmAction } = useFeedback();
 
   // Search and Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -433,10 +435,11 @@ export const ProjectsView: React.FC = () => {
                 className="rounded-3xl bg-white/95 backdrop-blur-2xl border border-slate-200/90 overflow-hidden flex flex-col justify-between group hover:border-purple-300 shadow-sm hover:shadow-lg transition-all"
               >
                 {/* Image & Top Badges Header */}
-                <div className="relative h-44 w-full overflow-hidden">
+                <div className="relative h-44 w-full overflow-hidden bg-gradient-to-br from-purple-900 via-indigo-900 to-slate-900">
                   <img
                     src={proj.image || PROJECT_CATEGORIES[0].image}
                     alt={proj.title}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent" />
@@ -466,9 +469,16 @@ export const ProjectsView: React.FC = () => {
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm(`دڵنیایت لە سڕینەوەی پڕۆژەی [${proj.title}]؟`)) {
+                        onClick={async () => {
+                          const ok = await confirmAction({
+                            title: 'سڕینەوەی پڕۆژە',
+                            message: `دڵنیایت لە سڕینەوەی پڕۆژەی [${proj.title}]؟`,
+                            confirmLabel: 'بەڵێ، بیسڕەوە',
+                            variant: 'danger'
+                          });
+                          if (ok) {
                             deleteProject(proj.id);
+                            showToast(`پڕۆژەی «${proj.title}» سڕایەوە.`, 'info');
                           }
                         }}
                         className="p-1.5 rounded-full bg-black/40 hover:bg-rose-600 text-white transition-colors"
@@ -577,10 +587,13 @@ export const ProjectsView: React.FC = () => {
                       </div>
                       <div className="space-y-1">
                         {projectMilestones.slice(0, 3).map(m => (
-                          <div
+                          <button
                             key={m.id}
+                            type="button"
+                            role="checkbox"
+                            aria-checked={m.completed}
                             onClick={() => toggleProjectMilestone(proj.id, m.id)}
-                            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] transition-all cursor-pointer ${
+                            className={`w-full text-start flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] transition-all cursor-pointer ${
                               m.completed
                                 ? 'bg-purple-50/70 border-purple-200 text-purple-900 font-bold'
                                 : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -592,7 +605,7 @@ export const ProjectsView: React.FC = () => {
                               {m.completed && <Check className="w-2.5 h-2.5" />}
                             </div>
                             <span className="flex-1 truncate">{m.title}</span>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -1321,10 +1334,13 @@ export const ProjectsView: React.FC = () => {
                 </h4>
                 <div className="space-y-1.5">
                   {(selectedProject.milestones && selectedProject.milestones.length > 0 ? selectedProject.milestones : DEFAULT_MILESTONES).map(m => (
-                    <div
+                    <button
                       key={m.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={m.completed}
                       onClick={() => toggleProjectMilestone(selectedProject.id, m.id)}
-                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                      className={`w-full text-start flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
                         m.completed
                           ? 'bg-purple-50 border-purple-200 text-purple-950 font-bold'
                           : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
@@ -1339,7 +1355,7 @@ export const ProjectsView: React.FC = () => {
                       <span className="text-[10px] font-mono text-slate-400">
                         {m.completed ? 'تەواوکراوە' : 'لە چاوەڕوانیدایە'}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1441,10 +1457,17 @@ export const ProjectsView: React.FC = () => {
                   دەستکاریکردنی پڕۆژە
                 </button>
                 <button
-                  onClick={() => {
-                    if (confirm(`دڵنیایت لە سڕینەوەی پڕۆژەی [${selectedProject.title}]؟`)) {
+                  onClick={async () => {
+                    const ok = await confirmAction({
+                      title: 'سڕینەوەی پڕۆژە',
+                      message: `دڵنیایت لە سڕینەوەی پڕۆژەی [${selectedProject.title}]؟`,
+                      confirmLabel: 'بەڵێ، بیسڕەوە',
+                      variant: 'danger'
+                    });
+                    if (ok) {
                       deleteProject(selectedProject.id);
                       setSelectedProject(null);
+                      showToast(`پڕۆژەی «${selectedProject.title}» سڕایەوە.`, 'info');
                     }
                   }}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs"

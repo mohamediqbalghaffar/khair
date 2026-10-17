@@ -52,6 +52,9 @@ import {
   Filter
 } from 'lucide-react';
 import { getDonationCashMetrics } from '../utils/donationDistributionUtils';
+import { useFeedback } from '../components/ui/FeedbackProvider';
+import { PaginationBar } from '../components/ui/PaginationBar';
+import { computeVulnerabilityScore } from '../utils/vulnerabilityScore';
 
 const categoryLabels: Record<NeedCategory, string> = {
   poor: 'هەژار و دەستکورت',
@@ -131,6 +134,7 @@ export const BeneficiariesView: React.FC = () => {
     isCloudSyncing,
     syncLocalDataToCloud
   } = useApp();
+  const { showToast, confirmAction } = useFeedback();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -151,6 +155,10 @@ export const BeneficiariesView: React.FC = () => {
   // Sorting State
   const [sortField, setSortField] = useState<BeneficiarySortField | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
 
   // Screen Interactive Layout State
   const [isFullscreenTable, setIsFullscreenTable] = useState(false);
@@ -238,7 +246,7 @@ export const BeneficiariesView: React.FC = () => {
 
   const handleGetCurrentGPS = (isEdit: boolean) => {
     if (!navigator.geolocation) {
-      alert('وێبگەڕەکەت پشتگیری وەرگرتنی پێگەی GPS ناکات.');
+      showToast('وێبگەڕەکەت پشتگیری وەرگرتنی پێگەی GPS ناکات.', 'warning');
       return;
     }
     setIsGettingGPS(true);
@@ -609,6 +617,29 @@ export const BeneficiariesView: React.FC = () => {
     return sortedBeneficiaries.reduce((sum, b) => sum + (Number(b.familyMembers) || 1), 0);
   }, [sortedBeneficiaries]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchQuery,
+    statusFilter,
+    categoryFilter,
+    governorateFilter,
+    genderFilter,
+    ageFilter,
+    familyHeadFilter,
+    providerFilter,
+    familyMembersFilter,
+    incomeFilter,
+    hasGpsFilter,
+    sortField,
+    sortOrder
+  ]);
+
+  const paginatedBeneficiaries = useMemo(() => {
+    const startIdx = (currentPage - 1) * pageSize;
+    return sortedBeneficiaries.slice(startIdx, startIdx + pageSize);
+  }, [sortedBeneficiaries, currentPage, pageSize]);
+
   // Process uploaded files to BeneficiaryDocument
   const processUploadedFiles = async (
     files: FileList | File[],
@@ -891,18 +922,19 @@ export const BeneficiariesView: React.FC = () => {
     try {
       const res = await updateBeneficiary(updatedBen);
       if (res && !res.success) {
-        alert(res.message || 'هەڵەیەک ڕوویدا لە کاتی نوێکردنەوەی سوودمەند لە داتابەیسی سەرهێڵ.');
+        showToast(res.message || 'هەڵەیەک ڕوویدا لە کاتی نوێکردنەوەی سوودمەند لە داتابەیسی سەرهێڵ.', 'error');
         return;
       }
       setIsEditModalOpen(false);
       setEditingBeneficiary(null);
+      showToast('زانیارییەکانی سوودمەند بە سەرکەوتوویی نوێکرانەوە.', 'success');
 
       // If dossier view modal is open for this beneficiary, update it too
       if (selectedBeneficiary && selectedBeneficiary.id === updatedBen.id) {
         setSelectedBeneficiary(updatedBen);
       }
     } catch (err: any) {
-      alert('هەڵەیەک ڕوویدا لە نوێکردنەوە: ' + (err?.message || 'تکایە دووبارە هەوڵ بدەوە'));
+      showToast('هەڵەیەک ڕوویدا لە نوێکردنەوە: ' + (err?.message || 'تکایە دووبارە هەوڵ بدەوە'), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -929,11 +961,18 @@ export const BeneficiariesView: React.FC = () => {
         documents: [...newDocs, ...(prev.documents || [])]
       };
     });
+    showToast(`${newDocs.length} بەڵگەنامەی نوێ هاوپێچکرا.`, 'success');
   };
 
-  const handleViewDossierDocDelete = (docId: string) => {
+  const handleViewDossierDocDelete = async (docId: string) => {
     if (!selectedBeneficiary) return;
-    if (!confirm('دڵنیایت لە سڕینەوەی ئەم بەڵگەنامەیە لە دۆسیەکە؟')) return;
+    const ok = await confirmAction({
+      title: 'سڕینەوەی بەڵگەنامە',
+      message: 'دڵنیایت لە سڕینەوەی ئەم بەڵگەنامەیە لە دۆسیەکە؟',
+      confirmLabel: 'بەڵێ، بیسڕەوە',
+      variant: 'danger'
+    });
+    if (!ok) return;
     deleteBeneficiaryDocument(selectedBeneficiary.id, docId);
     setSelectedBeneficiary(prev => {
       if (!prev) return null;
@@ -942,6 +981,7 @@ export const BeneficiariesView: React.FC = () => {
         documents: (prev.documents || []).filter(d => d.id !== docId)
       };
     });
+    showToast('بەڵگەنامەکە لە دۆسیە سڕایەوە.', 'info');
   };
 
   // Handle Excel File Selected
@@ -956,7 +996,7 @@ export const BeneficiariesView: React.FC = () => {
       const result = await parseBeneficiaryExcelFile(file);
       setParsedData(result);
     } catch (err: any) {
-      alert('هەڵەیەک ڕوویدا لە کاتی خوێندنەوەی فایلی ئێکسڵ: ' + (err?.message || 'فایلەکە نادروستە'));
+      showToast('هەڵەیەک ڕوویدا لە کاتی خوێندنەوەی فایلی ئێکسڵ: ' + (err?.message || 'فایلەکە نادروستە'), 'error');
     } finally {
       setIsUploading(false);
     }
@@ -970,7 +1010,7 @@ export const BeneficiariesView: React.FC = () => {
     try {
       const result = await addBeneficiariesBulk(parsedData.valid);
       if (!result.success) {
-        alert(result.message || 'هەڵەیەک ڕوویدا لە کاتی هاوردەکردنی بەکۆمەڵ.');
+        showToast(result.message || 'هەڵەیەک ڕوویدا لە کاتی هاوردەکردنی بەکۆمەڵ.', 'error');
         return;
       }
       setBulkImportSuccess(
@@ -980,10 +1020,11 @@ export const BeneficiariesView: React.FC = () => {
             : ''
         }`
       );
+      showToast(`${result.added} سوودمەند بە سەرکەوتوویی هاوردەکران.`, 'success');
       setParsedData(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: any) {
-      alert('هەڵەیەک ڕوویدا لە کاتی هاوردەکردن: ' + (err?.message || 'تکایە دووبارە هەوڵ بدەوە'));
+      showToast('هەڵەیەک ڕوویدا لە کاتی هاوردەکردن: ' + (err?.message || 'تکایە دووبارە هەوڵ بدەوە'), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -1016,6 +1057,7 @@ export const BeneficiariesView: React.FC = () => {
     setIsGiveAidModalOpen(false);
     const updated = beneficiaries.find(b => b.id === selectedBeneficiary.id);
     if (updated) setSelectedBeneficiary(updated);
+    showToast('هاوکارییەکە بە سەرکەوتوویی تۆمارکرا.', 'success');
   };
 
   // Handle Send SMS
@@ -1023,6 +1065,7 @@ export const BeneficiariesView: React.FC = () => {
     if (!selectedBeneficiary) return;
     sendSMS(selectedBeneficiary.phone, selectedBeneficiary.fullName, smsText);
     setIsSMSModalOpen(false);
+    showToast('کورتەنامەکە (SMS) ڕەوانەکرا.', 'success');
   };
 
   const handleOpenEditBenAid = (aid: AidRecord) => {
@@ -1056,15 +1099,23 @@ export const BeneficiariesView: React.FC = () => {
     setEditingBenAid(null);
     const updated = beneficiaries.find(b => b.id === selectedBeneficiary.id);
     if (updated) setSelectedBeneficiary(updated);
+    showToast('تۆماری هاوکارییەکە نوێکرایەوە.', 'success');
   };
 
-  const handleDeleteBenAid = (aidId: string) => {
+  const handleDeleteBenAid = async (aidId: string) => {
     if (!selectedBeneficiary) return;
-    if (!window.confirm('ئایا دڵنیایت لە سڕینەوەی ئەم تۆماری هاوکارییە؟')) return;
+    const ok = await confirmAction({
+      title: 'سڕینەوەی تۆماری هاوکاری',
+      message: 'ئایا دڵنیایت لە سڕینەوەی ئەم تۆماری هاوکارییە؟',
+      confirmLabel: 'بەڵێ، بیسڕەوە',
+      variant: 'danger'
+    });
+    if (!ok) return;
 
     deleteAidRecord(selectedBeneficiary.id, aidId);
     const updated = beneficiaries.find(b => b.id === selectedBeneficiary.id);
     if (updated) setSelectedBeneficiary(updated);
+    showToast('تۆماری هاوکارییەکە سڕایەوە.', 'info');
   };
 
   return (
@@ -1112,7 +1163,7 @@ export const BeneficiariesView: React.FC = () => {
           <button
             onClick={async () => {
               const res = await syncLocalDataToCloud();
-              alert(res.message);
+              showToast(res.message, res.success ? 'success' : 'warning');
             }}
             disabled={isCloudSyncing}
             className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shrink-0 shadow-sm transition-all"
@@ -1923,7 +1974,9 @@ export const BeneficiariesView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                sortedBeneficiaries.map(ben => (
+                paginatedBeneficiaries.map(ben => {
+                  const vuln = computeVulnerabilityScore(ben);
+                  return (
                   <tr
                     key={ben.id}
                     onClick={() => setSelectedBeneficiary(ben)}
@@ -2018,7 +2071,16 @@ export const BeneficiariesView: React.FC = () => {
                     </td>
                     <td className={`${tableDensity === 'compact' ? 'py-2 px-3 text-[11px]' : 'py-3.5 px-4 text-xs'}`}>
                       <span className="text-amber-800 font-bold block">{categoryLabels[ben.needCategory] || ben.needCategory}</span>
-                      <span className="text-[11px] text-slate-500">{ben.familyMembers} ئەندامی خێزان</span>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className="text-[11px] text-slate-500">{ben.familyMembers} ئەندام</span>
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold ${vuln.badgeClass}`}
+                          title={`نمرەی پێویستی خێزان: ${vuln.score}/100 (${vuln.label})`}
+                        >
+                          <span>{vuln.score}%</span>
+                          <span>• {vuln.label}</span>
+                        </span>
+                      </div>
                     </td>
                     <td className={`${tableDensity === 'compact' ? 'py-2 px-3 font-bold text-slate-800 text-[11px]' : 'py-3.5 px-4 font-bold text-slate-800 text-xs'}`}>
                       {ben.monthlyIncomeIQD === 0 ? (
@@ -2105,10 +2167,18 @@ export const BeneficiariesView: React.FC = () => {
                         </button>
                         <button
                           onClick={async () => {
-                            if (confirm(`دڵنیایت لە سڕینەوەی دۆسیەی (${ben.fullName}) لە داتابەیسی سەرهێڵ؟`)) {
+                            const ok = await confirmAction({
+                              title: 'سڕینەوەی دۆسیەی سوودمەند',
+                              message: `دڵنیایت لە سڕینەوەی دۆسیەی (${ben.fullName}) لە داتابەیسی سەرهێڵ؟`,
+                              confirmLabel: 'بەڵێ، دۆسیەکە بسڕەوە',
+                              variant: 'danger'
+                            });
+                            if (ok) {
                               const res = await deleteBeneficiary(ben.id);
                               if (res && !res.success) {
-                                alert(res.message || 'هەڵەیەک ڕوویدا لە کاتی سڕینەوەی سوودمەند لە سێرڤەر.');
+                                showToast(res.message || 'هەڵەیەک ڕوویدا لە کاتی سڕینەوەی سوودمەند لە سێرڤەر.', 'error');
+                              } else {
+                                showToast(`دۆسیەی (${ben.fullName}) سڕایەوە.`, 'info');
                               }
                             }
                           }}
@@ -2120,11 +2190,28 @@ export const BeneficiariesView: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        <PaginationBar
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={sortedBeneficiaries.length}
+          onPageChange={(p) => {
+            setCurrentPage(p);
+            tableContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setCurrentPage(1);
+          }}
+          itemLabel="سوودمەند"
+        />
 
         {/* Table Interactive Footer with Metrics & Scroll-to-Top */}
         <div className="p-3 sm:p-3.5 bg-slate-50/95 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 font-medium shrink-0">
@@ -2642,6 +2729,7 @@ export const BeneficiariesView: React.FC = () => {
                         <option value="orphan">بێباوک و هەتیو</option>
                         <option value="sick">نەخۆشی درێژخایەن</option>
                         <option value="disabled">خاوەن پێداویستی تایبەت</option>
+                        <option value="displaced">ئاوارە و پەنابەر</option>
                         <option value="student">خوێندکاری هەژار</option>
                       </select>
                     </div>
@@ -2914,6 +3002,36 @@ export const BeneficiariesView: React.FC = () => {
                       </span>
                     </div>
 
+                    {/* Error Details List */}
+                    {parsedData.errors.length > 0 && (
+                      <div className="p-3.5 rounded-2xl bg-rose-50/90 border border-rose-200 space-y-2">
+                        <h5 className="text-xs font-black text-rose-800 flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4 text-rose-600" />
+                          <span>وردەکاری دێڕە نادروستەکان لە فایلەکەدا ({parsedData.errors.length} دێڕ):</span>
+                        </h5>
+                        <div className="max-h-36 overflow-y-auto space-y-1.5 pe-1">
+                          {parsedData.errors.map((err, i) => (
+                            <div
+                              key={i}
+                              className="p-2 rounded-xl bg-white border border-rose-200/70 flex items-center justify-between gap-2 text-[11px]"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-mono font-bold shrink-0">
+                                  دێڕی #{err.row}
+                                </span>
+                                <span className="font-bold text-slate-800 truncate">
+                                  {err.name || 'بێ ناو'}
+                                </span>
+                              </div>
+                              <span className="text-rose-700 font-medium text-end">
+                                {err.reason}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Preview Table */}
                     {parsedData.valid.length > 0 && (
                       <div className="max-h-56 overflow-y-auto rounded-2xl border border-slate-200">
@@ -3163,25 +3281,65 @@ export const BeneficiariesView: React.FC = () => {
               </div>
             )}
 
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-5">
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">ژمارەی ناسنامە:</span>
-                <span className="font-mono text-xs font-bold text-cyan-700">{selectedBeneficiary.nationalId}</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">مۆبایل:</span>
-                <span className="font-bold text-xs text-slate-900">{selectedBeneficiary.phone}</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">ئەندامانی خێزان:</span>
-                <span className="font-bold text-xs text-amber-700">{selectedBeneficiary.familyMembers} کەس</span>
-              </div>
-              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
-                <span className="text-[10px] text-slate-500 block">داهاتی مانگانە:</span>
-                <span className="font-bold text-xs text-emerald-700">{selectedBeneficiary.monthlyIncomeIQD.toLocaleString()} د.ع</span>
-              </div>
-            </div>
+            {/* Quick Stats Grid + Vulnerability Score */}
+            {(() => {
+              const dossierVuln = computeVulnerabilityScore(selectedBeneficiary);
+              return (
+                <div className="my-5 space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-500 block">ژمارەی ناسنامە:</span>
+                      <span className="font-mono text-xs font-bold text-cyan-700">{selectedBeneficiary.nationalId}</span>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-500 block">مۆبایل:</span>
+                      <span className="font-bold text-xs text-slate-900">{selectedBeneficiary.phone}</span>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-500 block">ئەندامانی خێزان:</span>
+                      <span className="font-bold text-xs text-amber-700">{selectedBeneficiary.familyMembers} کەس</span>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-500 block">داهاتی مانگانە (بۆ هەر تاکێک):</span>
+                      <span className="font-bold text-xs text-emerald-700">
+                        {selectedBeneficiary.monthlyIncomeIQD.toLocaleString()} د.ع
+                      </span>
+                      <span className="block text-[10px] text-slate-500 mt-0.5">
+                        ({dossierVuln.perCapitaIncomeIQD.toLocaleString()} د.ع / کەس)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Household Vulnerability Score Card */}
+                  <div className="p-3.5 rounded-2xl bg-slate-50/90 border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-slate-800">نمرەی هەڵسەنگاندنی پێویستی خێزان:</span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${dossierVuln.badgeClass}`}>
+                          {dossierVuln.score}/100 • {dossierVuln.label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {dossierVuln.factors.map((f, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-700"
+                          >
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${dossierVuln.barClass}`}
+                        style={{ width: `${dossierVuln.score}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Provider & Family Financial Support Details Box */}
             <div className="p-4 rounded-2xl bg-cyan-50/60 border border-cyan-200 mb-5">
@@ -4236,6 +4394,7 @@ export const BeneficiariesView: React.FC = () => {
                     <option value="orphan">بێباوک و هەتیو</option>
                     <option value="sick">نەخۆشی درێژخایەن</option>
                     <option value="disabled">خاوەن پێداویستی تایبەت</option>
+                    <option value="displaced">ئاوارە و پەنابەر</option>
                     <option value="student">خوێندکاری هەژار</option>
                   </select>
                 </div>

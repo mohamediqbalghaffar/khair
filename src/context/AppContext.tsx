@@ -159,6 +159,7 @@ interface AppContextType {
   // Volunteers
   volunteers: Volunteer[];
   addVolunteer: (vol: Omit<Volunteer, 'id' | 'joinedDate' | 'hoursLogged' | 'badgeNumber'>) => void;
+  updateVolunteer: (vol: Volunteer) => void;
   deleteVolunteer: (id: string) => void;
   logVolunteerHours: (id: string, hours: number) => void;
 
@@ -2689,6 +2690,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAction('تۆمارکردنی خۆبەخش', `خۆبەخشی نوێ [${newVol.fullName}] بە ناسنامەی ${newVol.badgeNumber} تۆمارکرا`);
   };
 
+  const updateVolunteer = (updatedVol: Volunteer) => {
+    setVolunteers(prev => prev.map(v => (v.id === updatedVol.id ? updatedVol : v)));
+    safeSupabaseSync(supabase.from('volunteers').upsert(mapVolunteerToDb(updatedVol)));
+    logAction('نوێکردنەوەی خۆبەخش', `زانیارییەکانی خۆبەخش [${updatedVol.fullName}] نوێکرایەوە`, 'update');
+  };
+
   const logVolunteerHours = (id: string, hours: number) => {
     let updatedVol: Volunteer | undefined;
     setVolunteers(prev => prev.map(v => {
@@ -3134,6 +3141,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrencyView,
         volunteers,
         addVolunteer,
+        updateVolunteer,
         deleteVolunteer,
         logVolunteerHours,
         documents: allConnectedDocuments,

@@ -8,7 +8,6 @@ import {
   UserCheck,
   Package,
   Sparkles,
-  ArrowUpRight,
   ChevronRight,
   ChevronLeft,
   Filter,
@@ -16,17 +15,13 @@ import {
   Search,
   Eye,
   X,
-  MapPin,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Droplet,
-  ArrowRight,
-  Download
+  Download,
+  Printer,
+  BarChart3
 } from 'lucide-react';
 import { aggregateAmountsByDayRate, getExchangeRateForDate } from '../utils/exchangeRates';
 
-type ActiveModalType = 'donations' | 'beneficiaries' | 'projects' | 'volunteers' | null;
+type ActiveModalType = 'donations' | 'beneficiaries' | 'projects' | 'volunteers' | 'impact-report' | null;
 
 export const DashboardView: React.FC = () => {
   const {
@@ -137,7 +132,18 @@ export const DashboardView: React.FC = () => {
     'نەخۆش و دەستکورت': filteredBeneficiaries.filter(b => b.needCategory === 'sick').length,
     'خاوەن پێداویستی تایبەت': filteredBeneficiaries.filter(b => b.needCategory === 'disabled').length,
     'خوێندکاری هەژار': filteredBeneficiaries.filter(b => b.needCategory === 'student').length,
+    'ئاوارە و پەنابەر': filteredBeneficiaries.filter(b => b.needCategory === 'displaced').length,
   };
+
+  // Governorate distribution for SVG visualization
+  const governoratesBreakdown = React.useMemo(() => {
+    const govList = ['سلێمانی', 'هەولێر', 'دهۆک', 'هەڵەبجە', 'کەرکووک', 'گەرمیان', 'زاخۆ'];
+    return govList.map(gov => {
+      const total = filteredBeneficiaries.filter(b => b.governorate === gov).length;
+      const aided = filteredBeneficiaries.filter(b => b.governorate === gov && (b.status === 'aided' || (b.aidHistory && b.aidHistory.length > 0))).length;
+      return { gov, total, aided };
+    }).filter(g => g.total > 0 || governorateFilter === g.gov);
+  }, [filteredBeneficiaries, governorateFilter]);
 
   const isAnyFilterActive = fromDate !== minRecordDate || toDate !== maxRecordDate || governorateFilter !== 'all' || categoryFilter !== 'all' || searchQuery !== '';
 
@@ -201,14 +207,22 @@ export const DashboardView: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 w-full lg:w-auto shrink-0">
+          <div className="flex items-center gap-2.5 flex-wrap w-full lg:w-auto shrink-0">
+            <button
+              onClick={() => setActiveModal('impact-report')}
+              className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl liquid-button-primary text-white text-xs sm:text-sm font-bold transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
+              title="چاپکردن و بینینی ڕاپۆرتی فەرمی کاریگەری (A4 PDF)"
+            >
+              <Printer className="w-4 h-4" />
+              <span>ڕاپۆرتی فەرمی (چاپ/PDF)</span>
+            </button>
             <button
               onClick={exportImpactReport}
-              className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white/95 hover:bg-white border border-slate-200/90 text-slate-800 text-xs sm:text-sm font-bold transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
+              className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/95 hover:bg-white border border-slate-200/90 text-slate-800 text-xs sm:text-sm font-bold transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
               title="داگرتنی پوختەی ئاماری فلتەرکراو"
             >
               <Download className="w-4 h-4 text-emerald-600" />
-              <span>هەناردەکردنی ڕاپۆرت</span>
+              <span>داگرتنی TXT</span>
             </button>
           </div>
         </div>
@@ -299,6 +313,7 @@ export const DashboardView: React.FC = () => {
               <option value="sick">نەخۆش و دەستکورت</option>
               <option value="disabled">خاوەن پێداویستی تایبەت</option>
               <option value="student">خوێندکاری هەژار</option>
+              <option value="displaced">ئاوارە و پەنابەر</option>
             </select>
           </div>
 
@@ -505,7 +520,7 @@ export const DashboardView: React.FC = () => {
               onClick={() => setActiveTab('beneficiaries')}
               className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-1 transition-colors"
             >
-              بینینی هەموو <ChevronRight className="w-4 h-4 rotate-180" />
+              بینینی هەموو <ChevronLeft className="w-4 h-4" />
             </button>
           </div>
 
@@ -547,6 +562,108 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
 
+      </div>
+
+      {/* Interactive SVG Aid Coverage Gauge & Governorate Distribution Chart */}
+      <div className="rounded-3xl bg-white/90 backdrop-blur-2xl p-6 border border-slate-200/90 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-cyan-100/80 border border-cyan-200 flex items-center justify-center text-cyan-700">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">نەخشەی ئاماری ڕووماڵکردنی خێزانەکان بەپێی پارێزگا</h3>
+              <p className="text-xs text-slate-500">بەراوردی خێزانە تۆمارکراوەکان و هاوکاریکراوەکان لەسەر ئاستی شارەکان</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-xs font-bold">
+            <span className="flex items-center gap-1.5 text-slate-700">
+              <span className="w-3 h-3 rounded-full bg-cyan-500 inline-block" /> کۆی تۆمارکراو ({totalBeneficiaries})
+            </span>
+            <span className="flex items-center gap-1.5 text-emerald-700">
+              <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" /> هاوکاریکراو ({aidedBeneficiaries})
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center">
+          {/* SVG Donut Ring Gauge */}
+          <div className="lg:col-span-1 flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70">
+            {(() => {
+              const coveragePct = totalBeneficiaries > 0 ? Math.round((aidedBeneficiaries / totalBeneficiaries) * 100) : 0;
+              const radius = 52;
+              const circumference = 2 * Math.PI * radius;
+              const strokeDashoffset = circumference - (coveragePct / 100) * circumference;
+              return (
+                <div className="relative w-36 h-36 flex items-center justify-center">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 128 128" aria-label="ڕێژەی هاوکاریکردن">
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r={radius}
+                      fill="transparent"
+                      stroke="#e2e8f0"
+                      strokeWidth="12"
+                    />
+                    <circle
+                      cx="64"
+                      cy="64"
+                      r={radius}
+                      fill="transparent"
+                      stroke="#10b981"
+                      strokeWidth="12"
+                      strokeLinecap="round"
+                      strokeDasharray={circumference}
+                      strokeDashoffset={strokeDashoffset}
+                      className="transition-all duration-700"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-2xl font-black text-slate-900 font-mono">{coveragePct}٪</span>
+                    <span className="text-[11px] font-bold text-emerald-700">ڕووماڵکراو</span>
+                  </div>
+                </div>
+              );
+            })()}
+            <p className="text-xs font-bold text-slate-600 mt-2 text-center">
+              {aidedBeneficiaries} لە {totalBeneficiaries} خێزان کۆمەکیان پێگەیشتووە
+            </p>
+          </div>
+
+          {/* Governorate Comparative Bars */}
+          <div className="lg:col-span-3 space-y-3">
+            {governoratesBreakdown.length === 0 ? (
+              <p className="text-center text-xs text-slate-400 py-8 font-bold">هیچ تۆمارێک بۆ ئەم فلتەرە بەردەست نییە</p>
+            ) : (
+              governoratesBreakdown.map(({ gov, total, aided }) => {
+                const maxGov = Math.max(1, ...governoratesBreakdown.map(g => g.total));
+                const totalWidth = Math.round((total / maxGov) * 100);
+                const aidedWidth = Math.round((aided / maxGov) * 100);
+                const govPct = total > 0 ? Math.round((aided / total) * 100) : 0;
+                return (
+                  <div key={gov} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-800">{gov}</span>
+                      <span className="font-mono font-bold text-slate-600">
+                        <span className="text-emerald-700">{aided} هاوکاریکراو</span> / {total} خێزان ({govPct}٪)
+                      </span>
+                    </div>
+                    <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden relative border border-slate-200/70">
+                      <div
+                        className="h-full rounded-full bg-cyan-200 transition-all duration-500"
+                        style={{ width: `${totalWidth}%` }}
+                      />
+                      <div
+                        className="h-full rounded-full bg-emerald-500 absolute top-0 right-0 transition-all duration-700"
+                        style={{ width: `${aidedWidth}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Quick Launchpad Buttons */}
@@ -1010,6 +1127,129 @@ export const DashboardView: React.FC = () => {
                 <span>چوون بۆ پەڕەی تەواوی خۆبەخشان</span>
                 <ChevronLeft className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Official Printable Impact Report (#printable-impact-report) */}
+      {activeModal === 'impact-report' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6 no-print">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-cyan-100 border border-cyan-200 flex items-center justify-center text-cyan-700">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900">ڕاپۆرتی فەرمی کاریگەری و شەفافییەت (A4)</h3>
+                  <p className="text-xs text-slate-500">ئامادەکراو بۆ چاپکردن و پێشکەشکردن بە دەستەی کارگێڕی و بەخشەران</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                >
+                  <Printer className="w-4 h-4" />
+                  چاپکردن / PDF
+                </button>
+                <button
+                  onClick={() => setActiveModal(null)}
+                  className="p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div id="printable-impact-report" className="p-6 rounded-2xl border-2 border-slate-800 bg-white space-y-6 text-slate-900">
+              {/* Official Header */}
+              <div className="flex items-center justify-between border-b-2 border-slate-800 pb-4">
+                <div>
+                  <h1 className="text-xl font-black text-slate-900">ڕێکخراوی خێرخوازی بۆتان بامۆکی</h1>
+                  <p className="text-xs font-bold text-slate-600 mt-0.5">ڕاپۆرتی فەرمی ئاماری و شەفافییەتی دارایی و مەیدانی</p>
+                </div>
+                <div className="text-end text-xs font-mono text-slate-700 space-y-0.5">
+                  <div>بەروار: {new Date().toLocaleDateString('ckb-IQ')}</div>
+                  <div>ماوە: {fromDate} تا {toDate}</div>
+                  <div>پارێزگا: {governorateFilter === 'all' ? 'سەرجەم شارەکان' : governorateFilter}</div>
+                </div>
+              </div>
+
+              {/* KPI Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-xl border border-slate-300 bg-slate-50">
+                  <span className="text-[11px] font-bold text-slate-600 block">کۆی بەخشین (دینار)</span>
+                  <span className="text-base font-black font-mono text-slate-900">{totalDonationsIQD.toLocaleString()} د.ع</span>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-300 bg-slate-50">
+                  <span className="text-[11px] font-bold text-slate-600 block">کۆی بەخشین (دۆلار)</span>
+                  <span className="text-base font-black font-mono text-emerald-800">${totalDonationsUSD.toLocaleString()}</span>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-300 bg-slate-50">
+                  <span className="text-[11px] font-bold text-slate-600 block">خێزانە سوودمەندەکان</span>
+                  <span className="text-base font-black font-mono text-slate-900">{aidedBeneficiaries} / {totalBeneficiaries}</span>
+                </div>
+                <div className="p-3.5 rounded-xl border border-slate-300 bg-slate-50">
+                  <span className="text-[11px] font-bold text-slate-600 block">خزمەتی خۆبەخشان</span>
+                  <span className="text-base font-black font-mono text-slate-900">{totalVolunteerHours} کاتژمێر</span>
+                </div>
+              </div>
+
+              {/* Category Breakdown Table */}
+              <div>
+                <h4 className="text-xs font-black text-slate-800 mb-2">پۆلێنکردنی خێزانە تۆمارکراوەکان بەپێی حاڵەت:</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  {Object.entries(categoriesMap).map(([cat, count]) => (
+                    <div key={cat} className="p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
+                      <span className="font-bold text-slate-700">{cat}:</span>
+                      <span className="font-mono font-black text-slate-900">{count} خێزان</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recent Activities Table */}
+              <div>
+                <h4 className="text-xs font-black text-slate-800 mb-2">دوایین دابەشکردنە مەیدانییەکان:</h4>
+                <table className="w-full text-end text-xs border border-slate-300">
+                  <thead className="bg-slate-100 border-b border-slate-300 font-bold">
+                    <tr>
+                      <th className="p-2">سوودمەند</th>
+                      <th className="p-2">پڕۆژە / بابەت</th>
+                      <th className="p-2">پارێزگا</th>
+                      <th className="p-2">بڕ / کاڵا</th>
+                      <th className="p-2">بەروار</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {recentAids.map(a => (
+                      <tr key={a.id}>
+                        <td className="p-2 font-bold">{a.beneficiaryName}</td>
+                        <td className="p-2">{a.projectTitle}</td>
+                        <td className="p-2">{a.beneficiaryGov}</td>
+                        <td className="p-2 font-mono font-bold">
+                          {a.type === 'monetary' ? `${a.amountIQD?.toLocaleString()} د.ع` : `${a.quantity} ${a.itemName}`}
+                        </td>
+                        <td className="p-2 font-mono">{a.date}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Signatures */}
+              <div className="pt-8 grid grid-cols-2 gap-8 text-center text-xs font-bold text-slate-700 border-t border-slate-300">
+                <div>
+                  <p>واژۆی بەشی ژمێریاری و دارایی</p>
+                  <div className="h-10 border-b border-dashed border-slate-400 w-40 mx-auto mt-2" />
+                </div>
+                <div>
+                  <p>مۆر و واژۆی سەرۆکی ڕێکخراو</p>
+                  <div className="h-10 border-b border-dashed border-slate-400 w-40 mx-auto mt-2" />
+                </div>
+              </div>
             </div>
           </div>
         </div>

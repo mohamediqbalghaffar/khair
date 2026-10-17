@@ -1,32 +1,67 @@
+import React, { useEffect, Suspense, lazy } from 'react';
 import { useUrlTabSync } from './utils/useUrlTabSync';
-import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { FeedbackProvider } from './components/ui/FeedbackProvider';
 import { LiquidBackground } from './components/LiquidBackground';
 import { Topbar } from './components/Topbar';
 import { NavigationDock } from './components/NavigationDock';
 import { SpotlightModal } from './components/SpotlightModal';
 import { LockScreenModal } from './components/LockScreenModal';
-
-// Views
-import { DashboardView } from './views/DashboardView';
-import { BeneficiariesView } from './views/BeneficiariesView';
-import { DonorsView } from './views/DonorsView';
-import { ProjectsView } from './views/ProjectsView';
-import { InventoryView } from './views/InventoryView';
-import { FinanceView } from './views/FinanceView';
-import { VolunteersView } from './views/VolunteersView';
-import { GeoMapView } from './views/GeoMapView';
-import { DocumentsView } from './views/DocumentsView';
-import { AuditView } from './views/AuditView';
-import { SettingsView } from './views/SettingsView';
+import { loadAndApplyAccessibilityPrefs } from './components/AccessibilityModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAuth } from '@clerk/react';
 import { ClerkAuthView } from './views/ClerkAuthView';
 import { ShieldAlert } from 'lucide-react';
 
+// Lazy-loaded Views for bundle splitting
+const DashboardView = lazy(() =>
+  import('./views/DashboardView').then(m => ({ default: m.DashboardView }))
+);
+const BeneficiariesView = lazy(() =>
+  import('./views/BeneficiariesView').then(m => ({ default: m.BeneficiariesView }))
+);
+const DonorsView = lazy(() =>
+  import('./views/DonorsView').then(m => ({ default: m.DonorsView }))
+);
+const ProjectsView = lazy(() =>
+  import('./views/ProjectsView').then(m => ({ default: m.ProjectsView }))
+);
+const InventoryView = lazy(() =>
+  import('./views/InventoryView').then(m => ({ default: m.InventoryView }))
+);
+const FinanceView = lazy(() =>
+  import('./views/FinanceView').then(m => ({ default: m.FinanceView }))
+);
+const VolunteersView = lazy(() =>
+  import('./views/VolunteersView').then(m => ({ default: m.VolunteersView }))
+);
+const GeoMapView = lazy(() =>
+  import('./views/GeoMapView').then(m => ({ default: m.GeoMapView }))
+);
+const DocumentsView = lazy(() =>
+  import('./views/DocumentsView').then(m => ({ default: m.DocumentsView }))
+);
+const AuditView = lazy(() =>
+  import('./views/AuditView').then(m => ({ default: m.AuditView }))
+);
+const SettingsView = lazy(() =>
+  import('./views/SettingsView').then(m => ({ default: m.SettingsView }))
+);
+
+const ViewLoadingFallback: React.FC = () => (
+  <div className="rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-200/80 p-12 flex flex-col items-center justify-center gap-3 shadow-sm">
+    <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+    <p className="text-xs font-bold text-slate-600">بارکردنی بەش...</p>
+  </div>
+);
+
 const MainContent: React.FC = () => {
   const { activeTab, setActiveTab, currentRole, isTabAllowedForRole } = useApp();
   useUrlTabSync(activeTab, setActiveTab);
+
+  useEffect(() => {
+    loadAndApplyAccessibilityPrefs();
+  }, []);
 
   const renderActiveView = () => {
     if (!isTabAllowedForRole(activeTab, currentRole)) {
@@ -87,7 +122,9 @@ const MainContent: React.FC = () => {
       <main className="relative z-10 flex-1 min-h-0 w-full overflow-y-auto">
         <div className="max-w-[1536px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <ErrorBoundary>
-            {renderActiveView()}
+            <Suspense fallback={<ViewLoadingFallback />}>
+              {renderActiveView()}
+            </Suspense>
           </ErrorBoundary>
         </div>
       </main>
@@ -128,8 +165,10 @@ const MainApp: React.FC = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <MainApp />
-    </AppProvider>
+    <FeedbackProvider>
+      <AppProvider>
+        <MainApp />
+      </AppProvider>
+    </FeedbackProvider>
   );
 }

@@ -1,6 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp, NavTab } from '../context/AppContext';
-import { Search, X, Users, HeartHandshake, FolderKanban, PackageSearch, UserCheck, ArrowRight } from 'lucide-react';
+import {
+  Search,
+  X,
+  Users,
+  HeartHandshake,
+  FolderKanban,
+  PackageSearch,
+  UserCheck,
+  ArrowLeft,
+  Receipt,
+  MapPin,
+  Wallet,
+  Lock,
+  Sparkles,
+  CornerDownLeft
+} from 'lucide-react';
+import { useModalFocusTrap } from '../utils/useModalFocusTrap';
+
+interface SpotlightItem {
+  id: string;
+  group: string;
+  title: string;
+  subtitle: string;
+  badge?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  accentClass: string;
+  onSelect: () => void;
+}
 
 export const SpotlightModal: React.FC = () => {
   const {
@@ -8,80 +35,340 @@ export const SpotlightModal: React.FC = () => {
     setIsSpotlightOpen,
     beneficiaries,
     donors,
+    donations,
     projects,
     inventory,
     volunteers,
-    setActiveTab
+    setActiveTab,
+    setSelectedBeneficiaryIdForView,
+    openDistributionForDonation,
+    setIsLocked
   } = useApp();
 
   const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useModalFocusTrap(isSpotlightOpen, () => setIsSpotlightOpen(false));
 
   // Keyboard shortcut listener for Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsSpotlightOpen(!isSpotlightOpen);
-      }
-      if (e.key === 'Escape' && isSpotlightOpen) {
-        setIsSpotlightOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSpotlightOpen, setIsSpotlightOpen]);
 
-  // Focus input when opened
   useEffect(() => {
     if (isSpotlightOpen) {
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setActiveIndex(0);
+      setTimeout(() => inputRef.current?.focus(), 40);
     } else {
       setQuery('');
     }
   }, [isSpotlightOpen]);
 
-  if (!isSpotlightOpen) return null;
-
   const q = query.trim().toLowerCase();
 
-  // Search matches
-  const filteredBeneficiaries = q
-    ? beneficiaries.filter(b => b.fullName.toLowerCase().includes(q) || b.phone.includes(q) || b.nationalId.includes(q) || b.address.toLowerCase().includes(q)).slice(0, 4)
-    : [];
+  const items: SpotlightItem[] = useMemo(() => {
+    if (!q) {
+      // Quick Command Palette Actions when query is empty
+      return [
+        {
+          id: 'cmd-beneficiaries',
+          group: 'فەرمانە خێراکان (Quick Actions)',
+          title: 'بەڕێوەبردن و تۆمارکردنی سوودمەندان',
+          subtitle: `کۆی تۆمارکراو: ${beneficiaries.length} خێزان و سوودمەند`,
+          badge: 'سوودمەندان',
+          icon: Users,
+          accentClass: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+          onSelect: () => {
+            setActiveTab('beneficiaries');
+            setIsSpotlightOpen(false);
+          }
+        },
+        {
+          id: 'cmd-donors',
+          group: 'فەرمانە خێراکان (Quick Actions)',
+          title: 'تۆمارکردنی بەخشین و بڕینی پسوولەی فەرمی',
+          subtitle: `${donors.length} بەخشەر • ${donations.length} پسوولەی فەرمی`,
+          badge: 'پسوولە',
+          icon: Receipt,
+          accentClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          onSelect: () => {
+            setActiveTab('donors');
+            setIsSpotlightOpen(false);
+          }
+        },
+        {
+          id: 'cmd-inventory',
+          group: 'فەرمانە خێراکان (Quick Actions)',
+          title: 'کۆگا و دابەشکردنی کۆمەک بەسەر خێزانەکاندا',
+          subtitle: `${inventory.length} جۆر کاڵا لە کۆگادا بەردەستە`,
+          badge: 'کۆگا',
+          icon: PackageSearch,
+          accentClass: 'bg-amber-50 text-amber-700 border-amber-200',
+          onSelect: () => {
+            setActiveTab('inventory');
+            setIsSpotlightOpen(false);
+          }
+        },
+        {
+          id: 'cmd-geomap',
+          group: 'فەرمانە خێراکان (Quick Actions)',
+          title: 'نەخشەی جوگرافیی ماڵی سوودمەندان (GPS)',
+          subtitle: 'پشکنینی سەربانی ماڵەکان و دابەشبوونی هاوکاری بەپێی ناوچە',
+          badge: 'نەخشە',
+          icon: MapPin,
+          accentClass: 'bg-blue-50 text-blue-700 border-blue-200',
+          onSelect: () => {
+            setActiveTab('geo');
+            setIsSpotlightOpen(false);
+          }
+        },
+        {
+          id: 'cmd-finance',
+          group: 'فەرمانە خێراکان (Quick Actions)',
+          title: 'سندوق و ڕاپۆرتی دارایی و خەرجییەکان',
+          subtitle: 'چاودێری باڵانسی نەختینەیی بە دینار و دۆلار',
+          badge: 'دارایی',
+          icon: Wallet,
+          accentClass: 'bg-purple-50 text-purple-700 border-purple-200',
+          onSelect: () => {
+            setActiveTab('finance');
+            setIsSpotlightOpen(false);
+          }
+        },
+        {
+          id: 'cmd-lock',
+          group: 'فەرمانە خێراکان (Quick Actions)',
+          title: 'قوفڵکردنی خێرای شاشەی سیستەم',
+          subtitle: 'پاراستنی زانیارییەکان کاتی دوورکەوتنەوە لە کۆمپیوتەر (Ctrl + L)',
+          badge: 'ئاسایش',
+          icon: Lock,
+          accentClass: 'bg-rose-50 text-rose-700 border-rose-200',
+          onSelect: () => {
+            setIsSpotlightOpen(false);
+            setIsLocked(true);
+          }
+        }
+      ];
+    }
 
-  const filteredDonors = q
-    ? donors.filter(d => d.fullName.toLowerCase().includes(q) || d.phone.includes(q)).slice(0, 3)
-    : [];
+    const list: SpotlightItem[] = [];
 
-  const filteredProjects = q
-    ? projects.filter(p => p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)).slice(0, 3)
-    : [];
+    // 1. Beneficiaries (deep-links directly to Dossier!)
+    beneficiaries
+      .filter(
+        b =>
+          b.fullName.toLowerCase().includes(q) ||
+          b.phone.includes(q) ||
+          b.nationalId.includes(q) ||
+          b.address.toLowerCase().includes(q) ||
+          b.governorate.toLowerCase().includes(q)
+      )
+      .slice(0, 5)
+      .forEach(b => {
+        list.push({
+          id: `ben-${b.id}`,
+          group: 'سوودمەندان (کلیک بکە بۆ کردنەوەی دۆسیە)',
+          title: b.fullName,
+          subtitle: `${b.governorate} • مۆبایل: ${b.phone} • ناسنامە: ${b.nationalId}`,
+          badge:
+            b.status === 'pending'
+              ? 'لەژێر لێکۆڵینەوە'
+              : b.status === 'urgent'
+              ? 'فریاگوزاری بەپەلە'
+              : b.status === 'approved'
+              ? 'پەسەندکراو'
+              : 'سوودمەند',
+          icon: Users,
+          accentClass: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+          onSelect: () => {
+            setSelectedBeneficiaryIdForView(b.id);
+            setActiveTab('beneficiaries');
+            setIsSpotlightOpen(false);
+          }
+        });
+      });
 
-  const filteredInventory = q
-    ? inventory.filter(i => i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q)).slice(0, 3)
-    : [];
+    // 2. Official Donation Receipts
+    donations
+      .filter(
+        d =>
+          d.receiptNumber.toLowerCase().includes(q) ||
+          d.donorName.toLowerCase().includes(q) ||
+          (d.projectName && d.projectName.toLowerCase().includes(q))
+      )
+      .slice(0, 4)
+      .forEach(d => {
+        list.push({
+          id: `don-rec-${d.id}`,
+          group: 'پسوولەکانی بەخشین',
+          title: `${d.receiptNumber} — ${d.donorName}`,
+          subtitle: `${d.amount.toLocaleString()} ${d.currency === 'IQD' ? 'د.ع' : '$'} • ${d.date} • ${d.projectName || 'سندووقی گشتی'}`,
+          badge: 'پسوولە',
+          icon: Receipt,
+          accentClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          onSelect: () => {
+            setActiveTab('donors');
+            setIsSpotlightOpen(false);
+          }
+        });
+      });
 
-  const filteredVolunteers = q
-    ? volunteers.filter(v => v.fullName.toLowerCase().includes(q) || v.phone.includes(q) || v.skills.some(s => s.toLowerCase().includes(q))).slice(0, 3)
-    : [];
+    // 3. Donors
+    donors
+      .filter(d => d.fullName.toLowerCase().includes(q) || d.phone.includes(q))
+      .slice(0, 3)
+      .forEach(d => {
+        list.push({
+          id: `donor-${d.id}`,
+          group: 'بەخشەران',
+          title: d.fullName,
+          subtitle: `${d.governorate} • ${d.phone} • کۆی بەخشین: ${d.totalDonationsIQD.toLocaleString()} د.ع`,
+          badge: d.type === 'corporate' ? 'کۆمپانیا' : 'بەخشەر',
+          icon: HeartHandshake,
+          accentClass: 'bg-teal-50 text-teal-700 border-teal-200',
+          onSelect: () => {
+            setActiveTab('donors');
+            setIsSpotlightOpen(false);
+          }
+        });
+      });
 
-  const totalResults =
-    filteredBeneficiaries.length +
-    filteredDonors.length +
-    filteredProjects.length +
-    filteredInventory.length +
-    filteredVolunteers.length;
+    // 4. Projects
+    projects
+      .filter(p => p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
+      .slice(0, 3)
+      .forEach(p => {
+        list.push({
+          id: `proj-${p.id}`,
+          group: 'پڕۆژە خێرخوازییەکان',
+          title: p.title,
+          subtitle: `ئامانج: $${p.targetBudgetUSD.toLocaleString()} • کۆکراوە: $${p.raisedBudgetUSD.toLocaleString()}`,
+          badge: p.category,
+          icon: FolderKanban,
+          accentClass: 'bg-purple-50 text-purple-700 border-purple-200',
+          onSelect: () => {
+            setActiveTab('projects');
+            setIsSpotlightOpen(false);
+          }
+        });
+      });
 
-  const handleSelect = (tab: NavTab) => {
-    setActiveTab(tab);
-    setIsSpotlightOpen(false);
+    // 5. Inventory
+    inventory
+      .filter(i => i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q))
+      .slice(0, 3)
+      .forEach(i => {
+        list.push({
+          id: `inv-${i.id}`,
+          group: 'کۆگا و کەلوپەل',
+          title: i.name,
+          subtitle: `بەردەست: ${i.quantity} ${i.unit} • شوێن: ${i.location}`,
+          badge: i.quantity <= i.minAlertThreshold ? 'کەمبووە' : 'کۆگا',
+          icon: PackageSearch,
+          accentClass: 'bg-amber-50 text-amber-700 border-amber-200',
+          onSelect: () => {
+            if (i.sourceDonationId) {
+              openDistributionForDonation(i.sourceDonationId);
+            } else {
+              setActiveTab('inventory');
+            }
+            setIsSpotlightOpen(false);
+          }
+        });
+      });
+
+    // 6. Volunteers
+    volunteers
+      .filter(
+        v =>
+          v.fullName.toLowerCase().includes(q) ||
+          v.phone.includes(q) ||
+          v.skills.some(s => s.toLowerCase().includes(q))
+      )
+      .slice(0, 3)
+      .forEach(v => {
+        list.push({
+          id: `vol-${v.id}`,
+          group: 'خۆبەخشان',
+          title: v.fullName,
+          subtitle: `${v.governorate} • ${v.hoursLogged} کاتژمێر • ${v.phone}`,
+          badge: 'خۆبەخش',
+          icon: UserCheck,
+          accentClass: 'bg-blue-50 text-blue-700 border-blue-200',
+          onSelect: () => {
+            setActiveTab('volunteers');
+            setIsSpotlightOpen(false);
+          }
+        });
+      });
+
+    return list;
+  }, [
+    q,
+    beneficiaries,
+    donations,
+    donors,
+    projects,
+    inventory,
+    volunteers,
+    setActiveTab,
+    setIsSpotlightOpen,
+    setSelectedBeneficiaryIdForView,
+    openDistributionForDonation,
+    setIsLocked
+  ]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [q]);
+
+  if (!isSpotlightOpen) return null;
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (items.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev + 1) % items.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev - 1 + items.length) % items.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      items[activeIndex]?.onSelect();
+    }
   };
 
+  // Group items by group title while preserving flat index for keyboard nav
+  const groupedEntries: { group: string; entries: { item: SpotlightItem; flatIndex: number }[] }[] = [];
+  items.forEach((item, idx) => {
+    let g = groupedEntries.find(x => x.group === item.group);
+    if (!g) {
+      g = { group: item.group, entries: [] };
+      groupedEntries.push(g);
+    }
+    g.entries.push({ item, flatIndex: idx });
+  });
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="w-full max-w-2xl rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-        
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-14 sm:pt-20 px-4 bg-slate-950/45 backdrop-blur-md animate-in fade-in duration-150 no-print"
+      onClick={() => setIsSpotlightOpen(false)}
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="گەڕانی خێرا و فەرمانەکان"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl rounded-3xl bg-white border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+      >
         {/* Search Input Bar */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-200 bg-slate-50">
           <Search className="w-5 h-5 text-cyan-600 shrink-0" />
@@ -90,169 +377,99 @@ export const SpotlightModal: React.FC = () => {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="گەڕان بەدوای سوودمەند، بەخشەر، پڕۆژە، کۆگا، یان خۆبەخش..."
-            className="w-full bg-transparent text-slate-900 placeholder-slate-400 text-sm focus:outline-none"
+            onKeyDown={handleInputKeyDown}
+            placeholder="گەڕان بەدوای سوودمەند، ژمارەی پسوولە، ناسنامە، مۆبایل، بەخشەر..."
+            className="w-full bg-transparent text-slate-900 placeholder-slate-400 text-sm font-bold focus:outline-none"
           />
           {query && (
             <button
+              type="button"
               onClick={() => setQuery('')}
+              aria-label="پاککردنەوەی گەڕان"
               className="p-1 rounded-full text-slate-400 hover:text-slate-700"
             >
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-white text-slate-600 border border-slate-200 shrink-0 shadow-sm">
+          <kbd className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-white text-slate-600 border border-slate-200 shrink-0 shadow-sm font-mono">
             ESC
           </kbd>
         </div>
 
-        {/* Results List */}
-        <div className="max-h-96 overflow-y-auto p-4 space-y-4 text-xs">
-          {q === '' ? (
-            <div className="py-8 text-center text-slate-400">
-              <p className="text-sm font-bold text-slate-700 mb-1">گەڕانی خێرای داتابەیس</p>
-              <p className="text-xs text-slate-500">ناوی هەر کەسێک، ژمارەی مۆبایل، ناوی کاڵا یان پڕۆژەیەک بنووسە...</p>
-            </div>
-          ) : totalResults === 0 ? (
-            <div className="py-8 text-center text-slate-400">
-              <p className="text-sm text-slate-600">هیچ ئەنجامێک نەدۆزرایەوە بۆ "{query}"</p>
+        {/* Results & Quick Actions List */}
+        <div className="max-h-[65vh] overflow-y-auto p-4 space-y-4 text-xs">
+          {items.length === 0 ? (
+            <div className="py-10 text-center text-slate-400">
+              <Sparkles className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-700">هیچ ئەنجامێک نەدۆزرایەوە بۆ «{query}»</p>
+              <p className="text-xs text-slate-400 mt-1">تکایە ناو، ژمارەی مۆبایل یان ژمارەی پسوولەیەکی تر تاقیبکەرەوە</p>
             </div>
           ) : (
-            <>
-              {/* Beneficiaries Section */}
-              {filteredBeneficiaries.length > 0 && (
-                <div>
-                  <h4 className="font-bold text-cyan-800 text-[11px] mb-2 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5" /> سوودمەندان
-                  </h4>
-                  <div className="space-y-1.5">
-                    {filteredBeneficiaries.map(b => (
-                      <div
-                        key={b.id}
-                        onClick={() => handleSelect('beneficiaries')}
-                        className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 hover:bg-cyan-50 border border-slate-200 hover:border-cyan-300 cursor-pointer transition-all"
+            groupedEntries.map(groupBlock => (
+              <div key={groupBlock.group}>
+                <h4 className="font-bold text-slate-500 text-[11px] mb-2 px-1 flex items-center justify-between">
+                  <span>{groupBlock.group}</span>
+                  <span className="text-slate-400 font-mono">{groupBlock.entries.length}</span>
+                </h4>
+                <div className="space-y-1.5">
+                  {groupBlock.entries.map(({ item, flatIndex }) => {
+                    const Icon = item.icon;
+                    const isSelected = flatIndex === activeIndex;
+                    return (
+                      <button
+                        type="button"
+                        key={item.id}
+                        onMouseEnter={() => setActiveIndex(flatIndex)}
+                        onClick={item.onSelect}
+                        className={`w-full text-start flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-cyan-50/90 border-cyan-300 shadow-xs'
+                            : 'bg-slate-50/70 hover:bg-slate-100 border-slate-200/80'
+                        }`}
                       >
-                        <div>
-                          <p className="font-bold text-slate-900 text-xs">{b.fullName}</p>
-                          <p className="text-[10px] text-slate-500">
-                            {b.governorate} • {b.phone} • دۆخ: {
-                              b.status === 'pending' ? 'لەژێر لێکۆڵینەوە' :
-                              b.status === 'confidential' ? 'سوودمەندی نهێنی' :
-                              b.status === 'urgent' ? 'فریاگوزاری بەپەلە' :
-                              b.status === 'approved' ? 'پەسەندکراو' :
-                              b.status === 'aided' ? 'هاوکاریکراو' :
-                              b.status === 'periodic' ? 'هاوکاری مانگانە' :
-                              b.status === 'suspended' ? 'ڕاگیراو' :
-                              b.status === 'rejected' ? 'ڕەتکراوە' : 'ئەرشیڤکراو'
-                            }{b.aidHistory?.length > 0 ? ` (هاوکاریکراو: ${b.aidHistory.length})` : ''}
-                          </p>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`p-2 rounded-xl border shrink-0 ${item.accentClass}`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-900 text-xs truncate">{item.title}</p>
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">{item.subtitle}</p>
+                          </div>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-slate-400 rotate-180" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* Donors Section */}
-              {filteredDonors.length > 0 && (
-                <div>
-                  <h4 className="font-bold text-emerald-800 text-[11px] mb-2 flex items-center gap-1.5">
-                    <HeartHandshake className="w-3.5 h-3.5" /> بەخشەران
-                  </h4>
-                  <div className="space-y-1.5">
-                    {filteredDonors.map(d => (
-                      <div
-                        key={d.id}
-                        onClick={() => handleSelect('donors')}
-                        className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 cursor-pointer transition-all"
-                      >
-                        <div>
-                          <p className="font-bold text-slate-900 text-xs">{d.fullName}</p>
-                          <p className="text-[10px] text-slate-500">{d.phone} • {d.totalDonationsIQD.toLocaleString()} دینار</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {item.badge && (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-white border border-slate-200 text-slate-700">
+                              {item.badge}
+                            </span>
+                          )}
+                          <ArrowLeft className={`w-4 h-4 transition-transform ${isSelected ? 'text-cyan-700 -translate-x-0.5' : 'text-slate-400'}`} />
                         </div>
-                        <ArrowRight className="w-4 h-4 text-slate-400 rotate-180" />
-                      </div>
-                    ))}
-                  </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
-
-              {/* Projects Section */}
-              {filteredProjects.length > 0 && (
-                <div>
-                  <h4 className="font-bold text-purple-800 text-[11px] mb-2 flex items-center gap-1.5">
-                    <FolderKanban className="w-3.5 h-3.5" /> پڕۆژەکان
-                  </h4>
-                  <div className="space-y-1.5">
-                    {filteredProjects.map(p => (
-                      <div
-                        key={p.id}
-                        onClick={() => handleSelect('projects')}
-                        className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 hover:bg-purple-50 border border-slate-200 hover:border-purple-300 cursor-pointer transition-all"
-                      >
-                        <div>
-                          <p className="font-bold text-slate-900 text-xs">{p.title}</p>
-                          <p className="text-[10px] text-slate-500">بودجە: ${p.targetBudgetUSD.toLocaleString()} • کۆکراوە: ${p.raisedBudgetUSD.toLocaleString()}</p>
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-slate-400 rotate-180" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Inventory Section */}
-              {filteredInventory.length > 0 && (
-                <div>
-                  <h4 className="font-bold text-amber-800 text-[11px] mb-2 flex items-center gap-1.5">
-                    <PackageSearch className="w-3.5 h-3.5" /> کۆگا
-                  </h4>
-                  <div className="space-y-1.5">
-                    {filteredInventory.map(i => (
-                      <div
-                        key={i.id}
-                        onClick={() => handleSelect('inventory')}
-                        className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 cursor-pointer transition-all"
-                      >
-                        <div>
-                          <p className="font-bold text-slate-900 text-xs">{i.name}</p>
-                          <p className="text-[10px] text-slate-500">بڕی بەردەست: {i.quantity} {i.unit} ({i.location})</p>
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-slate-400 rotate-180" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Volunteers Section */}
-              {filteredVolunteers.length > 0 && (
-                <div>
-                  <h4 className="font-bold text-blue-800 text-[11px] mb-2 flex items-center gap-1.5">
-                    <UserCheck className="w-3.5 h-3.5" /> خۆبەخشان
-                  </h4>
-                  <div className="space-y-1.5">
-                    {filteredVolunteers.map(v => (
-                      <div
-                        key={v.id}
-                        onClick={() => handleSelect('volunteers')}
-                        className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 cursor-pointer transition-all"
-                      >
-                        <div>
-                          <p className="font-bold text-slate-900 text-xs">{v.fullName}</p>
-                          <p className="text-[10px] text-slate-500">{v.governorate} • {v.hoursLogged} کاتژمێر کارکردن • {v.phone}</p>
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-slate-400 rotate-180" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+              </div>
+            ))
           )}
         </div>
 
+        {/* Keyboard Hints Footer */}
+        <div className="px-5 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-mono text-[10px]">↑↓</kbd>
+              <span>هەڵبژاردن</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-mono text-[10px] flex items-center gap-0.5">
+                <CornerDownLeft className="w-2.5 h-2.5" /> Enter
+              </kbd>
+              <span>کردنەوە</span>
+            </span>
+          </div>
+          <span className="font-bold text-cyan-700">ڕێکخراوی بۆتان بامۆکی</span>
+        </div>
       </div>
     </div>
   );

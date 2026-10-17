@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Terminal, Copy, Check, Play, Code2, Database, X, KeyRound, Globe } from 'lucide-react';
+import { Terminal, Copy, Check, Play, Code2, X, KeyRound } from 'lucide-react';
+import { useModalFocusTrap } from '../utils/useModalFocusTrap';
 
 interface Props {
   isOpen: boolean;
@@ -12,6 +13,7 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [selectedEndpoint, setSelectedEndpoint] = useState<string>('beneficiaries');
   const [copied, setCopied] = useState<boolean>(false);
   const [apiResponse, setApiResponse] = useState<any>(null);
+  const modalRef = useModalFocusTrap(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -70,12 +72,23 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[85vh] overflow-y-auto">
-        
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dev-api-modal-title"
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-200"
+      >
         {/* Close Button */}
         <button
+          type="button"
           onClick={onClose}
+          aria-label="داخستن"
           className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors"
         >
           <X className="w-5 h-5" />
@@ -83,13 +96,13 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
         {/* Header */}
         <div className="flex items-center gap-3 pb-4 border-b border-slate-200 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
             <Terminal className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+            <h3 id="dev-api-modal-title" className="text-lg font-black text-slate-900 flex items-center gap-2">
               کۆنسۆڵی API بۆ پەرەپێدەران و بەستنەوەی سیستەم
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800">
                 REST API v1
               </span>
             </h3>
@@ -119,6 +132,7 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
           {endpoints.map(e => (
             <button
+              type="button"
               key={e.id}
               onClick={() => {
                 setSelectedEndpoint(e.id);
@@ -130,7 +144,7 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
                   : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
-              <span className="font-mono text-[10px] text-indigo-700 block font-bold">{e.method}</span>
+              <span className="font-mono text-[11px] text-indigo-700 block font-bold">{e.method}</span>
               <span className="truncate block mt-0.5">{e.path}</span>
             </button>
           ))}
@@ -141,6 +155,7 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold text-slate-800">{currentEndpoint.title}</span>
             <button
+              type="button"
               onClick={() => handleCopy(currentEndpoint.curl)}
               className="flex items-center gap-1 text-cyan-700 hover:text-cyan-800 font-bold"
             >
@@ -154,6 +169,7 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
           </div>
 
           <button
+            type="button"
             onClick={handleTest}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-sm"
           >
@@ -181,13 +197,13 @@ export const DeveloperApiModal: React.FC<Props> = ({ isOpen, onClose }) => {
         {/* Footer */}
         <div className="flex items-center justify-end pt-3 border-t border-slate-200">
           <button
+            type="button"
             onClick={onClose}
             className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
           >
             داخستن
           </button>
         </div>
-
       </div>
     </div>
   );

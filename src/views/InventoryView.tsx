@@ -4,6 +4,7 @@ import { InventoryItem, Donation, NeedCategory } from '../types';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 import { getExchangeRateForDate } from '../utils/exchangeRates';
 import { getDonationCashMetrics, getTotalTreasuryCashAvailable } from '../utils/donationDistributionUtils';
+import { useFeedback } from '../components/ui/FeedbackProvider';
 import confetti from 'canvas-confetti';
 import {
   PackageSearch,
@@ -67,6 +68,7 @@ export const InventoryView: React.FC = () => {
     setPendingDistributionDonationId,
     setActiveTab
   } = useApp();
+  const { showToast, confirmAction } = useFeedback();
 
   const [activeSubTab, setActiveSubTab] = useState<'stock' | 'receipts' | 'distributions'>('stock');
   const [distTypeFilter, setDistTypeFilter] = useState<'all' | 'in-kind' | 'monetary'>('all');
@@ -145,39 +147,6 @@ export const InventoryView: React.FC = () => {
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [bulkEditAmount, setBulkEditAmount] = useState<number>(150000);
 
-  // Detect if there are records with 151,000 IQD (such as the 23 recorded ones from REC-2026-002)
-  const fixable151kRecords = useMemo(() => {
-    return allDistributions.filter(d =>
-      d.type === 'monetary' &&
-      (d.amountIQD === 151000 || d.amount === 151000)
-    );
-  }, [allDistributions]);
-
-  const handleQuickFix151kTo150k = () => {
-    if (fixable151kRecords.length === 0) return;
-    const confirmFix = window.confirm(
-      `ئایا دڵنیایت لە ڕاستکردنەوەی ژمارەی (${fixable151kRecords.length}) تۆماری هاوکاری لە بڕی ۱۵۱،۰۰۰ د.ع بۆ ۱۵۰،۰۰۰ د.ع؟`
-    );
-    if (!confirmFix) return;
-
-    const updates = fixable151kRecords.map(d => ({
-      beneficiaryId: d.beneficiaryId,
-      aidRecordId: d.id,
-      updatedData: {
-        amount: 150000,
-        amountIQD: 150000,
-        currency: (d.currency as 'IQD' | 'USD') || 'IQD',
-        receiptNumber: d.receiptNumber
-      }
-    }));
-
-    const success = bulkUpdateAidRecords(updates);
-    if (success) {
-      confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
-      alert(`بە سەرکەوتوویی بڕی سەرجەم (${updates.length}) تۆمارەکە کرا بە ۱۵۰،۰۰۰ دینار.`);
-    }
-  };
-
   const handleOpenEditDist = (dist: any) => {
     setEditingDist(dist);
     setEditDistForm({
@@ -211,15 +180,18 @@ export const InventoryView: React.FC = () => {
     if (success) {
       setIsEditDistModalOpen(false);
       setEditingDist(null);
-      alert('تۆماری هاوکارییەکە بە سەرکەوتوویی نوێکرایەوە.');
+      showToast('تۆماری هاوکارییەکە بە سەرکەوتوویی نوێکرایەوە.', 'success');
     }
   };
 
-  const handleDeleteDist = (dist: any) => {
-    const confirmDel = window.confirm(
-      `ئایا دڵنیایت لە سڕینەوەی ئەم تۆماری هاوکارییە بۆ [${dist.beneficiaryName}]؟`
-    );
-    if (!confirmDel) return;
+  const handleDeleteDist = async (dist: any) => {
+    const ok = await confirmAction({
+      title: 'سڕینەوەی تۆماری دابەشکردن',
+      message: `ئایا دڵنیایت لە سڕینەوەی ئەم تۆماری هاوکارییە بۆ [${dist.beneficiaryName}]؟`,
+      confirmLabel: 'بەڵێ، بیسڕەوە',
+      variant: 'danger'
+    });
+    if (!ok) return;
 
     const success = deleteAidRecord(dist.beneficiaryId, dist.id);
     if (success) {
@@ -228,7 +200,7 @@ export const InventoryView: React.FC = () => {
         next.delete(`${dist.beneficiaryId}::${dist.id}`);
         return next;
       });
-      alert('تۆماری هاوکارییەکە بە سەرکەوتوویی سڕایەوە.');
+      showToast('تۆماری هاوکارییەکە بە سەرکەوتوویی سڕایەوە.', 'info');
     }
   };
 
@@ -256,7 +228,7 @@ export const InventoryView: React.FC = () => {
       setIsBulkEditModalOpen(false);
       setSelectedDistKeys(new Set());
       confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
-      alert(`بڕی سەرجەم (${updates.length}) تۆمارە دیاریکراوەکە بە سەرکەوتوویی نوێکرایەوە.`);
+      showToast(`بڕی سەرجەم (${updates.length}) تۆمارە دیاریکراوەکە بە سەرکەوتوویی نوێکرایەوە.`, 'success');
     }
   };
 
@@ -455,7 +427,7 @@ export const InventoryView: React.FC = () => {
       setDistributionNotes('');
       setIsDistributeModalOpen(true);
     } else {
-      alert('ئەم کاڵایە لە کۆگادا بەردەست نییە یان پێشتر دابەشکراوە.');
+      showToast('ئەم کاڵایە لە کۆگادا بەردەست نییە یان پێشتر دابەشکراوە.', 'warning');
     }
   };
 
@@ -463,7 +435,10 @@ export const InventoryView: React.FC = () => {
   const handleOpenDistributeCash = (donation: Donation) => {
     const cashM = getDonationCashMetrics(donation, beneficiaries);
     if (cashM.remainingAmount <= 0) {
-      alert(`تەواوی پارەی نەختینەیی ئەم پسوولەیە [${donation.receiptNumber}] پێشتر بەسەر خێزانەکاندا دابەشکراوە و هیچ بڕێکی نەماوە.`);
+      showToast(
+        `تەواوی پارەی نەختینەیی ئەم پسوولەیە [${donation.receiptNumber}] پێشتر بەسەر خێزانەکاندا دابەشکراوە و هیچ بڕێکی نەماوە.`,
+        'warning'
+      );
       return;
     }
 
@@ -491,12 +466,15 @@ export const InventoryView: React.FC = () => {
   const handleDistributeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!distributionTarget || selectedBeneficiaryIds.length === 0) {
-      alert('تکایە بەلایەنی کەمەوە یەک سوودمەند / خێزان دیاریبکە!');
+      showToast('تکایە بەلایەنی کەمەوە یەک سوودمەند / خێزان دیاریبکە!', 'warning');
       return;
     }
 
     if (isExceedingStock) {
-      alert(`بڕی داواکراو (${totalDistributeQuantity.toLocaleString()} ${distributionUnit}) زیاترە لەوەی بەردەستە (${totalStockAvailable.toLocaleString()} ${distributionUnit})!`);
+      showToast(
+        `بڕی داواکراو (${totalDistributeQuantity.toLocaleString()} ${distributionUnit}) زیاترە لەوەی بەردەستە (${totalStockAvailable.toLocaleString()} ${distributionUnit})!`,
+        'error'
+      );
       return;
     }
 
@@ -526,8 +504,9 @@ export const InventoryView: React.FC = () => {
         setSelectedBeneficiaryIds([]);
         setCustomQuantities({});
         setDistributionNotes('');
+        showToast(`دابەشکردنی کاڵا بۆ (${distributions.length}) خێزان تۆمارکرا.`, 'success');
       } else {
-        alert('بڕی دیاریکراو زیاترە لەوەی لە کۆگادا بەردەستە!');
+        showToast('بڕی دیاریکراو زیاترە لەوەی لە کۆگادا بەردەستە!', 'error');
       }
     } else {
       // CASH DISTRIBUTION
@@ -556,8 +535,9 @@ export const InventoryView: React.FC = () => {
         setSelectedBeneficiaryIds([]);
         setCustomQuantities({});
         setDistributionNotes('');
+        showToast(`دابەشکردنی کۆمەکی نەختینە بۆ (${distributions.length}) خێزان تۆمارکرا.`, 'success');
       } else {
-        alert('بڕی داواکراو زیاترە لە پارەی بەردەستی ئەم پسوولەیە لە سندووقدا!');
+        showToast('بڕی داواکراو زیاترە لە پارەی بەردەستی ئەم پسوولەیە لە سندووقدا!', 'error');
       }
     }
   };
@@ -873,9 +853,16 @@ export const InventoryView: React.FC = () => {
                           +
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm(`دڵنیایت لە سڕینەوەی کاڵای [${item.name}] لە کۆگا؟`)) {
+                          onClick={async () => {
+                            const ok = await confirmAction({
+                              title: 'سڕینەوەی کاڵا لە کۆگا',
+                              message: `دڵنیایت لە سڕینەوەی کاڵای [${item.name}] لە کۆگا؟`,
+                              confirmLabel: 'بەڵێ، بیسڕەوە',
+                              variant: 'danger'
+                            });
+                            if (ok) {
                               deleteInventoryItem(item.id);
+                              showToast(`کاڵای «${item.name}» لە کۆگا سڕایەوە.`, 'info');
                             }
                           }}
                           className="w-8 h-8 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center border border-rose-200"
@@ -1167,33 +1154,6 @@ export const InventoryView: React.FC = () => {
               </span>
             </button>
           </div>
-
-          {/* Quick 1-Click Fix Banner for the 23 beneficiaries with 151,000 IQD */}
-          {fixable151kRecords.length > 0 && (
-            <div className="p-4 mb-4 rounded-3xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 flex items-center justify-between flex-wrap gap-4 shadow-sm animate-in fade-in">
-              <div className="flex items-center gap-3 text-amber-950 text-xs">
-                <div className="p-2.5 rounded-2xl bg-amber-100 text-amber-700 shrink-0">
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-black text-sm text-amber-900">
-                    ڕاستکردنەوەی خێرای تۆمارەکان ({fixable151kRecords.length} تۆمار بە بڕی ۱۵۱،۰۰۰ د.ع دۆزرانەوە)
-                  </p>
-                  <p className="text-amber-800 font-medium mt-0.5">
-                    ئەم تۆمارانە بەهۆی کۆتوبەندی پێشووی سیستەمەوە بە ۱۵۱،۰۰۰ تۆمارکرابوون. ئێستا بە یەک کلیک دەتوانیت هەموویان بکەیت بە <span className="font-black underline text-amber-950">۱۵۰،۰۰۰ د.ع</span>.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleQuickFix151kTo150k}
-                className="px-5 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-95"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                ڕاستکردنەوەی هەموویان بۆ ۱۵۰،۰۰۰ د.ع ئێستا
-              </button>
-            </div>
-          )}
 
           {/* Batch Action Toolbar when rows are checked */}
           {selectedDistKeys.size > 0 && (

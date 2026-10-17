@@ -1,5 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useFeedback } from '../components/ui/FeedbackProvider';
 import { DocumentItem, DocumentCategory, Beneficiary } from '../types';
 import {
   Files,
@@ -270,6 +271,7 @@ export const DocumentsView: React.FC = () => {
     donors,
     openBeneficiaryProfile
   } = useApp();
+  const { showToast, confirmAction } = useFeedback();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -349,29 +351,34 @@ export const DocumentsView: React.FC = () => {
     });
   }, [documents, searchQuery, categoryFilter, entityFilter]);
 
+  // Process a single file (from input or drag-and-drop)
+  const processSingleFile = (file: File) => {
+    setSelectedFileName(file.name);
+    const ext = file.name.split('.').pop()?.toUpperCase() || 'PDF';
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    const sizeKB = Math.round(file.size / 1024);
+    const sizeStr = file.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setFormData(prev => ({
+        ...prev,
+        title: prev.title || file.name.replace(/\.[^/.]+$/, ''),
+        fileName: file.name,
+        fileSize: sizeStr,
+        fileType: ext,
+        fileData: dataUrl
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Handle single file upload
   const handleSingleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedFileName(file.name);
-      const ext = file.name.split('.').pop()?.toUpperCase() || 'PDF';
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-      const sizeKB = Math.round(file.size / 1024);
-      const sizeStr = file.size > 1024 * 1024 ? `${sizeMB} MB` : `${sizeKB} KB`;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        setFormData(prev => ({
-          ...prev,
-          title: prev.title || file.name.replace(/\.[^/.]+$/, ''),
-          fileName: file.name,
-          fileSize: sizeStr,
-          fileType: ext,
-          fileData: dataUrl
-        }));
-      };
-      reader.readAsDataURL(file);
+      processSingleFile(file);
     }
   };
 
@@ -379,7 +386,7 @@ export const DocumentsView: React.FC = () => {
   const handleSingleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) {
-      alert('تکایە ناونیشانی بەڵگەنامە بنووسە');
+      showToast('تکایە ناونیشانی بەڵگەنامە بنووسە', 'warning');
       return;
     }
 
@@ -432,6 +439,7 @@ export const DocumentsView: React.FC = () => {
       url: formData.fileData
     });
 
+    showToast('بەڵگەنامەکە بە سەرکەوتوویی بارکرا و پاشەکەوت کرا', 'success');
     setIsAddModalOpen(false);
     setSelectedFileName(null);
     setFormData({
@@ -449,9 +457,8 @@ export const DocumentsView: React.FC = () => {
     });
   };
 
-  // Handle Multi-file Select (Bulk Upload)
-  const handleBulkFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  // Process multi-files (from input or drag-and-drop)
+  const processBulkFiles = async (files: FileList | File[]) => {
     if (!files || files.length === 0) return;
 
     setIsReadingBulkFiles(true);
@@ -551,6 +558,13 @@ export const DocumentsView: React.FC = () => {
     if (bulkFileInputRef.current) bulkFileInputRef.current.value = '';
   };
 
+  // Handle Multi-file Select (Bulk Upload)
+  const handleBulkFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await processBulkFiles(files);
+  };
+
   // Run Smart Auto-Matching across all loaded bulk files
   const runSmartAutoMatch = () => {
     let matchCount = 0;
@@ -591,7 +605,7 @@ export const DocumentsView: React.FC = () => {
         return item;
       })
     );
-    alert(`بەستنەوەی زیرەک تەواو بوو: ${matchCount} لە ${bulkItems.length} فایل بە شێوەی خودکار بەسترانەوە بە سوودمەندان`);
+    showToast(`بەستنەوەی زیرەک تەواو بوو: ${matchCount} لە ${bulkItems.length} فایل بە شێوەی خودکار بەسترانەوە بە سوودمەندان`, 'success');
   };
 
   // Update a single bulk item in table
@@ -651,7 +665,7 @@ export const DocumentsView: React.FC = () => {
   // Submit all bulk documents
   const handleBulkSubmit = async () => {
     if (bulkItems.length === 0) {
-      alert('تکایە سەرەتا چەند فایلێک دیاری بکە بۆ بارکردن');
+      showToast('تکایە سەرەتا چەند فایلێک دیاری بکە بۆ بارکردن', 'warning');
       return;
     }
 
@@ -677,10 +691,10 @@ export const DocumentsView: React.FC = () => {
       if (res.success) {
         setIsAddModalOpen(false);
         setBulkItems([]);
-        alert(`سەرکەوتوو بوو: ${res.count} بەڵگەنامە بە سەرکەوتوویی بارکران و بەسترانەوە بە دۆسیەی سوودمەندان.`);
+        showToast(`سەرکەوتوو بوو: ${res.count} بەڵگەنامە بە سەرکەوتوویی بارکران و بەسترانەوە بە دۆسیەی سوودمەندان.`, 'success');
       }
     } catch (err: any) {
-      alert('هەڵەیەک ڕوویدا لە کاتی بارکردنی بەکۆمەڵ: ' + (err?.message || 'تکایە دووبارە هەوڵ بدەوە'));
+      showToast('هەڵەیەک ڕوویدا لە کاتی بارکردنی بەکۆمەڵ: ' + (err?.message || 'تکایە دووبارە هەوڵ بدەوە'), 'error');
     } finally {
       setIsSubmittingBulk(false);
     }
@@ -1056,9 +1070,16 @@ export const DocumentsView: React.FC = () => {
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(`دڵنیایت لە سڕینەوەی بەڵگەنامەی [${doc.title}]؟ ئەم بەڵگەنامەیە لە هەموو بەشەکانی پەیوەندیدار دەسڕێتەوە.`)) {
+                    onClick={async () => {
+                      const ok = await confirmAction({
+                        title: 'سڕینەوەی بەڵگەنامە',
+                        message: `دڵنیایت لە سڕینەوەی بەڵگەنامەی [${doc.title}]؟ ئەم بەڵگەنامەیە لە هەموو بەشەکانی پەیوەندیدار دەسڕێتەوە.`,
+                        confirmText: 'بەڵێ، بیسڕەوە',
+                        variant: 'danger'
+                      });
+                      if (ok) {
                         deleteDocument(doc.id);
+                        showToast('بەڵگەنامەکە بە سەرکەوتوویی سڕایەوە', 'info');
                       }
                     }}
                     className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors border border-rose-200"
@@ -1412,7 +1433,7 @@ export const DocumentsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Single File Upload Box */}
+                {/* Single File Upload Box (Click or Drag & Drop) */}
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -1422,6 +1443,18 @@ export const DocumentsView: React.FC = () => {
                 />
                 <div
                   onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const droppedFile = e.dataTransfer.files?.[0];
+                    if (droppedFile) {
+                      processSingleFile(droppedFile);
+                    }
+                  }}
                   className={`border-2 border-dashed rounded-2xl p-6 text-center transition-colors cursor-pointer ${
                     selectedFileName
                       ? 'border-emerald-400 bg-emerald-50/60'
@@ -1439,7 +1472,7 @@ export const DocumentsView: React.FC = () => {
                   ) : (
                     <>
                       <UploadCloud className="w-8 h-8 text-cyan-600 mx-auto mb-2" />
-                      <p className="text-xs font-bold text-slate-800">کلیک بکە بۆ دیاریکردنی فایل لە ئامێرەکەتەوە</p>
+                      <p className="text-xs font-bold text-slate-800">کلیک بکە یان فایلەکە ڕابکێشە بۆ ئێرە (Drag & Drop)</p>
                       <p className="text-[10px] text-slate-500 mt-1">پشتیوانی PDF, JPG, PNG, DOCX تا قەبارەی 15MB</p>
                     </>
                   )}
@@ -1478,6 +1511,17 @@ export const DocumentsView: React.FC = () => {
                 {bulkItems.length === 0 ? (
                   <div
                     onClick={() => bulkFileInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        processBulkFiles(e.dataTransfer.files);
+                      }
+                    }}
                     className="border-2 border-dashed border-cyan-400 bg-cyan-50/40 hover:bg-cyan-50 rounded-3xl p-12 text-center transition-all cursor-pointer flex flex-col items-center justify-center my-6 group"
                   >
                     <div className="w-16 h-16 rounded-2xl bg-cyan-100 border border-cyan-200 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
