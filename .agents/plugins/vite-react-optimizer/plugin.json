@@ -1,0 +1,4 @@
+{
+  "name": "vite-react-optimizer",
+  "description": "Rules, code-splitting strategies, bundle optimization, and strict TypeScript/Oxlint validation for Vite + React 19."
+}

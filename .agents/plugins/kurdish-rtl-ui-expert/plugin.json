@@ -1,0 +1,12 @@
+{
+  "name": "kurdish-rtl-ui-expert",
+  "displayName": "Kurdish Sorani & RTL Typography Expert",
+  "version": "1.0.0",
+  "description": "Expert guidelines, validators, and workflows for Kurdish Sorani typography, RTL layouts, Arabic script normalization, and iOS 26 Liquid Glass styling.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Audit all views for logical RTL Tailwind classes (ms-*, me-*, ps-*, pe-*) and directional icons",
+    "Check Kurdish Sorani text normalization across search and filter inputs",
+    "Verify Speda and Noto Sans Arabic font rendering across headers and badges"
+  ]
+}

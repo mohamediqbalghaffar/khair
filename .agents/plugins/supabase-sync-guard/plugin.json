@@ -1,0 +1,4 @@
+{
+  "name": "supabase-sync-guard",
+  "description": "Rules, failure mitigations, and sync safeguards for Supabase database synchronization and offline-first LocalStorage persistence."
+}

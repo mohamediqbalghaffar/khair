@@ -1,0 +1,12 @@
+{
+  "name": "print-receipt-badge-studio",
+  "displayName": "Official Print Studio, Receipts & ID Badges",
+  "version": "1.0.0",
+  "description": "Print stylesheet engineering, A4 official donor receipts, volunteer ID badges, beneficiary dossiers, and executive impact reports.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Audit all printable documents (#printable-receipt, #volunteer-badge, #printable-impact-report) for clean print isolation",
+    "Enhance OfficialReceiptModal with official stamp, signature lines, and QR verification styling",
+    "Create a printable A4 summary report for a charity view"
+  ]
+}

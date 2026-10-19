@@ -1,0 +1,4 @@
+{
+  "name": "charity-domain-rules",
+  "description": "Rules, validations, and integrity checks for humanitarian aid distribution, vulnerability scoring, donor tiers, and warehouse tracking."
+}

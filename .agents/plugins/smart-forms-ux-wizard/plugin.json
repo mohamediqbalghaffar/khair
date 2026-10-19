@@ -1,0 +1,12 @@
+{
+  "name": "smart-forms-ux-wizard",
+  "displayName": "Smart Forms, Steppers & Bulk Import UX",
+  "version": "1.0.0",
+  "description": "UX patterns for multi-step forms, searchable Kurdish comboboxes, HTML5 drag-and-drop upload zones, controlled inputs, and non-blocking toast feedback.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Audit all forms in BeneficiariesView and DonorsView for controlled inputs and inline validation",
+    "Add a searchable combobox or drag-and-drop file uploader to a form modal",
+    "Verify zero blocking alert() or confirm() dialogs exist across all form submissions"
+  ]
+}

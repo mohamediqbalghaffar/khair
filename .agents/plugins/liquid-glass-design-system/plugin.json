@@ -1,0 +1,12 @@
+{
+  "name": "liquid-glass-design-system",
+  "displayName": "iOS 26 Liquid Glass Design System",
+  "version": "1.0.0",
+  "description": "Design system tokens, translucent glassmorphism surfaces, micro-animations, and visual hierarchy rules for the iOS 26 Liquid Glass white theme.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Polish DashboardView and FinanceView cards to match iOS 26 Liquid Glass surface hierarchy",
+    "Audit all modals and buttons for consistent border radii, shadows, and entrance animations",
+    "Upgrade empty states and loading skeletons with Liquid Glass visual polish"
+  ]
+}

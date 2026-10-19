@@ -1,0 +1,12 @@
+{
+  "name": "responsive-mobile-table-ux",
+  "displayName": "Responsive Tables, Mobile Dock & GeoMap UX",
+  "version": "1.0.0",
+  "description": "UX guidelines for high-density paginated tables, mobile viewport responsiveness, bottom NavigationDock ergonomics, and interactive Leaflet GeoMap flows.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Audit all data tables to ensure PaginationBar and horizontal overflow scroll work smoothly on mobile",
+    "Verify GeoMapView search inputs and markers preserve focus and RTL popup alignment",
+    "Check NavigationDock and Topbar touch targets across mobile and tablet viewports"
+  ]
+}

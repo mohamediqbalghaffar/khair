@@ -1,0 +1,12 @@
+{
+  "name": "a11y-keyboard-auditor",
+  "displayName": "Accessibility & Keyboard Focus Auditor",
+  "version": "1.0.0",
+  "description": "Accessibility standards, ARIA semantics, keyboard navigation (focus traps, Escape dismissals), and high-contrast support.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Audit all modals for useModalFocusTrap, role='dialog', and Escape key dismissal",
+    "Check all icon-only buttons for Kurdish aria-label or title attributes",
+    "Verify high-contrast and reduced-motion accessibility modes across views"
+  ]
+}

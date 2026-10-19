@@ -1,0 +1,12 @@
+{
+  "name": "charity-data-viz-studio",
+  "displayName": "Humanitarian Data Visualization & Impact Charts",
+  "version": "1.0.0",
+  "description": "Zero-dependency SVG charts, aid coverage donut gauges, governorate comparative bars, funding thermometers, and dual-currency (IQD/USD) analytics.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Add an interactive SVG donut gauge or sparkline chart to visualize aid distribution trends",
+    "Build a governorate comparison chart showing registered families vs. aided families",
+    "Add a project funding thermometer with dual IQD and USD progress breakdowns"
+  ]
+}
