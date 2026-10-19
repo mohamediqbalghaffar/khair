@@ -777,19 +777,26 @@ export const Topbar: React.FC = () => {
                   </div>
 
                   {/* User Profile Capsule with Clerk UserButton */}
-                  <div className="flex items-center gap-2 bg-slate-50/90 border border-slate-200/90 ps-2.5 pe-1 py-1 rounded-2xl shadow-xs hover:border-slate-300 transition-colors">
-                    <div className="hidden xl:block text-end">
-                      <p className="text-xs font-black text-slate-900 leading-tight">
+                  <div className="flex items-center gap-2.5 bg-white/95 border border-slate-200/90 ps-3 pe-1.5 py-1 rounded-2xl shadow-xs hover:border-slate-300 hover:bg-slate-50/80 transition-all min-w-0">
+                    <div className="hidden xl:flex flex-col items-end justify-center min-w-0 max-w-[140px] text-end leading-tight select-none">
+                      <span
+                        className="text-xs font-black text-slate-900 truncate w-full tracking-tight"
+                        title={user?.fullName || user?.firstName || 'محمد ئیقبال'}
+                      >
                         {user?.fullName || user?.firstName || 'محمد ئیقبال'}
-                      </p>
-                      <p className="text-[10px] text-cyan-700 font-bold font-mono truncate max-w-[120px]">
-                        {user?.primaryEmailAddress?.emailAddress || 'Gmail'}
-                      </p>
+                      </span>
+                      <span
+                        className="text-[11px] text-slate-500 font-semibold font-mono truncate w-full text-end"
+                        dir="ltr"
+                        title={user?.primaryEmailAddress?.emailAddress || ''}
+                      >
+                        {user?.primaryEmailAddress?.emailAddress || 'بەکارھێنەر'}
+                      </span>
                     </div>
                     <UserButton
                       appearance={{
                         elements: {
-                          userButtonAvatarBox: 'w-7 h-7 sm:w-8 sm:h-8 rounded-xl ring-2 ring-cyan-500/30 shadow-xs'
+                          userButtonAvatarBox: 'w-8 h-8 rounded-xl ring-2 ring-cyan-500/25 shadow-xs'
                         }
                       }}
                     />

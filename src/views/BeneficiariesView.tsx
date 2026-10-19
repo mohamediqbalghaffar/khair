@@ -2245,64 +2245,86 @@ export const BeneficiariesView: React.FC = () => {
 
       {/* Main Dual Registration Modal (Single vs Bulk Excel) */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-beneficiary-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
+        >
+          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200/90 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
             
-            <button
-              onClick={() => setIsAddModalOpen(false)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {/* Sticky Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/95 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-100 text-cyan-700 flex items-center justify-center font-bold shadow-xs">
+                  <Users className="w-5 h-5 text-cyan-600" />
+                </div>
+                <div>
+                  <h3 id="add-beneficiary-modal-title" className="text-base font-black text-slate-900 leading-tight">
+                    {entryMode === 'single' ? 'تۆمارکردنی کەس یان خێزانی نوێ' : 'هاوردەکردنی بەکۆمەڵ بە ئێکسڵ'}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {entryMode === 'single'
+                      ? 'داخڵکردنی زانیارییە سەرەکییەکان و دۆخی بژێوی بۆ ناو داتابەیس'
+                      : 'هاوردەکردنی سەدان دۆسیە لە چەند چرکەیەکدا بە فایلی Excel'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
+                title="داخستن"
+                aria-label="داخستن"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            {/* Mode Switcher Tabs */}
-            <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl mb-6 max-w-md mx-auto">
-              <button
-                type="button"
-                onClick={() => setEntryMode('single')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                  entryMode === 'single'
-                    ? 'bg-white text-cyan-800 shadow-sm border border-slate-200/70'
-                    : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <User className="w-4 h-4" />
-                <span>تۆمارکردنی تاکەکەسی (یەک بە یەک)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setEntryMode('bulk')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                  entryMode === 'bulk'
-                    ? 'bg-white text-emerald-800 shadow-sm border border-slate-200/70'
-                    : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                <span>هاوردەکردنی بەکۆمەڵ (ئێکسڵ)</span>
-              </button>
+            {/* Pinned Mode Switcher Tabs */}
+            <div className="px-6 py-2.5 bg-slate-50/80 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2 p-1 bg-slate-200/60 rounded-2xl max-w-md mx-auto">
+                <button
+                  type="button"
+                  onClick={() => setEntryMode('single')}
+                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    entryMode === 'single'
+                      ? 'bg-white text-cyan-800 shadow-sm border border-slate-200/70'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  <span>تۆمارکردنی تاکەکەسی (یەک بە یەک)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEntryMode('bulk')}
+                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    entryMode === 'bulk'
+                      ? 'bg-white text-emerald-800 shadow-sm border border-slate-200/70'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                  <span>هاوردەکردنی بەکۆمەڵ (ئێکسڵ)</span>
+                </button>
+              </div>
             </div>
 
             {/* -------------------- MODE 1: SINGLE ONE-BY-ONE ENTRY -------------------- */}
             {entryMode === 'single' && (
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-cyan-600" />
-                  تۆمارکردنی کەس یان خێزانی نوێ
-                </h3>
-
-                {duplicateAlert && (
-                  <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-800 text-xs mb-4 flex items-start gap-2.5 animate-bounce">
-                    <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-                    <div>
-                      <p className="font-bold">هۆشداریی دووبارەبوونەوە!</p>
-                      <p className="mt-0.5">{duplicateAlert}</p>
+              <form onSubmit={handleSubmitBeneficiary} className="flex flex-col flex-1 min-h-0">
+                <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
+                  {duplicateAlert && (
+                    <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-800 text-xs flex items-start gap-2.5 animate-bounce">
+                      <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                      <div>
+                        <p className="font-bold">هۆشداریی دووبارەبوونەوە!</p>
+                        <p className="mt-0.5">{duplicateAlert}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <form onSubmit={handleSubmitBeneficiary} className="space-y-4 text-xs">
-                  
                   {/* Basic Identifiers */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -2330,7 +2352,7 @@ export const BeneficiariesView: React.FC = () => {
                   </div>
 
                   {/* Demographics: Gender & Age */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90">
                     <div>
                       <label className="block text-slate-700 font-bold mb-1.5">ڕەگەز:</label>
                       <div className="grid grid-cols-2 gap-2">
@@ -2373,70 +2395,73 @@ export const BeneficiariesView: React.FC = () => {
                   </div>
 
                   {/* Head of Family & Provider Conditional Engine */}
-                  <div className="p-4 rounded-2xl bg-cyan-50/50 border border-cyan-200 space-y-3.5">
-                    
+                  <div className="p-4 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-4">
                     {/* Head of family question */}
-                    <div>
-                      <label className="block text-slate-800 font-bold mb-1.5">
+                    <div className="space-y-1.5">
+                      <span className="block text-slate-800 font-bold text-xs">
                         ئایا ئەم کەسە سەرۆکی خێزانە؟
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
-                          <input
-                            type="radio"
-                            name="isFamilyHead"
-                            checked={formData.isFamilyHead === true}
-                            onChange={() => setFormData({ ...formData, isFamilyHead: true })}
-                            className="text-cyan-600 focus:ring-cyan-500"
-                          />
-                          <span>بەڵێ (سەرۆکی خێزانە)</span>
-                        </label>
-                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
-                          <input
-                            type="radio"
-                            name="isFamilyHead"
-                            checked={formData.isFamilyHead === false}
-                            onChange={() => setFormData({ ...formData, isFamilyHead: false })}
-                            className="text-cyan-600 focus:ring-cyan-500"
-                          />
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, isFamilyHead: true })}
+                          className={`py-2 px-3 rounded-xl font-bold border transition-all text-center flex items-center justify-center gap-1.5 text-xs ${
+                            formData.isFamilyHead === true
+                              ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span>✓ بەڵێ (سەرۆکی خێزانە)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, isFamilyHead: false })}
+                          className={`py-2 px-3 rounded-xl font-bold border transition-all text-center flex items-center justify-center gap-1.5 text-xs ${
+                            formData.isFamilyHead === false
+                              ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
                           <span>نەخێر</span>
-                        </label>
+                        </button>
                       </div>
                     </div>
 
                     {/* Is Provider question */}
-                    <div className="pt-2 border-t border-cyan-100">
-                      <label className="block text-slate-800 font-bold mb-1.5">
+                    <div className="space-y-1.5 pt-3 border-t border-slate-200/80">
+                      <span className="block text-slate-800 font-bold text-xs">
                         ئایا بژێوی خێزانەکە دابین دەکات؟
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
-                          <input
-                            type="radio"
-                            name="isProvider"
-                            checked={formData.isProvider === true}
-                            onChange={() => setFormData({ ...formData, isProvider: true })}
-                            className="text-cyan-600 focus:ring-cyan-500"
-                          />
-                          <span>بەڵێ (بژێوی دابین دەکات)</span>
-                        </label>
-                        <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
-                          <input
-                            type="radio"
-                            name="isProvider"
-                            checked={formData.isProvider === false}
-                            onChange={() => setFormData({ ...formData, isProvider: false })}
-                            className="text-cyan-600 focus:ring-cyan-500"
-                          />
-                          <span>نەخێر (کەسی تر دابینی دەکات)</span>
-                        </label>
+                      </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, isProvider: true })}
+                          className={`py-2 px-3 rounded-xl font-bold border transition-all text-center flex items-center justify-center gap-1.5 text-xs ${
+                            formData.isProvider === true
+                              ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span>✓ بەڵێ (بژێوی دابین دەکات)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, isProvider: false })}
+                          className={`py-2 px-3 rounded-xl font-bold border transition-all text-center flex items-center justify-center gap-1.5 text-xs ${
+                            formData.isProvider === false
+                              ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span>نەخێر (کەسی تر دابین دەکات)</span>
+                        </button>
                       </div>
                     </div>
 
                     {/* Sub-scenario A: If NOT provider -> Ask who is provider */}
                     {!formData.isProvider && (
-                      <div className="p-3 bg-white rounded-xl border border-amber-200 animate-in fade-in">
-                        <label className="block text-amber-900 font-bold mb-1">
+                      <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200/90 space-y-1.5 animate-in fade-in">
+                        <label className="block text-amber-900 font-bold text-xs">
                           کێ بژێوی خێزانەکە دابین دەکات؟ (ناوی دابینکەر / پەیوەندی):
                         </label>
                         <input
@@ -2445,38 +2470,40 @@ export const BeneficiariesView: React.FC = () => {
                           value={formData.providerName}
                           onChange={(e) => setFormData({ ...formData, providerName: e.target.value })}
                           placeholder="نموونە: باوک، کوڕی گەورە، خێرخوازان..."
-                          className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                          className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
                         />
                       </div>
                     )}
 
                     {/* Sub-scenario B: If IS provider -> Ask if ONLY provider or others exist */}
                     {formData.isProvider && (
-                      <div className="p-3.5 bg-white rounded-xl border border-cyan-200 space-y-3 animate-in fade-in">
-                        <label className="block text-slate-800 font-bold">
+                      <div className="pt-3 border-t border-slate-200/80 space-y-3 animate-in fade-in">
+                        <span className="block text-slate-800 font-bold text-xs">
                           ئایا تەنها خۆیەتی بژێوی دابین دەکات یان کەسی تریش هەیە لە هەمان خێزاندا؟
-                        </label>
-                        <div className="flex items-center gap-4">
-                          <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
-                            <input
-                              type="radio"
-                              name="isOnlyProvider"
-                              checked={formData.isOnlyProvider === true}
-                              onChange={() => setFormData({ ...formData, isOnlyProvider: true })}
-                              className="text-cyan-600"
-                            />
-                            <span>بەڵێ، تەنها خۆیەتی دابینکەر</span>
-                          </label>
-                          <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700">
-                            <input
-                              type="radio"
-                              name="isOnlyProvider"
-                              checked={formData.isOnlyProvider === false}
-                              onChange={() => setFormData({ ...formData, isOnlyProvider: false })}
-                              className="text-cyan-600"
-                            />
-                            <span>نەخێر، دابینکەری تریش هەیە لە خێزانەکەدا</span>
-                          </label>
+                        </span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, isOnlyProvider: true })}
+                            className={`py-2 px-3 rounded-xl font-bold border transition-all text-center text-xs ${
+                              formData.isOnlyProvider === true
+                                ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            تەنها خۆیەتی دابینکەر
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, isOnlyProvider: false })}
+                            className={`py-2 px-3 rounded-xl font-bold border transition-all text-center text-xs ${
+                              formData.isOnlyProvider === false
+                                ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            دابینکەری تریش هەیە لە خێزانەکەدا
+                          </button>
                         </div>
 
                         {/* List other providers in the same family */}
@@ -2491,13 +2518,13 @@ export const BeneficiariesView: React.FC = () => {
                                 {formData.otherProviders.map((prov, i) => (
                                   <div
                                     key={i}
-                                    className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs"
+                                    className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs shadow-xs"
                                   >
                                     <div className="flex items-center gap-2">
                                       <span className="font-bold text-slate-800">{prov.name}</span>
                                       <span className="text-slate-500">({prov.relation})</span>
                                       {prov.monthlyIncomeIQD ? (
-                                        <span className="text-emerald-700 font-bold">
+                                        <span className="text-emerald-700 font-bold font-mono">
                                           - {prov.monthlyIncomeIQD.toLocaleString()} د.ع
                                         </span>
                                       ) : null}
@@ -2516,7 +2543,7 @@ export const BeneficiariesView: React.FC = () => {
                             )}
 
                             {/* Add other provider row */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-white p-2.5 rounded-xl border border-slate-200">
                               <input
                                 type="text"
                                 value={newOtherProvider.name}
@@ -2542,7 +2569,7 @@ export const BeneficiariesView: React.FC = () => {
                                     })
                                   }
                                   placeholder="داهات (د.ع)"
-                                  className="w-full px-2.5 py-1.5 rounded-lg liquid-input text-slate-900 bg-white"
+                                  className="w-full px-2.5 py-1.5 rounded-lg liquid-input text-slate-900 bg-white font-mono"
                                 />
                                 <button
                                   type="button"
@@ -2555,10 +2582,8 @@ export const BeneficiariesView: React.FC = () => {
                             </div>
                           </div>
                         )}
-
                       </div>
                     )}
-
                   </div>
 
                   {/* Phone & Governorate */}
@@ -2606,14 +2631,14 @@ export const BeneficiariesView: React.FC = () => {
                   </div>
 
                   {/* GPS House Location on Map */}
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <label className="text-slate-800 font-bold flex items-center gap-1.5 text-xs">
                         <MapPin className="w-4 h-4 text-cyan-600" />
                         دیاریکردنی وردی سەربان و پێگەی ماڵ لەسەر نەخشە (GPS):
                       </label>
                       {formData.location ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
                           <Check className="w-3 h-3 text-emerald-600" />
                           پێگە دیاریکراوە
                         </span>
@@ -2674,7 +2699,7 @@ export const BeneficiariesView: React.FC = () => {
                         type="button"
                         onClick={() => handleGetCurrentGPS(false)}
                         disabled={isGettingGPS}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 text-xs font-bold transition-all shadow-sm"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 text-xs font-bold transition-all shadow-xs"
                       >
                         <Navigation className={`w-3.5 h-3.5 text-cyan-600 ${isGettingGPS ? 'animate-spin' : ''}`} />
                         <span>{isGettingGPS ? 'وەرگرتنی پێگە...' : 'وەرگرتنی پێگەی ئێستام (GPS مۆبایل)'}</span>
@@ -2689,7 +2714,7 @@ export const BeneficiariesView: React.FC = () => {
                             setActiveTab('geo');
                           }
                         }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-sm"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition-all shadow-xs"
                       >
                         <Crosshair className="w-3.5 h-3.5 text-slate-600" />
                         <span>دیاریکردن لەسەر نەخشەی گشتی</span>
@@ -2706,7 +2731,7 @@ export const BeneficiariesView: React.FC = () => {
                         min={1}
                         value={formData.familyMembers}
                         onChange={(e) => setFormData({ ...formData, familyMembers: Number(e.target.value) })}
-                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
                       />
                     </div>
                     <div>
@@ -2715,7 +2740,7 @@ export const BeneficiariesView: React.FC = () => {
                         type="number"
                         value={formData.monthlyIncomeIQD}
                         onChange={(e) => setFormData({ ...formData, monthlyIncomeIQD: Number(e.target.value) })}
-                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
                       />
                     </div>
                     <div>
@@ -2748,7 +2773,7 @@ export const BeneficiariesView: React.FC = () => {
                   </div>
 
                   {/* Status Selection - Default is 'pending' (لەژێر لێکۆڵینەوە) */}
-                  <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-2.5">
+                  <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/90 space-y-2.5">
                     <label className="block text-slate-800 font-bold mb-1 flex items-center gap-1.5">
                       <Clock className="w-4 h-4 text-amber-600" />
                       دۆخی سەرەتایی دۆسیە (Status):
@@ -2787,24 +2812,24 @@ export const BeneficiariesView: React.FC = () => {
                         <ShieldCheck className="w-4 h-4 text-purple-600" />
                         <span>دۆسیەی هەستیار و نهێنی (Confidential Record)</span>
                       </label>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
                         پاراستنی تایبەتمەندی
                       </span>
                     </div>
 
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-[11px] text-slate-500">
                       * بە شێوەی خۆکار لەسەر (لەژێر لێکۆڵینەوە) دانراوە. تەنانەت ئەگەر هاوکاریش وەربگرێت، دۆخی لێکۆڵینەوەکەی پارێزراو دەبێت.
                     </p>
                   </div>
 
                   {/* Attached Documents Upload (Optional) */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-3">
                     <div className="flex items-center justify-between">
                       <label className="text-slate-800 font-bold flex items-center gap-1.5">
                         <Paperclip className="w-4 h-4 text-cyan-600" />
                         بەڵگەنامە و دۆکیۆمێنتەکان (ئارەزوومەندانە):
                       </label>
-                      <span className="text-[10px] text-slate-500">
+                      <span className="text-[11px] text-slate-500">
                         {formData.documents.length > 0 ? `${formData.documents.length} بەڵگەنامە زیادکراوە` : 'دەتوانیت یەک یان چەند فایلێک هاوپێچ بکەیت'}
                       </span>
                     </div>
@@ -2827,7 +2852,7 @@ export const BeneficiariesView: React.FC = () => {
                         <span className="text-xs font-bold text-slate-700 group-hover:text-cyan-700">
                           کلیک بکە بۆ دیاریکردنی بەڵگەنامە (ناسنامە، وێنەی مەیدانی، ڕاپۆرتی پزیشکی...)
                         </span>
-                        <span className="text-[10px] text-slate-400 mt-0.5">
+                        <span className="text-[11px] text-slate-400 mt-0.5">
                           دەتوانیت یەک یان چەند فایلێک هەڵبژێریت (JPG, PNG, PDF)
                         </span>
                       </label>
@@ -2846,7 +2871,7 @@ export const BeneficiariesView: React.FC = () => {
                               </div>
                               <div className="min-w-0">
                                 <p className="font-bold text-slate-800 truncate">{doc.title}</p>
-                                <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                                <div className="flex items-center gap-2 text-[11px] text-slate-400">
                                   <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-bold">{doc.category}</span>
                                   <span>{doc.fileSize}</span>
                                 </div>
@@ -2877,27 +2902,33 @@ export const BeneficiariesView: React.FC = () => {
                       </div>
                     )}
                   </div>
+                </div>
 
-                  {/* Offline warning inside modal */}
-                  {!isCloudConnected && (
-                    <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5">
-                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                      <span>داتابەیسی سەرهێڵ ناپەیوەستە. داخڵکردن تەنها لە کاتی بوونی پەیوەندی بە Supabase کاردەکات.</span>
+                {/* Sticky Modal Footer (Permanently Visible) */}
+                <div className="px-6 py-3.5 bg-slate-50/95 border-t border-slate-200/90 flex flex-wrap items-center justify-between gap-3 shrink-0 rounded-b-3xl">
+                  {!isCloudConnected ? (
+                    <div className="flex items-center gap-2 text-rose-700 text-xs font-bold">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                      <span>داتابەیسی سەرهێڵ ناپەیوەستە</span>
                     </div>
+                  ) : (
+                    <span className="text-slate-500 text-xs font-medium">
+                      * پڕکردنەوەی ناوی تەواو و ناسنامە پێویستە
+                    </span>
                   )}
 
-                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                  <div className="flex items-center gap-2.5 ms-auto">
                     <button
                       type="button"
                       onClick={() => setIsAddModalOpen(false)}
-                      className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                      className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs"
                     >
                       پاشگەزبوونەوە
                     </button>
                     <button
                       type="submit"
                       disabled={!isCloudConnected || isSubmitting}
-                      className={`px-6 py-2.5 rounded-xl text-white text-xs font-bold flex items-center gap-2 transition-all ${
+                      className={`px-6 py-2.5 rounded-xl text-white text-xs font-bold flex items-center gap-2 transition-all shadow-md ${
                         !isCloudConnected || isSubmitting
                           ? 'bg-slate-400 cursor-not-allowed opacity-75'
                           : 'liquid-button-primary'
@@ -2913,203 +2944,208 @@ export const BeneficiariesView: React.FC = () => {
                       )}
                     </button>
                   </div>
-
-                </form>
-              </div>
+                </div>
+              </form>
             )}
 
             {/* -------------------- MODE 2: BULK EXCEL ENTRY -------------------- */}
             {entryMode === 'bulk' && (
-              <div className="space-y-5">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
-                    <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-                    هاوردەکردنی سوودمەندان بە کۆمەڵ بە فایلی ئێکسڵ
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    دەتوانیت سەدان خێزانی سوودمەند لە چەند چرکەیەکدا هاوردەی داتابەیس بکەیت بە بەکارهێنانی فایلی Excel (.xlsx) یان CSV
-                  </p>
-                </div>
-
-                {bulkImportSuccess && (
-                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                    <p className="font-bold">{bulkImportSuccess}</p>
-                  </div>
-                )}
-
-                {/* Step 1: Download template */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex flex-col flex-1 min-h-0">
+                <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
                   <div>
-                    <h4 className="text-xs font-bold text-slate-800">هەنگاوی ۱: داگرتنی تێمپلەیتی خاوێنی ئێکسڵ</h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      تێمپلەیتەکە بە زمانی کوردی ئامادەکراوە و خانە و نموونەی سەرەکی تێدایە
+                    <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+                      <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                      هاوردەکردنی سوودمەندان بە کۆمەڵ بە فایلی ئێکسڵ
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      دەتوانیت سەدان خێزانی سوودمەند لە چەند چرکەیەکدا هاوردەی داتابەیس بکەیت بە بەکارهێنانی فایلی Excel (.xlsx) یان CSV
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={downloadBeneficiaryExcelTemplate}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 text-xs font-bold shadow-sm transition-all shrink-0"
-                  >
-                    <Download className="w-4 h-4 text-emerald-600" />
-                    <span>داگرتنی تێمپلەیت (.xlsx)</span>
-                  </button>
-                </div>
 
-                {/* Step 2: Upload File */}
-                <div className="p-6 rounded-3xl border-2 border-dashed border-slate-300 hover:border-cyan-500 transition-colors text-center bg-slate-50/50">
-                  <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-                  <p className="text-xs sm:text-sm font-bold text-slate-700 mb-1">
-                    فایلی ئێکسڵە پڕکراوەکە هەڵبژێرە یان ڕایبکێشە بۆ ئێرە
-                  </p>
-                  <p className="text-[11px] text-slate-400 mb-4">
-                    پشتیوانی فۆرماتەکانی .xlsx, .xls, .csv دەکات
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx, .xls, .csv"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="excel-file-input"
-                  />
-                  <label
-                    htmlFor="excel-file-input"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold cursor-pointer shadow-sm transition-colors"
-                  >
-                    {isUploading ? 'خوێندنەوەی فایل...' : 'هەڵبژاردنی فایل لە کۆمپیوتەر'}
-                  </label>
-                </div>
-
-                {/* Step 3: Parsed Data Preview & Confirmation */}
-                {parsedData && (
-                  <div className="space-y-4 animate-in fade-in">
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs font-bold">
-                      <div className="flex items-center gap-3">
-                        <span className="text-emerald-700 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          دۆسیە دروستەکان: {parsedData.valid.length}
-                        </span>
-                        {parsedData.errors.length > 0 && (
-                          <span className="text-rose-700 flex items-center gap-1.5">
-                            <AlertTriangle className="w-4 h-4 text-rose-600" />
-                            کێشەکان: {parsedData.errors.length}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-slate-500">
-                        کۆی گشتی: {parsedData.valid.length + parsedData.errors.length}
-                      </span>
+                  {bulkImportSuccess && (
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs flex items-center gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                      <p className="font-bold">{bulkImportSuccess}</p>
                     </div>
+                  )}
 
-                    {/* Error Details List */}
-                    {parsedData.errors.length > 0 && (
-                      <div className="p-3.5 rounded-2xl bg-rose-50/90 border border-rose-200 space-y-2">
-                        <h5 className="text-xs font-black text-rose-800 flex items-center gap-1.5">
-                          <AlertTriangle className="w-4 h-4 text-rose-600" />
-                          <span>وردەکاری دێڕە نادروستەکان لە فایلەکەدا ({parsedData.errors.length} دێڕ):</span>
-                        </h5>
-                        <div className="max-h-36 overflow-y-auto space-y-1.5 pe-1">
-                          {parsedData.errors.map((err, i) => (
-                            <div
-                              key={i}
-                              className="p-2 rounded-xl bg-white border border-rose-200/70 flex items-center justify-between gap-2 text-[11px]"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-mono font-bold shrink-0">
-                                  دێڕی #{err.row}
-                                </span>
-                                <span className="font-bold text-slate-800 truncate">
-                                  {err.name || 'بێ ناو'}
+                  {/* Step 1: Download template */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800">هەنگاوی ۱: داگرتنی تێمپلەیتی خاوێنی ئێکسڵ</h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        تێمپلەیتەکە بە زمانی کوردی ئامادەکراوە و خانە و نموونەی سەرەکی تێدایە
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={downloadBeneficiaryExcelTemplate}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 text-xs font-bold shadow-xs transition-all shrink-0"
+                    >
+                      <Download className="w-4 h-4 text-emerald-600" />
+                      <span>داگرتنی تێمپلەیت (.xlsx)</span>
+                    </button>
+                  </div>
+
+                  {/* Step 2: Upload File */}
+                  <div className="p-6 rounded-3xl border-2 border-dashed border-slate-300 hover:border-cyan-500 transition-colors text-center bg-slate-50/50">
+                    <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+                    <p className="text-xs sm:text-sm font-bold text-slate-700 mb-1">
+                      فایلی ئێکسڵە پڕکراوەکە هەڵبژێرە یان ڕایبکێشە بۆ ئێرە
+                    </p>
+                    <p className="text-[11px] text-slate-400 mb-4">
+                      پشتیوانی فۆرماتەکانی .xlsx, .xls, .csv دەکات
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".xlsx, .xls, .csv"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="excel-file-input"
+                    />
+                    <label
+                      htmlFor="excel-file-input"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold cursor-pointer shadow-sm transition-colors"
+                    >
+                      {isUploading ? 'خوێندنەوەی فایل...' : 'هەڵبژاردنی فایل لە کۆمپیوتەر'}
+                    </label>
+                  </div>
+
+                  {/* Step 3: Parsed Data Preview & Confirmation */}
+                  {parsedData && (
+                    <div className="space-y-4 animate-in fade-in">
+                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-100 border border-slate-200 text-xs font-bold">
+                        <div className="flex items-center gap-3">
+                          <span className="text-emerald-700 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            دۆسیە دروستەکان: {parsedData.valid.length}
+                          </span>
+                          {parsedData.errors.length > 0 && (
+                            <span className="text-rose-700 flex items-center gap-1.5">
+                              <AlertTriangle className="w-4 h-4 text-rose-600" />
+                              کێشەکان: {parsedData.errors.length}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-slate-500 font-mono">
+                          کۆی گشتی: {parsedData.valid.length + parsedData.errors.length}
+                        </span>
+                      </div>
+
+                      {/* Error Details List */}
+                      {parsedData.errors.length > 0 && (
+                        <div className="p-3.5 rounded-2xl bg-rose-50/90 border border-rose-200 space-y-2">
+                          <h5 className="text-xs font-black text-rose-800 flex items-center gap-1.5">
+                            <AlertTriangle className="w-4 h-4 text-rose-600" />
+                            <span>وردەکاری دێڕە نادروستەکان لە فایلەکەدا ({parsedData.errors.length} دێڕ):</span>
+                          </h5>
+                          <div className="max-h-36 overflow-y-auto space-y-1.5 pe-1">
+                            {parsedData.errors.map((err, i) => (
+                              <div
+                                key={i}
+                                className="p-2 rounded-xl bg-white border border-rose-200/70 flex items-center justify-between gap-2 text-[11px]"
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-mono font-bold shrink-0">
+                                    دێڕی #{err.row}
+                                  </span>
+                                  <span className="font-bold text-slate-800 truncate">
+                                    {err.name || 'بێ ناو'}
+                                  </span>
+                                </div>
+                                <span className="text-rose-700 font-medium text-end">
+                                  {err.reason}
                                 </span>
                               </div>
-                              <span className="text-rose-700 font-medium text-end">
-                                {err.reason}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Preview Table */}
-                    {parsedData.valid.length > 0 && (
-                      <div className="max-h-56 overflow-y-auto rounded-2xl border border-slate-200">
-                        <table className="w-full text-end text-[11px]">
-                          <thead className="bg-slate-100 sticky top-0 text-slate-700 font-bold">
-                            <tr>
-                              <th className="p-2">ناو</th>
-                              <th className="p-2">ناسنامە</th>
-                              <th className="p-2">ڕەگەز / تەمەن</th>
-                              <th className="p-2">بژێوی</th>
-                              <th className="p-2">پارێزگا</th>
-                              <th className="p-2">داهات</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {parsedData.valid.slice(0, 15).map((row, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50">
-                                <td className="p-2 font-bold text-slate-800">{row.fullName}</td>
-                                <td className="p-2 font-mono text-cyan-700">{row.nationalId}</td>
-                                <td className="p-2">
-                                  {row.gender === 'female' ? 'مێ' : 'نێر'} • {row.age} ساڵ
-                                </td>
-                                <td className="p-2">
-                                  {row.isProvider ? 'دابینکەرە' : `لەلایەن ${row.providerName || 'کەسی تر'}`}
-                                </td>
-                                <td className="p-2">{row.governorate}</td>
-                                <td className="p-2">{row.monthlyIncomeIQD.toLocaleString()} د.ع</td>
-                              </tr>
                             ))}
-                          </tbody>
-                        </table>
-                        {parsedData.valid.length > 15 && (
-                          <div className="p-2 text-center text-slate-400 text-[10px] bg-slate-50">
-                            پیشاندانی یەکەم ۱۵ خێزان لە کۆی {parsedData.valid.length} خێزان...
                           </div>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )}
 
-                    {/* Submit Bulk Import Button */}
-                    <div className="flex items-center justify-end gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setParsedData(null);
-                          if (fileInputRef.current) fileInputRef.current.value = '';
-                        }}
-                        className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
-                      >
-                        پاشگەزبوونەوە
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleConfirmBulkImport}
-                        disabled={parsedData.valid.length === 0 || !isCloudConnected || isSubmitting}
-                        className={`px-6 py-2.5 rounded-xl text-white text-xs font-bold flex items-center gap-2 shadow-md transition-all ${
-                          parsedData.valid.length === 0 || !isCloudConnected || isSubmitting
-                            ? 'bg-slate-400 cursor-not-allowed opacity-60'
-                            : 'bg-emerald-600 hover:bg-emerald-700'
-                        }`}
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <span className="w-3.5 h-3.5 border-2 border-white/60 border-t-white rounded-full animate-spin" />
-                            <span>تۆمارکردن لە داتابەیسی سەرهێڵ...</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>پەسەندکردن و تۆمارکردنی ({parsedData.valid.length}) سوودمەند لە داتابەیسی سەرهێڵ</span>
-                          </>
-                        )}
-                      </button>
+                      {/* Preview Table */}
+                      {parsedData.valid.length > 0 && (
+                        <div className="max-h-56 overflow-y-auto rounded-2xl border border-slate-200">
+                          <table className="w-full text-end text-[11px]">
+                            <thead className="bg-slate-100 sticky top-0 text-slate-700 font-bold">
+                              <tr>
+                                <th className="p-2">ناو</th>
+                                <th className="p-2">ناسنامە</th>
+                                <th className="p-2">ڕەگەز / تەمەن</th>
+                                <th className="p-2">بژێوی</th>
+                                <th className="p-2">پارێزگا</th>
+                                <th className="p-2">داهات</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {parsedData.valid.slice(0, 15).map((row, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50">
+                                  <td className="p-2 font-bold text-slate-800">{row.fullName}</td>
+                                  <td className="p-2 font-mono text-cyan-700">{row.nationalId}</td>
+                                  <td className="p-2">
+                                    {row.gender === 'female' ? 'مێ' : 'نێر'} • {row.age} ساڵ
+                                  </td>
+                                  <td className="p-2">
+                                    {row.isProvider ? 'دابینکەرە' : `لەلایەن ${row.providerName || 'کەسی تر'}`}
+                                  </td>
+                                  <td className="p-2">{row.governorate}</td>
+                                  <td className="p-2 font-mono">{row.monthlyIncomeIQD.toLocaleString()} د.ع</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {parsedData.valid.length > 15 && (
+                            <div className="p-2 text-center text-slate-400 text-[11px] bg-slate-50 font-medium">
+                              پیشاندانی یەکەم ۱۵ خێزان لە کۆی {parsedData.valid.length} خێزان...
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
+                  )}
+                </div>
 
-                  </div>
-                )}
-
+                {/* Sticky Bulk Import Footer (Permanently Visible) */}
+                <div className="px-6 py-3.5 bg-slate-50/95 border-t border-slate-200/90 flex items-center justify-end gap-3 shrink-0 rounded-b-3xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (parsedData) {
+                        setParsedData(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      } else {
+                        setIsAddModalOpen(false);
+                      }
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs"
+                  >
+                    پاشگەزبوونەوە
+                  </button>
+                  {parsedData && (
+                    <button
+                      type="button"
+                      onClick={handleConfirmBulkImport}
+                      disabled={parsedData.valid.length === 0 || !isCloudConnected || isSubmitting}
+                      className={`px-6 py-2.5 rounded-xl text-white text-xs font-bold flex items-center gap-2 shadow-md transition-all ${
+                        parsedData.valid.length === 0 || !isCloudConnected || isSubmitting
+                          ? 'bg-slate-400 cursor-not-allowed opacity-60'
+                          : 'bg-emerald-600 hover:bg-emerald-700'
+                      }`}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/60 border-t-white rounded-full animate-spin" />
+                          <span>تۆمارکردن لە داتابەیسی سەرهێڵ...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>پەسەندکردن و تۆمارکردنی ({parsedData.valid.length}) سوودمەند لە داتابەیسی سەرهێڵ</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -3119,21 +3155,21 @@ export const BeneficiariesView: React.FC = () => {
 
       {/* Beneficiary Details Modal & Aid History Drawer */}
       {selectedBeneficiary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="beneficiary-details-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
+        >
+          <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200/90 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
             
-            <button
-              onClick={() => setSelectedBeneficiary(null)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-200 pb-5 gap-3">
-              <div>
+            {/* Sticky Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/95 backdrop-blur-md gap-3">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h3 className="text-xl font-bold text-slate-900">{selectedBeneficiary.fullName}</h3>
+                  <h3 id="beneficiary-details-title" className="text-lg font-black text-slate-900 leading-tight truncate">
+                    {selectedBeneficiary.fullName}
+                  </h3>
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                       selectedBeneficiary.gender === 'female'
@@ -3189,36 +3225,35 @@ export const BeneficiariesView: React.FC = () => {
                       <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو ({selectedBeneficiary.aidHistory?.length || 1})
                     </span>
                   )}
-
-                  {/* Confidential Tag if isConfidential */}
-                  {selectedBeneficiary.isConfidential && selectedBeneficiary.status !== 'confidential' && (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3 text-purple-600" /> دۆسیەی نهێنی
-                    </span>
-                  )}
-
-                  {/* Secondary Aid Badge if received aid */}
-                  {selectedBeneficiary.status !== 'aided' && selectedBeneficiary.aidHistory && selectedBeneficiary.aidHistory.length > 0 && (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1 shadow-xs">
-                      <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو ({selectedBeneficiary.aidHistory.length} جار)
-                    </span>
-                  )}
                 </div>
                 <p className="text-xs text-slate-600 mt-1 flex items-center gap-2">
                   <MapPin className="w-3.5 h-3.5 text-cyan-600" /> {selectedBeneficiary.address} ({selectedBeneficiary.governorate})
                 </p>
               </div>
 
-              {/* Edit Beneficiary Button */}
-              <button
-                type="button"
-                onClick={() => handleOpenEditModal(selectedBeneficiary)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold border border-amber-200 transition-all shadow-sm shrink-0"
-              >
-                <Edit3 className="w-4 h-4 text-amber-700" />
-                <span>دەستکاریکردنی دۆسیە و بەڵگەنامەکان</span>
-              </button>
+              {/* Edit Beneficiary & Close Button */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditModal(selectedBeneficiary)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold border border-amber-200 transition-all shadow-xs"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                  <span className="hidden sm:inline">دەستکاریکردن</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBeneficiary(null)}
+                  className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
+                  title="داخستن"
+                  aria-label="داخستن"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
+
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
 
             {/* Confidential Warning / Protection Notice */}
             {(selectedBeneficiary.isConfidential || selectedBeneficiary.status === 'confidential') && (
@@ -3568,17 +3603,26 @@ export const BeneficiariesView: React.FC = () => {
               )}
             </div>
 
-            {/* SMS Trigger */}
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setIsSMSModalOpen(true)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-cyan-50 hover:text-cyan-700 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors border border-slate-200"
-              >
-                <MessageSquare className="w-4 h-4" />
-                ناردنی کورتەنامە (SMS) بۆ خێزان
-              </button>
             </div>
 
+            {/* Sticky Footer */}
+            <div className="px-6 py-3.5 bg-slate-50/95 border-t border-slate-200/90 flex items-center justify-between gap-3 shrink-0 rounded-b-3xl">
+              <button
+                type="button"
+                onClick={() => setIsSMSModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-white hover:bg-cyan-50 hover:text-cyan-700 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors border border-slate-200 shadow-xs"
+              >
+                <MessageSquare className="w-4 h-4 text-cyan-600" />
+                <span>ناردنی کورتەنامە (SMS)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedBeneficiary(null)}
+                className="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition-colors"
+              >
+                داخستن
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3904,41 +3948,52 @@ export const BeneficiariesView: React.FC = () => {
 
       {/* Modal: Edit Beneficiary & Manage Documents */}
       {isEditModalOpen && editingBeneficiary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[92vh] overflow-y-auto">
-            
-            <button
-              onClick={() => {
-                setIsEditModalOpen(false);
-                setEditingBeneficiary(null);
-              }}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2 mb-4">
-              <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700">
-                <Edit3 className="w-5 h-5" />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-beneficiary-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
+        >
+          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200/90 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
+            {/* Sticky Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/95 backdrop-blur-md">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold shadow-xs">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 id="edit-beneficiary-modal-title" className="text-base font-black text-slate-900 leading-tight">
+                    دەستکاریکردنی دۆسیە و بەڵگەنامەکانی سوودمەند
+                  </h3>
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 font-medium">
+                    <span>دۆسیەی:</span>
+                    <strong className="text-slate-800">{editingBeneficiary.fullName}</strong>
+                    <span className="font-mono font-bold text-cyan-700">({editingBeneficiary.nationalId})</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">
-                  دەستکاریکردنی دۆسیە و بەڵگەنامەکانی سوودمەند
-                </h3>
-                <span className="text-xs text-slate-500">
-                  دۆسیەی: <strong className="text-slate-800">{editingBeneficiary.fullName}</strong> ({editingBeneficiary.nationalId})
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingBeneficiary(null);
+                }}
+                className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
+                title="داخستن"
+                aria-label="داخستن"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {editDuplicateAlert && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2 mb-4">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>{editDuplicateAlert}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveEditBeneficiary} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveEditBeneficiary} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
+                {editDuplicateAlert && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2 mb-4">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{editDuplicateAlert}</span>
+                  </div>
+                )}
 
               {/* Requirement 2: Status is editable and can be approved */}
               <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 space-y-2">
@@ -4524,15 +4579,17 @@ export const BeneficiariesView: React.FC = () => {
                 )}
               </div>
 
-              {/* Submit / Cancel Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+              </div>
+
+              {/* Sticky Footer */}
+              <div className="px-6 py-3.5 bg-slate-50/95 border-t border-slate-200/90 flex items-center justify-end gap-3 shrink-0 rounded-b-3xl">
                 <button
                   type="button"
                   onClick={() => {
                     setIsEditModalOpen(false);
                     setEditingBeneficiary(null);
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs"
                 >
                   پەشیمانبوونەوە
                 </button>
@@ -4543,7 +4600,6 @@ export const BeneficiariesView: React.FC = () => {
                   پاشەکەوتکردنی دەستکارییەکان
                 </button>
               </div>
-
             </form>
           </div>
         </div>

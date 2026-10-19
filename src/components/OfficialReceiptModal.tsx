@@ -30,7 +30,7 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
@@ -46,7 +46,7 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
           type="button"
           onClick={onClose}
           aria-label="داخستنی پسوولە"
-          className="no-print absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
+          className="no-print absolute top-5 start-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
         >
           <X className="w-5 h-5" />
         </button>
