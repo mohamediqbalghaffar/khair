@@ -790,7 +790,7 @@ export const GeoMapView: React.FC = () => {
             : 'bg-slate-100 text-slate-700 border-slate-200'
         }`} title={`ئاستی زووم: ${currentZoom}`}>
           <span>زووم: {currentZoom}</span>
-          {currentZoom >= 18 && <span className="me-1 text-[10px] text-emerald-700 font-sans font-bold">🏠 سەربانی ماڵ</span>}
+          {currentZoom >= 18 && <span className="me-1 text-xs text-emerald-700 font-sans font-bold">• سەربانی ماڵ</span>}
         </div>
 
         {/* Full Screen Button */}
@@ -821,13 +821,13 @@ export const GeoMapView: React.FC = () => {
   const SidebarContent = ({ isDark = false }: { isDark?: boolean }) => (
     <div className="flex flex-col h-full">
       {/* Tabs */}
-      <div className={`grid grid-cols-2 p-1 rounded-2xl mb-4 border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+      <div className={`grid grid-cols-2 p-1 rounded-[10px] mb-4 border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
         <button
           type="button"
           onClick={() => setSidebarTab('gov')}
-          className={`py-2 px-3 rounded-xl text-xs font-black transition-all ${
+          className={`py-2 px-3 rounded-[8px] text-xs font-black transition-all ${
             sidebarTab === 'gov'
-              ? (isDark ? 'bg-slate-700 text-white shadow-sm' : 'bg-white text-slate-900 shadow-sm')
+              ? (isDark ? 'bg-slate-700 text-white shadow-xs' : 'bg-white text-slate-900 shadow-xs')
               : (isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900')
           }`}
         >
@@ -836,13 +836,13 @@ export const GeoMapView: React.FC = () => {
         <button
           type="button"
           onClick={() => setSidebarTab('houses')}
-          className={`py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1 ${
+          className={`py-2 px-3 rounded-[8px] text-xs font-black transition-all flex items-center justify-center gap-1 ${
             sidebarTab === 'houses'
-              ? (isDark ? 'bg-slate-700 text-white shadow-sm' : 'bg-white text-slate-900 shadow-sm')
+              ? (isDark ? 'bg-slate-700 text-white shadow-xs' : 'bg-white text-slate-900 shadow-xs')
               : (isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900')
           }`}
         >
-          <Home className="w-3.5 h-3.5 text-cyan-500" />
+          <Home className="w-3.5 h-3.5 text-cyan-600" />
           <span>ماڵەکان ({taggedBeneficiaries.length})</span>
         </button>
       </div>
@@ -853,9 +853,9 @@ export const GeoMapView: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 mb-4">
               <div>
                 <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>پارێزگای {activeStat.name}</h3>
-                <span className="text-xs text-slate-400">ڕاپۆرتی گشتگیری ناوچەیی و مەیدانی</span>
+                <span className="text-xs text-slate-500">ڕاپۆرتی گشتگیری ناوچەیی و مەیدانی</span>
               </div>
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-sm">
+              <div className="w-10 h-10 rounded-[10px] bg-cyan-600 flex items-center justify-center text-white shadow-xs">
                 <MapPin className="w-5 h-5" />
               </div>
             </div>
@@ -865,20 +865,20 @@ export const GeoMapView: React.FC = () => {
               <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className={`${isDark ? 'text-slate-300' : 'text-slate-600'} font-bold flex items-center gap-1.5`}>
-                    <Users className="w-4 h-4 text-cyan-500" />
+                    <Users className="w-4 h-4 text-cyan-600" />
                     خێزانە سوودمەندەکان:
                   </span>
-                  <span className={`font-black text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeStat.beneficiariesCount} خێزان</span>
+                  <span className={`font-black font-mono text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeStat.beneficiariesCount} خێزان</span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-200/50 overflow-hidden mt-2">
+                <div className="w-full h-2 rounded-[4px] bg-slate-200/60 overflow-hidden mt-2">
                   <div
-                    className="h-full rounded-full bg-cyan-600 transition-all duration-500"
+                    className="h-full rounded-[4px] bg-cyan-600 transition-all duration-500"
                     style={{
                       width: `${totalBeneficiariesCount > 0 ? Math.min(100, (activeStat.beneficiariesCount / totalBeneficiariesCount) * 100) : 0}%`
                     }}
                   />
                 </div>
-                <span className="text-[10px] text-slate-400 mt-1 block">
+                <span className="text-xs text-slate-500 mt-1 block">
                   {totalBeneficiariesCount > 0
                     ? `${Math.round((activeStat.beneficiariesCount / totalBeneficiariesCount) * 100)}٪ ی تەواوی سوودمەندان`
                     : 'سفر خێزان تۆمارکراوە'}
@@ -886,25 +886,25 @@ export const GeoMapView: React.FC = () => {
               </div>
 
               <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-emerald-950/40 border-emerald-800/60' : 'bg-emerald-50/70 border-emerald-200'}`}>
-                <span className="text-xs text-emerald-500 font-bold flex items-center gap-1.5 mb-1">
-                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+                <span className="text-xs text-emerald-700 font-bold flex items-center gap-1.5 mb-1">
+                  <TrendingUp className="w-4 h-4 text-emerald-600" />
                   کۆی هاوکاری دابەشکراو:
                 </span>
-                <span className={`text-lg font-black ${isDark ? 'text-emerald-300' : 'text-emerald-900'}`}>
+                <span className={`text-lg font-black font-mono ${isDark ? 'text-emerald-300' : 'text-emerald-900'}`}>
                   {activeStat.totalAidDistributedIQD.toLocaleString()} د.ع
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div className={`p-3 rounded-2xl border text-center ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                  <FolderKanban className="w-4 h-4 text-purple-400 mx-auto mb-1" />
-                  <span className="text-[10px] text-slate-400 block">پڕۆژەکان:</span>
-                  <span className={`font-black text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeStat.activeProjectsCount} پڕۆژە</span>
+                  <FolderKanban className="w-4 h-4 text-indigo-600 mx-auto mb-1" />
+                  <span className="text-xs text-slate-500 block">پڕۆژەکان:</span>
+                  <span className={`font-black font-mono text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeStat.activeProjectsCount} پڕۆژە</span>
                 </div>
                 <div className={`p-3 rounded-2xl border text-center ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
-                  <Award className="w-4 h-4 text-amber-400 mx-auto mb-1" />
-                  <span className="text-[10px] text-slate-400 block">خۆبەخشان:</span>
-                  <span className={`font-black text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeStat.volunteersCount} کەس</span>
+                  <Award className="w-4 h-4 text-amber-600 mx-auto mb-1" />
+                  <span className="text-xs text-slate-500 block">خۆبەخشان:</span>
+                  <span className={`font-black font-mono text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeStat.volunteersCount} کەس</span>
                 </div>
               </div>
             </div>
@@ -913,10 +913,9 @@ export const GeoMapView: React.FC = () => {
           <div className="mt-4 pt-3 border-t border-slate-200/50">
             <button
               onClick={() => setActiveTab('beneficiaries')}
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 font-bold text-xs transition-all border border-cyan-500/20"
+              className="w-full h-10 flex items-center justify-center rounded-[10px] bg-cyan-50 hover:bg-cyan-100/80 text-cyan-800 font-bold text-xs transition-all border border-cyan-200/80"
             >
               <span>بینینی خێزانەکانی {activeStat.name}</span>
-              <ArrowUpRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -925,13 +924,13 @@ export const GeoMapView: React.FC = () => {
         <div className="flex-1 flex flex-col min-h-0">
           {/* Search Box */}
           <div className="relative mb-3">
-            <Search className="w-3.5 h-3.5 absolute right-3 top-2.5 text-slate-400 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 absolute start-3 top-2.5 text-slate-400 pointer-events-none" />
             <input
               type="text"
               value={houseSearchQuery}
               onChange={(e) => setHouseSearchQuery(e.target.value)}
               placeholder="گەڕان بەپێی ناو، مۆبایل، شار..."
-              className={`w-full pe-8 ps-3 py-1.5 rounded-xl text-xs border outline-none transition-all ${
+              className={`w-full ps-8 pe-3 py-1.5 rounded-[10px] text-xs border outline-none transition-all ${
                 isDark
                   ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400 focus:border-cyan-500'
                   : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-cyan-500'
@@ -1148,7 +1147,7 @@ export const GeoMapView: React.FC = () => {
               )}
 
               {/* Map Legend Overlay */}
-              <div className={`absolute ${isFullScreen ? 'bottom-4 left-4 z-[1000] p-3 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-800 text-white text-[10px] space-y-1.5 shadow-xl' : 'bottom-3 left-3 z-[1000] p-2.5 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-md text-[10px] space-y-1'} pointer-events-none`}>
+              <div className={`absolute ${isFullScreen ? 'bottom-4 end-4 z-[1000] p-3 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-800 text-white text-xs space-y-1.5 shadow-xl' : 'bottom-3 end-3 z-[1000] p-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md text-xs space-y-1'} pointer-events-none`}>
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-cyan-500 border border-white shadow-sm inline-block" />
                   <span className={isFullScreen ? "font-bold" : "font-bold text-slate-800"}>ناوچەی هەڵبژێردراو</span>
@@ -1165,7 +1164,7 @@ export const GeoMapView: React.FC = () => {
             </div>
 
             {!isFullScreen && (
-              <div className="flex items-center justify-between text-[11px] text-slate-500 pt-3 border-t border-slate-100 mt-2">
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 mt-2">
                 <span>کۆی هاوکاری دابەشکراو لە ناوچەکان: <strong className="text-emerald-700 font-mono">{totalDistributedIQD.toLocaleString()} د.ع</strong></span>
                 <span className="font-bold text-cyan-800">{taggedBeneficiaries.length} ماڵی بەستراو بە پێگەی GPS</span>
               </div>
@@ -1179,18 +1178,18 @@ export const GeoMapView: React.FC = () => {
         <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
           <div className="p-4 border-b border-slate-200 flex items-center justify-between">
             <h4 className="text-xs font-bold text-slate-900">بەراوردی دادپەروەری دابەشکردنی هاوکاری بەپێی شارەکان (کلیک بکە بۆ جوڵانی نەخشە)</h4>
-            <span className="text-[11px] text-slate-500">بەستراوە بە پێگەی جوگرافی</span>
+            <span className="text-xs text-slate-500">بەستراوە بە پێگەی جوگرافی</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-end text-xs">
+            <table className="w-full text-start text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
                 <tr>
-                  <th className="py-3 px-4">ناوی پارێزگا / ئیدارە</th>
-                  <th className="py-3 px-4">خێزانی سوودمەند</th>
-                  <th className="py-3 px-4">کۆی بڕی هاوکاری (د.ع)</th>
-                  <th className="py-3 px-4">پڕۆژەی کارا</th>
-                  <th className="py-3 px-4">خۆبەخشانی ناوچەکە</th>
-                  <th className="py-3 px-4">ڕێژەی گشتی</th>
+                  <th className="py-3 px-4 text-start">ناوی پارێزگا / ئیدارە</th>
+                  <th className="py-3 px-4 text-start">خێزانی سوودمەند</th>
+                  <th className="py-3 px-4 text-start">کۆی بڕی هاوکاری (د.ع)</th>
+                  <th className="py-3 px-4 text-start">پڕۆژەی کارا</th>
+                  <th className="py-3 px-4 text-start">خۆبەخشانی ناوچەکە</th>
+                  <th className="py-3 px-4 text-start">ڕێژەی گشتی</th>
                   <th className="py-3 px-4 text-center">کردار</th>
                 </tr>
               </thead>
@@ -1210,21 +1209,21 @@ export const GeoMapView: React.FC = () => {
                         <MapPin className={`w-3.5 h-3.5 ${isCurrent ? 'text-cyan-600' : 'text-slate-400'}`} />
                         <span>{stat.name}</span>
                       </td>
-                      <td className="py-3 px-4 text-slate-900">{stat.beneficiariesCount} خێزان</td>
+                      <td className="py-3 px-4 text-slate-900 font-mono">{stat.beneficiariesCount} خێزان</td>
                       <td className="py-3 px-4 font-mono font-bold text-emerald-700">
                         {stat.totalAidDistributedIQD.toLocaleString()} د.ع
                       </td>
-                      <td className="py-3 px-4 text-purple-700">{stat.activeProjectsCount} پڕۆژە</td>
-                      <td className="py-3 px-4 text-amber-700 font-bold">{stat.volunteersCount} کەس</td>
+                      <td className="py-3 px-4 text-indigo-700 font-mono">{stat.activeProjectsCount} پڕۆژە</td>
+                      <td className="py-3 px-4 text-amber-700 font-bold font-mono">{stat.volunteersCount} کەس</td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-16 h-2 rounded-full bg-slate-200 overflow-hidden">
+                          <div className="w-16 h-2 rounded-[4px] bg-slate-200 overflow-hidden">
                             <div
-                              className="h-full rounded-full bg-cyan-600"
+                              className="h-full rounded-[4px] bg-cyan-600"
                               style={{ width: `${percent}%` }}
                             />
                           </div>
-                          <span className="text-[10px] text-slate-500 font-mono">{percent}٪</span>
+                          <span className="text-xs text-slate-500 font-mono">{percent}٪</span>
                         </div>
                       </td>
                       <td className="py-3 px-4 text-center">
@@ -1233,10 +1232,9 @@ export const GeoMapView: React.FC = () => {
                             e.stopPropagation();
                             handleSelectGov(stat.name);
                           }}
-                          className="p-1 px-2.5 rounded-lg bg-white border border-slate-200 text-cyan-700 hover:bg-cyan-50 font-bold text-[11px] shadow-sm inline-flex items-center gap-1"
+                          className="h-8 px-3 rounded-[8px] bg-white border border-slate-200 text-cyan-700 hover:bg-cyan-50 font-bold text-xs shadow-xs inline-flex items-center justify-center transition-colors"
                         >
                           <span>نیشاندان لەسەر نەخشە</span>
-                          <ChevronRight className="w-3.5 h-3.5 rotate-180" />
                         </button>
                       </td>
                     </tr>

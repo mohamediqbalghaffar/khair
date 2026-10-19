@@ -197,56 +197,43 @@ export const Topbar: React.FC = () => {
       <header
         role="banner"
         aria-label="سەردێڕی سەرەکی سیستەم"
-        className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-2xl border-b border-slate-200/80 shadow-[0_4px_24px_-6px_rgba(15,23,42,0.06)] transition-all duration-300 no-print select-none"
+        className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-2xl border-b border-slate-200/70 shadow-[0_4px_24px_-6px_rgba(15,23,42,0.04)] transition-all duration-300 no-print select-none"
       >
-        {/* Specular Top Gradient Accent */}
-        <div className="h-[2.5px] w-full bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 opacity-90" />
-
         <div className="max-w-[1536px] mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2.5 sm:gap-4">
           
           {/* ============================================================== */}
           {/* 1. BRAND IDENTITY & CLOUD STATUS (Right Side in RTL)           */}
           {/* ============================================================== */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 shrink-0">
-            {/* Logo Mark with Liquid Glass Gradient */}
+          <div className="flex items-center gap-3 min-w-0 shrink-0">
+            {/* Logo Mark: Clean Monochromatic 10px Radius Container (rule.md 2.2 & 4.2) */}
             <div className="relative group shrink-0">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 p-[1.5px] shadow-sm transition-transform duration-300 group-hover:scale-105">
-                <div className="w-full h-full rounded-[14.5px] bg-white/95 backdrop-blur-md flex items-center justify-center overflow-hidden">
-                  <HeartHandshake className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-600 transition-colors group-hover:text-blue-600" />
-                </div>
+              <div className="w-10 h-10 rounded-[10px] bg-cyan-600 hover:bg-cyan-700 text-white flex items-center justify-center shadow-xs transition-colors">
+                <HeartHandshake className="w-5 h-5" strokeWidth={2} />
               </div>
               {/* Online Pulse Dot */}
               <span
-                className={`absolute -bottom-0.5 -start-0.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm flex items-center justify-center ${
+                className={`absolute -bottom-0.5 -start-0.5 w-3 h-3 rounded-full border-2 border-white shadow-xs ${
                   isCloudConnected ? 'bg-emerald-500' : 'bg-rose-500'
                 }`}
                 title={isCloudConnected ? 'پەیوەستکراوە بە داتابەیسی هەور' : 'پەیوەندی نییە'}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full bg-white ${isCloudConnected ? 'animate-pulse' : ''}`} />
-              </span>
+              />
             </div>
 
-            {/* Title & Cloud Sync Pill */}
+            {/* Single-Row Title + Cloud Sync Status Pill */}
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <h1 className="text-sm sm:text-base lg:text-lg font-black tracking-tight text-slate-900 flex items-center gap-1.5 truncate">
-                  <span className="truncate">ڕێکخراوی بۆتان بامۆکی</span>
-                  <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-cyan-50 to-blue-50 text-cyan-800 border border-cyan-200/80 shadow-xs shrink-0">
-                    خێرخوازی و مرۆیی
-                  </span>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm sm:text-base font-black tracking-tight text-slate-900 truncate">
+                  ڕێکخراوی بۆتان بامۆکی
                 </h1>
 
                 {/* Cloud Sync State Pill */}
                 {isCloudConnected ? (
-                  <div className="hidden lg:inline-flex items-center gap-1">
+                  <div className="hidden md:inline-flex items-center gap-1 shrink-0">
                     <span
-                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50/90 text-emerald-700 border border-emerald-200/70 text-[11px] font-bold shadow-xs"
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[8px] bg-emerald-50 text-emerald-700 border border-emerald-200/70 text-[11px] font-bold"
                       title="داتابەیسی سەرهێڵ (Supabase) پەیوەستە و چاودێری دەکرێت"
                     >
-                      <span className="relative flex h-2 w-2">
-                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${isCloudSyncing ? 'bg-cyan-400' : 'bg-emerald-400'} opacity-75`} />
-                        <span className={`relative inline-flex rounded-full h-2 w-2 ${isCloudSyncing ? 'bg-cyan-500' : 'bg-emerald-500'}`} />
-                      </span>
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       <Database className="w-3 h-3 text-emerald-600" />
                       <span>{isCloudSyncing ? 'هاوکاتکردن...' : 'داتابەیسی سەرهێڵ'}</span>
                     </span>
@@ -256,18 +243,17 @@ export const Topbar: React.FC = () => {
                       disabled={isCloudSyncing}
                       aria-label="هاوکاتکردنی داتاکان لەگەڵ هەور"
                       title="هاوکاتکردنی خێرا لەگەڵ هەور (Force Cloud Sync)"
-                      className="p-1 text-slate-400 hover:text-cyan-600 rounded-lg hover:bg-slate-100 transition-colors"
+                      className="p-1 text-slate-400 hover:text-cyan-600 rounded-[8px] hover:bg-slate-100 transition-colors"
                     >
                       <RotateCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin text-cyan-600' : ''}`} />
                     </button>
                   </div>
                 ) : (
-                  <div className="hidden lg:inline-flex items-center gap-1">
+                  <div className="hidden md:inline-flex items-center gap-1 shrink-0">
                     <span
-                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold shadow-xs"
-                      title="داتابەیس ناپەیوەستە - داخڵکردن بەربەستکراوە تا ئینتەرنێت دەگەڕێتەوە"
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[8px] bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold"
+                      title="داتابەیس ناپەیوەستە"
                     >
-                      <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
                       <AlertTriangle className="w-3 h-3 text-rose-600" />
                       <span>ناپەیوەست</span>
                     </span>
@@ -277,15 +263,15 @@ export const Topbar: React.FC = () => {
                       disabled={isCloudSyncing}
                       aria-label="پشکنینەوەی پەیوەندی"
                       title="پشکنینەوەی پەیوەندی"
-                      className="p-1 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-50 transition-colors"
+                      className="p-1 text-rose-500 hover:text-rose-700 rounded-[8px] hover:bg-rose-50 transition-colors"
                     >
                       <RotateCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
                     </button>
                   </div>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 hidden sm:block truncate mt-0.5">
-                سیستەمی فەرمی بەڕێوەبردنی خێرخوازی و دابەشکردنی کۆمەک
+              <p className="text-[11px] text-slate-500 hidden sm:block truncate leading-tight mt-0.5">
+                سیستەمی بەڕێوەبردنی کاروباری خێرخوازی و مرۆیی
               </p>
             </div>
           </div>
@@ -299,11 +285,11 @@ export const Topbar: React.FC = () => {
               onClick={() => setShowImpactPopover(!showImpactPopover)}
               aria-expanded={showImpactPopover}
               aria-label="کورتەی خێرای داتای مرۆیی"
-              className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-50/90 hover:bg-cyan-50/80 border border-slate-200/80 hover:border-cyan-300 text-slate-700 text-xs font-bold transition-all shadow-xs group"
+              className="h-10 flex items-center gap-2 px-3 rounded-[10px] bg-slate-50/90 hover:bg-cyan-50/80 border border-slate-200/80 hover:border-cyan-300 text-slate-700 text-xs font-bold transition-all group"
               title="کورتەی ئاماری ڕاستەوخۆ (Live Impact)"
             >
-              <div className="w-6 h-6 rounded-xl bg-cyan-100/80 flex items-center justify-center text-cyan-700 group-hover:scale-110 transition-transform">
-                <Activity className="w-3.5 h-3.5 text-cyan-600 animate-pulse" />
+              <div className="w-6 h-6 rounded-[6px] bg-cyan-100/80 flex items-center justify-center text-cyan-700">
+                <Activity className="w-3.5 h-3.5 text-cyan-600" />
               </div>
               <span className="font-mono text-cyan-900 font-black">
                 {beneficiaries.length.toLocaleString()}
@@ -317,27 +303,27 @@ export const Topbar: React.FC = () => {
               <div
                 role="dialog"
                 aria-label="ئاماری مرۆیی و کۆگا"
-                className="absolute start-0 mt-2.5 w-64 rounded-3xl bg-white border border-slate-200 p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
+                className="absolute start-0 mt-2.5 w-64 rounded-2xl bg-white border border-slate-200 p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
               >
                 <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-100">
                   <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-cyan-600" />
                     ئاماری چالاکی مەیدانی
                   </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-[6px] bg-emerald-50 text-emerald-700 border border-emerald-200">
                     ڕاستەوخۆ
                   </span>
                 </div>
                 <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                  <div className="flex items-center justify-between p-2 rounded-[10px] bg-slate-50 border border-slate-100">
                     <span className="text-slate-600">کۆی خێزانە تۆمارکراوەکان:</span>
                     <span className="font-mono font-black text-slate-900">{beneficiaries.length}</span>
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                  <div className="flex items-center justify-between p-2 rounded-[10px] bg-slate-50 border border-slate-100">
                     <span className="text-slate-600">کەرەستە و بەشەخۆراک لە کۆگا:</span>
                     <span className="font-mono font-black text-cyan-800">{inventory.length} پۆل</span>
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
+                  <div className="flex items-center justify-between p-2 rounded-[10px] bg-slate-50 border border-slate-100">
                     <span className="text-slate-600">نرخی رۆژی دۆلار (IQD):</span>
                     <span className="font-mono font-black text-amber-800">{todayRate.toLocaleString()} د.ع</span>
                   </div>
@@ -348,7 +334,7 @@ export const Topbar: React.FC = () => {
                     setShowImpactPopover(false);
                     setActiveTab('dashboard');
                   }}
-                  className="mt-3 w-full py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-[11px] font-bold text-center transition-colors"
+                  className="mt-3 w-full h-9 rounded-[10px] bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold text-center transition-colors"
                 >
                   بینینی داشبۆردی گشتی ئامارەکان
                 </button>
@@ -364,13 +350,13 @@ export const Topbar: React.FC = () => {
               type="button"
               onClick={() => setIsSpotlightOpen(true)}
               aria-label="گەڕانی خێرا و فەرمانەکان (Ctrl + K)"
-              className="w-full flex items-center justify-between px-3.5 py-2 rounded-2xl bg-slate-100/80 hover:bg-white border border-slate-200/90 hover:border-cyan-400 text-slate-500 text-xs hover:text-slate-800 transition-all duration-200 group shadow-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+              className="w-full h-10 flex items-center justify-between px-3.5 rounded-[10px] bg-slate-50/90 hover:bg-white border border-slate-200/80 hover:border-cyan-400 text-slate-500 text-xs hover:text-slate-800 transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
             >
               <div className="flex items-center gap-2.5 truncate">
                 <Search className="w-4 h-4 text-slate-400 group-hover:text-cyan-600 transition-colors shrink-0" />
-                <span className="truncate">گەڕانی خێرا لە سوودمەند، بەخشەر، پسوولە...</span>
+                <span className="truncate font-medium">گەڕانی خێرا لە سوودمەند، بەخشەر، پسوولە...</span>
               </div>
-              <kbd className="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white/90 group-hover:bg-cyan-50 text-slate-600 group-hover:text-cyan-800 border border-slate-200 shadow-xs shrink-0 font-mono transition-colors">
+              <kbd className="px-2 py-0.5 text-[11px] font-bold rounded-[6px] bg-white group-hover:bg-cyan-50 text-slate-600 group-hover:text-cyan-800 border border-slate-200/90 shrink-0 font-mono transition-colors">
                 Ctrl + K
               </kbd>
             </button>
@@ -379,7 +365,7 @@ export const Topbar: React.FC = () => {
           {/* ============================================================== */}
           {/* 4. ACTION TOOLBAR & USER CONTROLS (Left Side in RTL)           */}
           {/* ============================================================== */}
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             
             {/* Mobile Search Icon Trigger */}
             <button
@@ -387,9 +373,9 @@ export const Topbar: React.FC = () => {
               onClick={() => setIsSpotlightOpen(true)}
               aria-label="گەڕانی خێرا"
               title="گەڕانی خێرا (Ctrl+K)"
-              className="sm:hidden p-2 rounded-2xl bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200"
+              className="sm:hidden w-10 h-10 flex items-center justify-center rounded-[10px] bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200/80"
             >
-              <Search className="w-4.5 h-4.5" />
+              <Search className="w-4 h-4" />
             </button>
 
             {/* Quick Action (+) Dropdown Menu (smart-forms-ux-wizard) */}
@@ -400,7 +386,7 @@ export const Topbar: React.FC = () => {
                 aria-expanded={showQuickMenu}
                 aria-label="کردارە خێراکان"
                 title="کردارە خێراکان (Quick Create)"
-                className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-2xl liquid-button-primary text-white text-xs font-bold shadow-sm transition-all"
+                className="h-10 flex items-center gap-1.5 px-3 rounded-[10px] bg-cyan-600 hover:bg-cyan-700 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition-all"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden md:inline">کرداری خێرا</span>
@@ -412,9 +398,9 @@ export const Topbar: React.FC = () => {
                 <div
                   role="menu"
                   aria-label="لیستی کردارە خێراکان"
-                  className="absolute start-0 mt-2.5 w-60 rounded-3xl bg-white border border-slate-200 p-2.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100"
+                  className="absolute start-0 mt-2.5 w-60 rounded-2xl bg-white border border-slate-200 p-2.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100"
                 >
-                  <div className="pb-1.5 px-2 text-[11px] font-bold text-slate-400">
+                  <div className="pb-1.5 px-2 text-xs font-bold text-slate-400">
                     تۆمارکردنی خێرا لە سیستەم:
                   </div>
 
@@ -423,9 +409,9 @@ export const Topbar: React.FC = () => {
                       type="button"
                       role="menuitem"
                       onClick={() => handleQuickAction('beneficiaries')}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-cyan-50 hover:text-cyan-900 transition-colors text-start"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-xs font-bold text-slate-800 hover:bg-cyan-50 hover:text-cyan-900 transition-colors text-start"
                     >
-                      <div className="w-7 h-7 rounded-lg bg-cyan-100 flex items-center justify-center text-cyan-700">
+                      <div className="w-7 h-7 rounded-[8px] bg-cyan-100 flex items-center justify-center text-cyan-700">
                         <Users className="w-4 h-4" />
                       </div>
                       <span>تۆمارکردنی سوودمەندی نوێ</span>
@@ -435,9 +421,9 @@ export const Topbar: React.FC = () => {
                       type="button"
                       role="menuitem"
                       onClick={() => handleQuickAction('donors')}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-900 transition-colors text-start"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-xs font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-900 transition-colors text-start"
                     >
-                      <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">
+                      <div className="w-7 h-7 rounded-[8px] bg-amber-100 flex items-center justify-center text-amber-700">
                         <Gift className="w-4 h-4" />
                       </div>
                       <span>تۆمارکردنی بەخشینی نوێ</span>
@@ -447,9 +433,9 @@ export const Topbar: React.FC = () => {
                       type="button"
                       role="menuitem"
                       onClick={() => handleQuickAction('inventory')}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-900 transition-colors text-start"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-900 transition-colors text-start"
                     >
-                      <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+                      <div className="w-7 h-7 rounded-[8px] bg-emerald-100 flex items-center justify-center text-emerald-700">
                         <PackageSearch className="w-4 h-4" />
                       </div>
                       <span>دابەشکردنی کۆگا و کۆمەک</span>
@@ -466,9 +452,9 @@ export const Topbar: React.FC = () => {
                         setNotifTab('announcements');
                         setShowAddAnn(true);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-800 hover:bg-indigo-50 hover:text-indigo-900 transition-colors text-start"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-xs font-bold text-slate-800 hover:bg-indigo-50 hover:text-indigo-900 transition-colors text-start"
                     >
-                      <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700">
+                      <div className="w-7 h-7 rounded-[8px] bg-indigo-100 flex items-center justify-center text-indigo-700">
                         <Megaphone className="w-4 h-4" />
                       </div>
                       <span>نووسینی ڕاگەیاندراوی نوێ</span>
@@ -482,16 +468,16 @@ export const Topbar: React.FC = () => {
             <div
               role="group"
               aria-label="هەڵبژاردنی دراوی پیشاندان"
-              className="flex items-center p-0.5 rounded-2xl bg-slate-100/90 border border-slate-200/90 shadow-xs"
+              className="h-10 flex items-center p-1 rounded-[10px] bg-slate-100 border border-slate-200/80"
               title={`نرخی دۆلار: 1$ = ${todayRate.toLocaleString()} د.ع`}
             >
               <button
                 type="button"
                 onClick={() => setCurrencyView('IQD')}
                 aria-pressed={currencyView === 'IQD'}
-                className={`px-2 sm:px-2.5 py-1 text-xs font-bold rounded-xl transition-all ${
+                className={`h-8 px-2.5 text-xs font-bold rounded-[8px] transition-all ${
                   currencyView === 'IQD'
-                    ? 'bg-white text-cyan-800 shadow-sm border border-slate-200/80'
+                    ? 'bg-white text-cyan-800 shadow-xs border border-slate-200/80'
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
@@ -501,9 +487,9 @@ export const Topbar: React.FC = () => {
                 type="button"
                 onClick={() => setCurrencyView('USD')}
                 aria-pressed={currencyView === 'USD'}
-                className={`px-2 sm:px-2.5 py-1 text-xs font-bold rounded-xl transition-all font-mono ${
+                className={`h-8 px-2.5 text-xs font-bold rounded-[8px] transition-all font-mono ${
                   currencyView === 'USD'
-                    ? 'bg-white text-cyan-800 shadow-sm border border-slate-200/80'
+                    ? 'bg-white text-cyan-800 shadow-xs border border-slate-200/80'
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
@@ -517,9 +503,9 @@ export const Topbar: React.FC = () => {
               onClick={() => setIsAccessModalOpen(true)}
               aria-label="ڕێکخستنەکانی دەستگەیشتن و بینین (Accessibility)"
               title="ڕێکخستنەکانی دەستگەیشتن و بینین (فۆنت و کۆنتراست)"
-              className="p-2 sm:p-2.5 rounded-2xl bg-slate-100 hover:bg-cyan-50 border border-slate-200 hover:border-cyan-300 text-slate-600 hover:text-cyan-700 transition-colors shadow-xs"
+              className="w-10 h-10 flex items-center justify-center rounded-[10px] bg-slate-50/90 hover:bg-cyan-50 border border-slate-200/80 hover:border-cyan-300 text-slate-600 hover:text-cyan-700 transition-colors"
             >
-              <SlidersHorizontal className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <SlidersHorizontal className="w-4 h-4" />
             </button>
 
             {/* Screen Lock Button */}
@@ -528,9 +514,9 @@ export const Topbar: React.FC = () => {
               onClick={() => setIsLocked(true)}
               aria-label="قوفڵکردنی خێرای شاشە (Ctrl + L)"
               title="قوفڵکردنی خێرای شاشە (Ctrl + L)"
-              className="p-2 sm:p-2.5 rounded-2xl bg-slate-100 hover:bg-cyan-50 border border-slate-200 hover:border-cyan-300 text-slate-600 hover:text-cyan-700 transition-colors shadow-xs"
+              className="w-10 h-10 flex items-center justify-center rounded-[10px] bg-slate-50/90 hover:bg-cyan-50 border border-slate-200/80 hover:border-cyan-300 text-slate-600 hover:text-cyan-700 transition-colors"
             >
-              <Lock className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <Lock className="w-4 h-4" />
             </button>
 
             {/* Notification & Communication Hub */}
@@ -540,12 +526,12 @@ export const Topbar: React.FC = () => {
                 onClick={() => setShowNotifMenu(!showNotifMenu)}
                 aria-label="ئاگاداری و ڕاگەیاندراوەکان"
                 aria-expanded={showNotifMenu}
-                className="relative p-2 sm:p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors shadow-xs"
+                className="relative w-10 h-10 flex items-center justify-center rounded-[10px] bg-slate-50/90 hover:bg-slate-100 border border-slate-200/80 text-slate-600 hover:text-slate-900 transition-colors"
                 title="ئاگاداری و ڕاگەیاندراوەکان"
               >
-                <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                <Bell className="w-4 h-4" />
                 {(unreadCount > 0 || pendingRemindersCount > 0) && (
-                  <span className="absolute -top-1 -end-1 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-sm font-mono">
+                  <span className="absolute -top-1 -end-1 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white shadow-xs font-mono">
                     {unreadCount + pendingRemindersCount}
                   </span>
                 )}
@@ -745,62 +731,68 @@ export const Topbar: React.FC = () => {
             <div className="flex items-center gap-1.5 sm:gap-2 ms-0.5 sm:ms-1">
               <Show when="signed-out">
                 <SignInButton mode="modal">
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold transition-all shadow-sm shadow-cyan-600/20">
+                  <button className="h-10 flex items-center gap-1.5 px-3.5 rounded-[10px] bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold transition-all shadow-xs">
                     <LogIn className="w-3.5 h-3.5" />
                     <span>چوونەژوورەوە</span>
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
-                  <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold transition-all">
+                  <button className="hidden sm:flex h-10 items-center gap-1.5 px-3.5 rounded-[10px] bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold transition-all">
                     <span>خۆتۆمارکردن</span>
                   </button>
                 </SignUpButton>
               </Show>
 
               <Show when="signed-in">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  {/* Role Badge */}
-                  <div className="hidden lg:block">
-                    {isDeveloperAccount ? (
-                      <div
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-2xl border text-xs font-black shadow-xs bg-purple-50/90 border-purple-200 text-purple-900 select-none"
-                        title="پەرەپێدەری سیستەم (دەسەڵاتی هەمیشەیی و تەواو)"
-                      >
-                        <span className="text-xs">👑</span>
-                        <span>پەرەپێدەر</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-2xl bg-cyan-50/90 border border-cyan-200 text-cyan-800 text-xs font-bold shadow-xs select-none">
-                        <span>{currentRole === 'head_of_organization' ? '🏛️ سەرۆکی ڕێکخراو' : '👤 بەکارهێنەر'}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* User Profile Capsule with Clerk UserButton */}
-                  <div className="flex items-center gap-2.5 bg-white/95 border border-slate-200/90 ps-3 pe-1.5 py-1 rounded-2xl shadow-xs hover:border-slate-300 hover:bg-slate-50/80 transition-all min-w-0">
-                    <div className="hidden xl:flex flex-col items-end justify-center min-w-0 max-w-[140px] text-end leading-tight select-none">
+                {/* Unified User Profile & Role Capsule (rule.md 4.2 & 5.2: No emoji clutter, uniform 10px radius) */}
+                <div className="h-10 flex items-center gap-2.5 bg-slate-50/90 hover:bg-white border border-slate-200/80 ps-3 pe-1.5 rounded-[10px] transition-all min-w-0">
+                  <div className="hidden lg:flex flex-col items-end justify-center min-w-0 max-w-[165px] text-end leading-tight select-none">
+                    <div className="flex items-center gap-1.5 w-full justify-end min-w-0">
                       <span
-                        className="text-xs font-black text-slate-900 truncate w-full tracking-tight"
+                        className="text-xs font-black text-slate-900 truncate tracking-tight"
                         title={user?.fullName || user?.firstName || 'محمد ئیقبال'}
                       >
                         {user?.fullName || user?.firstName || 'محمد ئیقبال'}
                       </span>
                       <span
-                        className="text-[11px] text-slate-500 font-semibold font-mono truncate w-full text-end"
-                        dir="ltr"
-                        title={user?.primaryEmailAddress?.emailAddress || ''}
+                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[6px] text-[10px] font-bold shrink-0 ${
+                          isDeveloperAccount
+                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/70'
+                            : 'bg-cyan-50 text-cyan-800 border border-cyan-200/70'
+                        }`}
+                        title={
+                          isDeveloperAccount
+                            ? 'پەرەپێدەری سیستەم (دەسەڵاتی تەواو)'
+                            : currentRole === 'head_of_organization'
+                            ? 'سەرۆکی ڕێکخراو'
+                            : 'بەکارهێنەری فەرمی'
+                        }
                       >
-                        {user?.primaryEmailAddress?.emailAddress || 'بەکارھێنەر'}
+                        <ShieldCheck className="w-2.5 h-2.5" strokeWidth={2.5} />
+                        <span>
+                          {isDeveloperAccount
+                            ? 'پەرەپێدەر'
+                            : currentRole === 'head_of_organization'
+                            ? 'بەڕێوەبەر'
+                            : 'ئەندام'}
+                        </span>
                       </span>
                     </div>
-                    <UserButton
-                      appearance={{
-                        elements: {
-                          userButtonAvatarBox: 'w-8 h-8 rounded-xl ring-2 ring-cyan-500/25 shadow-xs'
-                        }
-                      }}
-                    />
+                    <span
+                      className="text-[11px] text-slate-500 font-semibold font-mono truncate w-full text-end mt-0.5"
+                      dir="ltr"
+                      title={user?.primaryEmailAddress?.emailAddress || ''}
+                    >
+                      {user?.primaryEmailAddress?.emailAddress || 'بەکارھێنەر'}
+                    </span>
                   </div>
+                  <UserButton
+                    appearance={{
+                      elements: {
+                        userButtonAvatarBox: 'w-7 h-7 rounded-[8px] ring-1 ring-slate-200'
+                      }
+                    }}
+                  />
                 </div>
               </Show>
             </div>
