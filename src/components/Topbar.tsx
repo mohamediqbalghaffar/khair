@@ -30,6 +30,7 @@ import {
 import { UserRole } from '../types';
 import { useFeedback } from './ui/FeedbackProvider';
 import { AccessibilityModal } from './AccessibilityModal';
+import { AdaptiveDrawerSheet } from './ui/AdaptiveDrawerSheet';
 import { getExchangeRateForDate } from '../utils/exchangeRates';
 import { useHaptics } from '../utils/useHaptics';
 
@@ -88,6 +89,7 @@ export const Topbar: React.FC = () => {
   const [showQuickMenu, setShowQuickMenu] = useState(false);
   const [showImpactPopover, setShowImpactPopover] = useState(false);
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
+  const [isControlCenterOpen, setIsControlCenterOpen] = useState(false);
   const [notifTab, setNotifTab] = useState<'notifications' | 'announcements' | 'reminders'>('notifications');
 
   // Announcement Form State
@@ -141,6 +143,10 @@ export const Topbar: React.FC = () => {
   // Outside click & keyboard Escape listeners
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest?.('[data-vaul-drawer]') || target?.closest?.('[data-vaul-overlay]')) {
+        return;
+      }
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setShowNotifMenu(false);
       }
@@ -195,6 +201,189 @@ export const Topbar: React.FC = () => {
     setActiveTab(tab);
     if (extraAction) extraAction();
   };
+
+  const renderNotifContent = () => (
+    <div className="space-y-3">
+      {/* Tabs Header */}
+      <div className="flex items-center gap-1 pb-3 border-b border-slate-200 text-xs">
+        <button
+          type="button"
+          onClick={() => setNotifTab('notifications')}
+          className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition-all text-center ${
+            notifTab === 'notifications'
+              ? 'bg-cyan-100 text-cyan-900 border border-cyan-200'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          ئاگاداری ({notifications.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setNotifTab('announcements')}
+          className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition-all text-center ${
+            notifTab === 'announcements'
+              ? 'bg-cyan-100 text-cyan-900 border border-cyan-200'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          ڕاگەیاندراو ({announcements.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setNotifTab('reminders')}
+          className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition-all text-center ${
+            notifTab === 'reminders'
+              ? 'bg-cyan-100 text-cyan-900 border border-cyan-200'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          بیرخەرەوە ({pendingRemindersCount})
+        </button>
+      </div>
+
+      {/* TAB 1: System Notifications */}
+      {notifTab === 'notifications' && (
+        <div className="space-y-2 max-h-72 overflow-y-auto pe-1">
+          {notifications.length === 0 ? (
+            <p className="text-center py-6 text-sm text-slate-500">هیچ ئاگادارییەک نییە</p>
+          ) : (
+            notifications.map(n => (
+              <button
+                type="button"
+                key={n.id}
+                onClick={() => markNotificationRead(n.id)}
+                className={`w-full text-start p-3 rounded-2xl border transition-all cursor-pointer ${
+                  n.read
+                    ? 'bg-slate-50 border-slate-200 opacity-80'
+                    : 'bg-cyan-50/70 border-cyan-200 hover:bg-cyan-50'
+                }`}
+              >
+                <div className="flex items-start gap-2.5">
+                  {n.type === 'inventory' ? (
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  ) : n.type === 'duplicate' ? (
+                    <ShieldCheck className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 text-cyan-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-900">{n.title}</p>
+                    <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">{n.message}</p>
+                    <span className="text-[11px] text-slate-400 mt-1 block font-mono">{n.timestamp}</span>
+                  </div>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: Announcements Board */}
+      {notifTab === 'announcements' && (
+        <div className="mt-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-700">تابلۆی گشتی ڕاگەیاندراوە ناوخۆییەکان</span>
+            <button
+              type="button"
+              onClick={() => setShowAddAnn(!showAddAnn)}
+              className="text-[11px] text-cyan-700 hover:text-cyan-800 font-bold flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" /> {showAddAnn ? 'داخستنی فۆڕم' : 'نووسینی نوێ'}
+            </button>
+          </div>
+
+          {showAddAnn && (
+            <form onSubmit={handlePostAnnouncement} className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+              <input
+                type="text"
+                placeholder="ناونیشانی ڕاگەیاندراو..."
+                value={annTitle}
+                onChange={(e) => setAnnTitle(e.target.value)}
+                className="w-full px-2.5 py-1.5 text-xs rounded-xl liquid-input text-slate-900"
+                required
+              />
+              <textarea
+                placeholder="دەقی ڕاگەیاندراو..."
+                rows={2}
+                value={annContent}
+                onChange={(e) => setAnnContent(e.target.value)}
+                className="w-full px-2.5 py-1.5 text-xs rounded-xl liquid-input text-slate-900"
+                required
+              />
+              <div className="flex items-center justify-between gap-2">
+                <select
+                  value={annTag}
+                  onChange={(e) => setAnnTag(e.target.value as any)}
+                  className="text-[11px] px-2 py-1 rounded-lg border border-slate-200 bg-white"
+                >
+                  <option value="مەیدانی">مەیدانی</option>
+                  <option value="کۆبوونەوە">کۆبوونەوە</option>
+                  <option value="پڕۆژەکان">پڕۆژەکان</option>
+                  <option value="بەپەلە">بەپەلە</option>
+                </select>
+                <button
+                  type="submit"
+                  className="px-3 py-1 rounded-lg bg-cyan-600 text-white text-xs font-bold shadow-sm"
+                >
+                  بڵاوکردنەوە
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="space-y-2 max-h-60 overflow-y-auto pe-1">
+            {announcements.map(a => (
+              <div key={a.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-end space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900">{a.title}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800">
+                    {a.tag}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">{a.content}</p>
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-200/60 font-mono">
+                  <span>{a.author}</span>
+                  <span>{a.date}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: Automated Reminders */}
+      {notifTab === 'reminders' && (
+        <div className="space-y-2 max-h-72 overflow-y-auto pe-1">
+          <p className="text-[11px] text-slate-500 mb-2">بیرخەرەوەی کاتەکانی دابەشکردن، کۆگا و بەدواداچوونی خێزانەکان</p>
+          {reminders.map(r => (
+            <button
+              type="button"
+              key={r.id}
+              onClick={() => toggleReminder(r.id)}
+              className={`w-full text-start p-3 rounded-2xl border transition-all cursor-pointer flex items-start gap-2.5 ${
+                r.completed ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-amber-50/70 border-amber-200 hover:bg-amber-50'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded-md border mt-0.5 flex items-center justify-center shrink-0 ${
+                r.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-400'
+              }`}>
+                {r.completed && <Check className="w-3 h-3" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className={`text-xs font-bold ${r.completed ? 'line-through text-slate-500' : 'text-slate-900'}`}>
+                    {r.title}
+                  </p>
+                  <span className="text-[11px] font-mono text-amber-800 font-bold">{r.dueDate}</span>
+                </div>
+                <p className="text-[11px] text-slate-600 mt-0.5">{r.details}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -390,11 +579,11 @@ export const Topbar: React.FC = () => {
                 aria-expanded={showQuickMenu}
                 aria-label="کردارە خێراکان"
                 title="کردارە خێراکان (Quick Create)"
-                className="h-10 flex items-center gap-1.5 px-3 rounded-[10px] bg-cyan-600 hover:bg-cyan-700 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition-all"
+                className="w-10 h-10 sm:w-auto sm:px-3 flex items-center justify-center gap-1.5 rounded-[10px] bg-cyan-600 hover:bg-cyan-700 active:scale-[0.98] text-white text-xs font-bold shadow-xs transition-all"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden md:inline">کرداری خێرا</span>
-                <ChevronDown className={`w-3 h-3 transition-transform ${showQuickMenu ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`hidden sm:inline w-3 h-3 transition-transform ${showQuickMenu ? 'rotate-180' : ''}`} />
               </button>
 
               {/* Quick Actions Flyout */}
@@ -402,7 +591,7 @@ export const Topbar: React.FC = () => {
                 <div
                   role="menu"
                   aria-label="لیستی کردارە خێراکان"
-                  className="absolute start-0 mt-2.5 w-60 rounded-2xl bg-white border border-slate-200 p-2.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100"
+                  className="absolute end-0 mt-2.5 w-60 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-white border border-slate-200 p-2.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100"
                 >
                   <div className="pb-1.5 px-2 text-xs font-bold text-slate-400">
                     تۆمارکردنی خێرا لە سیستەم:
@@ -472,7 +661,7 @@ export const Topbar: React.FC = () => {
             <div
               role="group"
               aria-label="هەڵبژاردنی دراوی پیشاندان"
-              className="h-10 flex items-center p-1 rounded-[10px] bg-slate-100 border border-slate-200/80"
+              className="hidden sm:flex h-10 items-center p-1 rounded-[10px] bg-slate-100 border border-slate-200/80"
               title={`نرخی دۆلار: 1$ = ${todayRate.toLocaleString()} د.ع`}
             >
               <button
@@ -507,7 +696,7 @@ export const Topbar: React.FC = () => {
               onClick={() => setIsAccessModalOpen(true)}
               aria-label="ڕێکخستنەکانی دەستگەیشتن و بینین (Accessibility)"
               title="ڕێکخستنەکانی دەستگەیشتن و بینین (فۆنت و کۆنتراست)"
-              className="w-10 h-10 flex items-center justify-center rounded-[10px] bg-slate-50/90 hover:bg-cyan-50 border border-slate-200/80 hover:border-cyan-300 text-slate-600 hover:text-cyan-700 transition-colors"
+              className="hidden sm:flex w-10 h-10 items-center justify-center rounded-[10px] bg-slate-50/90 hover:bg-cyan-50 border border-slate-200/80 hover:border-cyan-300 text-slate-600 hover:text-cyan-700 transition-colors"
             >
               <SlidersHorizontal className="w-4 h-4" />
             </button>
@@ -518,7 +707,7 @@ export const Topbar: React.FC = () => {
               onClick={() => setIsLocked(true)}
               aria-label="قوفڵکردنی خێرای شاشە (Ctrl + L)"
               title="قوفڵکردنی خێرای شاشە (Ctrl + L)"
-              className="w-10 h-10 flex items-center justify-center rounded-[10px] bg-slate-50/90 hover:bg-cyan-50 border border-slate-200/80 hover:border-cyan-300 text-slate-600 hover:text-cyan-700 transition-colors"
+              className="hidden sm:flex w-10 h-10 items-center justify-center rounded-[10px] bg-slate-50/90 hover:bg-cyan-50 border border-slate-200/80 hover:border-cyan-300 text-slate-600 hover:text-cyan-700 transition-colors"
             >
               <Lock className="w-4 h-4" />
             </button>
@@ -541,198 +730,48 @@ export const Topbar: React.FC = () => {
                 )}
               </button>
 
-              {/* Multi-Tab Communication Hub Dropdown */}
+              {/* Desktop Multi-Tab Communication Hub Dropdown (>= 640px) */}
               {showNotifMenu && (
                 <div
                   role="dialog"
                   aria-label="ناوەندی ئاگاداری و ڕاگەیاندراوەکان"
-                  className="absolute start-0 mt-3 w-80 sm:w-96 rounded-3xl bg-white border border-slate-200 p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
+                  className="hidden sm:block absolute end-0 mt-3 w-80 sm:w-96 max-w-[calc(100vw-1.5rem)] rounded-3xl bg-white border border-slate-200 p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
                 >
-                  {/* Tabs Header */}
-                  <div className="flex items-center gap-1 pb-3 border-b border-slate-200 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setNotifTab('notifications')}
-                      className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition-all text-center ${
-                        notifTab === 'notifications'
-                          ? 'bg-cyan-100 text-cyan-900 border border-cyan-200'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      ئاگاداری ({notifications.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNotifTab('announcements')}
-                      className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition-all text-center ${
-                        notifTab === 'announcements'
-                          ? 'bg-cyan-100 text-cyan-900 border border-cyan-200'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      ڕاگەیاندراو ({announcements.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNotifTab('reminders')}
-                      className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition-all text-center ${
-                        notifTab === 'reminders'
-                          ? 'bg-cyan-100 text-cyan-900 border border-cyan-200'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      بیرخەرەوە ({pendingRemindersCount})
-                    </button>
-                  </div>
-
-                  {/* TAB 1: System Notifications */}
-                  {notifTab === 'notifications' && (
-                    <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pe-1">
-                      {notifications.length === 0 ? (
-                        <p className="text-center py-6 text-sm text-slate-500">هیچ ئاگادارییەک نییە</p>
-                      ) : (
-                        notifications.map(n => (
-                          <button
-                            type="button"
-                            key={n.id}
-                            onClick={() => markNotificationRead(n.id)}
-                            className={`w-full text-start p-3 rounded-2xl border transition-all cursor-pointer ${
-                              n.read
-                                ? 'bg-slate-50 border-slate-200 opacity-80'
-                                : 'bg-cyan-50/70 border-cyan-200 hover:bg-cyan-50'
-                            }`}
-                          >
-                            <div className="flex items-start gap-2.5">
-                              {n.type === 'inventory' ? (
-                                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                              ) : n.type === 'duplicate' ? (
-                                <ShieldCheck className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                              ) : (
-                                <CheckCircle2 className="w-4 h-4 text-cyan-600 shrink-0 mt-0.5" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold text-slate-900">{n.title}</p>
-                                <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">{n.message}</p>
-                                <span className="text-[11px] text-slate-400 mt-1 block font-mono">{n.timestamp}</span>
-                              </div>
-                            </div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-
-                  {/* TAB 2: Announcements Board */}
-                  {notifTab === 'announcements' && (
-                    <div className="mt-3 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-700">تابلۆی گشتی ڕاگەیاندراوە ناوخۆییەکان</span>
-                        <button
-                          type="button"
-                          onClick={() => setShowAddAnn(!showAddAnn)}
-                          className="text-[11px] text-cyan-700 hover:text-cyan-800 font-bold flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> {showAddAnn ? 'داخستنی فۆڕم' : 'نووسینی نوێ'}
-                        </button>
-                      </div>
-
-                      {showAddAnn && (
-                        <form onSubmit={handlePostAnnouncement} className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                          <input
-                            type="text"
-                            placeholder="ناونیشانی ڕاگەیاندراو..."
-                            value={annTitle}
-                            onChange={(e) => setAnnTitle(e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs rounded-xl liquid-input text-slate-900"
-                            required
-                          />
-                          <textarea
-                            placeholder="دەقی ڕاگەیاندراو..."
-                            rows={2}
-                            value={annContent}
-                            onChange={(e) => setAnnContent(e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs rounded-xl liquid-input text-slate-900"
-                            required
-                          />
-                          <div className="flex items-center justify-between gap-2">
-                            <select
-                              value={annTag}
-                              onChange={(e) => setAnnTag(e.target.value as any)}
-                              className="text-[11px] px-2 py-1 rounded-lg border border-slate-200 bg-white"
-                            >
-                              <option value="مەیدانی">مەیدانی</option>
-                              <option value="کۆبوونەوە">کۆبوونەوە</option>
-                              <option value="پڕۆژەکان">پڕۆژەکان</option>
-                              <option value="بەپەلە">بەپەلە</option>
-                            </select>
-                            <button
-                              type="submit"
-                              className="px-3 py-1 rounded-lg bg-cyan-600 text-white text-xs font-bold shadow-sm"
-                            >
-                              بڵاوکردنەوە
-                            </button>
-                          </div>
-                        </form>
-                      )}
-
-                      <div className="space-y-2 max-h-60 overflow-y-auto pe-1">
-                        {announcements.map(a => (
-                          <div key={a.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-end space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-900">{a.title}</span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800">
-                                {a.tag}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-600 leading-relaxed">{a.content}</p>
-                            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-200/60 font-mono">
-                              <span>{a.author}</span>
-                              <span>{a.date}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* TAB 3: Automated Reminders */}
-                  {notifTab === 'reminders' && (
-                    <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pe-1">
-                      <p className="text-[11px] text-slate-500 mb-2">بیرخەرەوەی کاتەکانی دابەشکردن، کۆگا و بەدواداچوونی خێزانەکان</p>
-                      {reminders.map(r => (
-                        <button
-                          type="button"
-                          key={r.id}
-                          onClick={() => toggleReminder(r.id)}
-                          className={`w-full text-start p-3 rounded-2xl border transition-all cursor-pointer flex items-start gap-2.5 ${
-                            r.completed ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-amber-50/70 border-amber-200 hover:bg-amber-50'
-                          }`}
-                        >
-                          <div className={`w-4 h-4 rounded-md border mt-0.5 flex items-center justify-center shrink-0 ${
-                            r.completed ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-400'
-                          }`}>
-                            {r.completed && <Check className="w-3 h-3" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className={`text-xs font-bold ${r.completed ? 'line-through text-slate-500' : 'text-slate-900'}`}>
-                                {r.title}
-                              </p>
-                              <span className="text-[11px] font-mono text-amber-800 font-bold">{r.dueDate}</span>
-                            </div>
-                            <p className="text-[11px] text-slate-600 mt-0.5">{r.details}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
+                  {renderNotifContent()}
                 </div>
               )}
             </div>
 
-            {/* Clerk Authentication Controls & Profile */}
-            <div className="flex items-center gap-1.5 sm:gap-2 ms-0.5 sm:ms-1">
+            {/* Mobile Control Center & Profile Trigger (4th icon button on < 640px) */}
+            <button
+              type="button"
+              onClick={() => {
+                haptics.light();
+                setIsControlCenterOpen(true);
+              }}
+              aria-label="ناوەندی کۆنتڕۆڵ و پرۆفایل"
+              title="ناوەندی کۆنتڕۆڵ و ڕێکخستنەکان"
+              className="sm:hidden relative w-10 h-10 flex items-center justify-center rounded-[10px] bg-slate-50/90 hover:bg-slate-100 border border-slate-200/80 text-slate-700 transition-colors"
+            >
+              {user?.imageUrl ? (
+                <img
+                  src={user.imageUrl}
+                  alt={user.fullName || 'بەکارھێنەر'}
+                  className="w-6 h-6 rounded-[6px] object-cover"
+                />
+              ) : (
+                <SlidersHorizontal className="w-4 h-4 text-cyan-600" />
+              )}
+              {/* Online Pulse Dot */}
+              <span
+                className={`absolute -bottom-0.5 -end-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                  isCloudConnected ? 'bg-emerald-500' : 'bg-rose-500'
+                }`}
+              />
+            </button>
+
+            {/* Clerk Authentication Controls & Profile (Desktop >= 640px) */}
+            <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 ms-0.5 sm:ms-1">
               <Show when="signed-out">
                 <SignInButton mode="modal">
                   <button className="h-10 flex items-center gap-1.5 px-3.5 rounded-[10px] bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold transition-all shadow-xs">
@@ -805,6 +844,184 @@ export const Topbar: React.FC = () => {
 
         </div>
       </header>
+
+      {/* iOS 26 Mobile Control Center Bottom Sheet */}
+      <AdaptiveDrawerSheet
+        isOpen={isControlCenterOpen}
+        onClose={() => setIsControlCenterOpen(false)}
+        title="ناوەندی کۆنتڕۆڵی مۆبایل"
+        description="ڕێکخستنەکانی دراو، دەستگەیشتن و دۆخی داتابەیسی هەور"
+        icon={<SlidersHorizontal className="w-5 h-5 text-cyan-600" />}
+        adaptive={false}
+        maxHeight="max-h-[88dvh]"
+      >
+        <div className="space-y-3.5">
+          {/* User Profile Card */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <Show when="signed-in">
+                <UserButton
+                  appearance={{
+                    elements: {
+                      userButtonAvatarBox: 'w-10 h-10 rounded-xl ring-1 ring-slate-200'
+                    }
+                  }}
+                />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-black text-slate-900 truncate">
+                      {user?.fullName || user?.firstName || 'محمد ئیقبال'}
+                    </span>
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[6px] text-[10px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200/70">
+                      <ShieldCheck className="w-2.5 h-2.5 text-cyan-600" />
+                      <span>{isDeveloperAccount ? 'پەرەپێدەر' : currentRole === 'head_of_organization' ? 'بەڕێوەبەر' : 'ئەندام'}</span>
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-mono truncate block mt-0.5" dir="ltr">
+                    {user?.primaryEmailAddress?.emailAddress || 'بەکارھێنەر'}
+                  </span>
+                </div>
+              </Show>
+              <Show when="signed-out">
+                <div className="flex items-center gap-2">
+                  <LogIn className="w-5 h-5 text-slate-400" />
+                  <span className="text-xs font-bold text-slate-700">چوونەژوورەوەی ئەندام</span>
+                </div>
+              </Show>
+            </div>
+
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button className="px-3 py-1.5 rounded-xl bg-cyan-600 text-white text-xs font-bold shadow-xs">
+                  چوونەژوورەوە
+                </button>
+              </SignInButton>
+            </Show>
+          </div>
+
+          {/* Supabase Cloud Connection & Force Sync Card */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                  isCloudConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                }`}>
+                  {isCloudConnected ? <Database className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                </div>
+                <div>
+                  <span className="text-xs font-black text-slate-900 block">دۆخی داتابەیسی هەور</span>
+                  <span className="text-[11px] text-slate-500 font-bold">
+                    {isCloudConnected ? 'پەیوەستکراوە (Supabase Cloud)' : 'پەیوەندی ناپەیوەستە'}
+                  </span>
+                </div>
+              </div>
+              <span className={`w-3 h-3 rounded-full border-2 border-white ${isCloudConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSyncClick}
+              disabled={isCloudSyncing}
+              className="w-full h-10 flex items-center justify-center gap-2 rounded-xl bg-white hover:bg-cyan-50 border border-slate-200 text-cyan-700 text-xs font-bold shadow-xs transition-colors disabled:opacity-50 touch-manipulation active:scale-[0.98]"
+            >
+              <RotateCcw className={`w-4 h-4 ${isCloudSyncing ? 'animate-spin text-cyan-600' : ''}`} />
+              <span>{isCloudSyncing ? 'هاوکاتکردنی داتاکان...' : 'هاوکاتکردنی داتاکان لەگەڵ هەور (Force Sync)'}</span>
+            </button>
+          </div>
+
+          {/* Currency Toggle Card */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-slate-900">دراوی پیشاندانی ژمێرکاری</span>
+              <span className="text-[11px] font-mono text-slate-500 font-bold">1$ = {todayRate.toLocaleString()} IQD</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 p-1 bg-white rounded-xl border border-slate-200/80">
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.light();
+                  setCurrencyView('IQD');
+                }}
+                className={`py-2 text-xs font-bold rounded-lg transition-all ${
+                  currencyView === 'IQD'
+                    ? 'bg-cyan-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                دیناری عێراقی (IQD)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  haptics.light();
+                  setCurrencyView('USD');
+                }}
+                className={`py-2 text-xs font-bold rounded-lg transition-all font-mono ${
+                  currencyView === 'USD'
+                    ? 'bg-cyan-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                دۆلاری ئەمریکی (USD $)
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Action Tiles */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                haptics.light();
+                setIsControlCenterOpen(false);
+                setIsAccessModalOpen(true);
+              }}
+              className="flex items-center gap-2.5 p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-start text-xs font-bold text-slate-800 transition-colors touch-manipulation active:scale-[0.98]"
+            >
+              <div className="w-8 h-8 rounded-xl bg-cyan-100 flex items-center justify-center text-cyan-700 shrink-0">
+                <SlidersHorizontal className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="block truncate">دەستگەیشتن</span>
+                <span className="text-[10px] text-slate-500 font-medium block truncate">فۆنت و کۆنتراست</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                haptics.light();
+                setIsControlCenterOpen(false);
+                setIsLocked(true);
+              }}
+              className="flex items-center gap-2.5 p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-start text-xs font-bold text-slate-800 transition-colors touch-manipulation active:scale-[0.98]"
+            >
+              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+                <Lock className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="block truncate">قوفڵکردنی شاشە</span>
+                <span className="text-[10px] text-slate-500 font-medium block truncate">پاراستنی زانیاری</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </AdaptiveDrawerSheet>
+
+      {/* Mobile Notification Hub Drawer (< 640px) */}
+      <AdaptiveDrawerSheet
+        isOpen={showNotifMenu}
+        onClose={() => setShowNotifMenu(false)}
+        title="ئاگاداری و ڕاگەیاندراوەکان"
+        description="ئاگادارییەکان، تابلۆی ڕاگەیاندراو، و بیرخەرەوەکان"
+        icon={<Bell className="w-5 h-5 text-cyan-600" />}
+        adaptive={false}
+        maxHeight="max-h-[85dvh]"
+      >
+        <div className="sm:hidden">
+          {renderNotifContent()}
+        </div>
+      </AdaptiveDrawerSheet>
 
       {/* Quick Accessibility Modal Mount */}
       <AccessibilityModal

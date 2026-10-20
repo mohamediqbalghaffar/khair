@@ -5,6 +5,7 @@ import { GovernorateStats, Beneficiary, NeedCategory } from '../types';
 import { useApp } from '../context/AppContext';
 import { KURDISTAN_REGION_GEOJSON, REGION_CENTERS } from '../data/kurdistanGeoJson';
 import { useFeedback } from '../components/ui/FeedbackProvider';
+import { AdaptiveDrawerSheet } from '../components/ui/AdaptiveDrawerSheet';
 import {
   MapPin,
   Users,
@@ -65,6 +66,9 @@ export const GeoMapView: React.FC = () => {
   const [sidebarTab, setSidebarTab] = useState<'gov' | 'houses'>('gov');
   const [houseSearchQuery, setHouseSearchQuery] = useState<string>('');
   const [mapReady, setMapReady] = useState<boolean>(false);
+  const [mobileTab, setMobileTab] = useState<'map' | 'info'>('map');
+  const [centerCoords, setCenterCoords] = useState<{ lat: number; lng: number }>({ lat: 36.19, lng: 44.01 });
+  const [isMobileFullscreenSidebarOpen, setIsMobileFullscreenSidebarOpen] = useState<boolean>(false);
 
   // Tagging State
   const [isTaggingMode, setIsTaggingMode] = useState<boolean>(false);
@@ -208,6 +212,15 @@ export const GeoMapView: React.FC = () => {
         setCurrentZoom(map.getZoom());
       });
 
+      // Track center coordinates for Center-Pin Crosshair HUD
+      map.on('move', () => {
+        const c = map.getCenter();
+        setCenterCoords({
+          lat: Number(c.lat.toFixed(6)),
+          lng: Number(c.lng.toFixed(6))
+        });
+      });
+
       // Map Click Handler for Location Tagging
       map.on('click', (e: L.LeafletMouseEvent) => {
         if (!isTaggingModeRef.current) return;
@@ -292,13 +305,13 @@ export const GeoMapView: React.FC = () => {
     }
   }, [tileStyle, showSatelliteLabels]);
 
-  // 3. Invalidate map size when full screen changes
+  // 3. Invalidate map size when full screen or mobile tab changes
   useEffect(() => {
     const timer = setTimeout(() => {
       mapInstanceRef.current?.invalidateSize();
     }, 150);
     return () => clearTimeout(timer);
-  }, [isFullScreen]);
+  }, [isFullScreen, mobileTab]);
 
   // 4. Listen to Escape key to exit full screen or tagging mode
   useEffect(() => {
@@ -573,6 +586,13 @@ export const GeoMapView: React.FC = () => {
   // Start Tagging Mode
   const handleStartTagging = () => {
     setIsTaggingMode(true);
+    if (mapInstanceRef.current) {
+      const c = mapInstanceRef.current.getCenter();
+      setCenterCoords({
+        lat: Number(c.lat.toFixed(6)),
+        lng: Number(c.lng.toFixed(6))
+      });
+    }
     if (tileStyle !== 'satellite') {
       setTileStyle('satellite');
     }
@@ -812,6 +832,19 @@ export const GeoMapView: React.FC = () => {
             </>
           )}
         </button>
+
+        {/* Fullscreen Mobile Sidebar Drawer Trigger */}
+        {inFullScreen && (
+          <button
+            type="button"
+            onClick={() => setIsMobileFullscreenSidebarOpen(true)}
+            className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 text-slate-200 border border-slate-700 text-xs font-bold transition-all shadow-sm"
+            title="زانیاری پارێزگاکان و ماڵەکان"
+          >
+            <Users className="w-3.5 h-3.5 text-cyan-400" />
+            <span>زانیاری</span>
+          </button>
+        )}
 
       </div>
     </div>
@@ -1066,16 +1099,46 @@ export const GeoMapView: React.FC = () => {
         </div>
       )}
 
+      {/* Mobile Segmented Switcher (< lg) */}
+      {!isFullScreen && (
+        <div className="flex lg:hidden p-1 rounded-2xl bg-slate-200/80 border border-slate-300/80">
+          <button
+            type="button"
+            onClick={() => setMobileTab('map')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+              mobileTab === 'map'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <MapPin className="w-4 h-4 text-rose-600" />
+            <span>نەخشەی کوردستان</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab('info')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+              mobileTab === 'info'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Users className="w-4 h-4 text-cyan-600" />
+            <span>زانیاری پارێزگاکان</span>
+          </button>
+        </div>
+      )}
+
       {/* Tagging Mode Active Banner */}
       {isTaggingMode && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] px-5 py-3 rounded-2xl bg-amber-500 text-white shadow-2xl flex items-center gap-3 border-2 border-white animate-bounce">
-          <Crosshair className="w-5 h-5 animate-spin" />
-          <span className="text-xs sm:text-sm font-black">
-            پێگەی ماڵ دیاری بکە: نەخشەکە زووم بکە بۆ سەر سەربانی ماڵی سوودمەند و کلیک بکە
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] px-5 py-3 rounded-2xl bg-amber-500 text-white shadow-2xl flex items-center gap-3 border-2 border-white animate-bounce max-w-[90vw]">
+          <Crosshair className="w-5 h-5 animate-spin shrink-0" />
+          <span className="text-xs sm:text-sm font-black truncate">
+            پێگەی ماڵ دیاری بکە: نەخشەکە زووم بکە بۆ سەر سەربانی ماڵی سوودمەند
           </span>
           <button
             onClick={handleCancelTagging}
-            className="px-3 py-1 rounded-xl bg-white text-amber-900 font-black text-xs hover:bg-amber-100 transition-colors shadow-sm"
+            className="px-3 py-1 rounded-xl bg-white text-amber-900 font-black text-xs hover:bg-amber-100 transition-colors shadow-sm shrink-0"
           >
             پەشیمانبوونەوە
           </button>
@@ -1090,8 +1153,8 @@ export const GeoMapView: React.FC = () => {
         <div className={isFullScreen ? "flex-1 relative flex overflow-hidden" : "contents"}>
           {/* Sidebar */}
           <div className={isFullScreen 
-            ? "w-80 sm:w-96 bg-slate-900/95 border-r border-slate-800 p-4 flex flex-col z-10 text-white backdrop-blur-2xl shrink-0" 
-            : "lg:col-span-4 rounded-3xl bg-white/90 backdrop-blur-2xl p-6 border border-slate-200/90 shadow-sm flex flex-col justify-between min-h-[580px]"
+            ? "hidden sm:flex w-80 sm:w-96 bg-slate-900/95 border-r border-slate-800 p-4 flex-col z-10 text-white backdrop-blur-2xl shrink-0" 
+            : `${mobileTab === 'info' ? 'flex' : 'hidden lg:flex'} lg:col-span-4 rounded-3xl bg-white/90 backdrop-blur-2xl p-6 border border-slate-200/90 shadow-sm flex-col justify-between min-h-[580px]`
           }>
             {SidebarContent({ isDark: isFullScreen })}
           </div>
@@ -1099,12 +1162,12 @@ export const GeoMapView: React.FC = () => {
           {/* Map Area Card */}
           <div className={isFullScreen 
             ? "flex-1 h-full relative flex flex-col" 
-            : "lg:col-span-8 rounded-3xl bg-white/90 backdrop-blur-2xl p-5 sm:p-6 border border-slate-200/90 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[580px]"
+            : `${mobileTab === 'map' ? 'flex' : 'hidden lg:flex'} lg:col-span-8 rounded-3xl bg-white/90 backdrop-blur-2xl p-4 sm:p-6 border border-slate-200/90 shadow-sm relative overflow-hidden flex-col justify-between min-h-[580px]`
           }>
             {!isFullScreen && MapToolbar({ inFullScreen: false })}
 
             {/* Leaflet Map Frame */}
-            <div className={isFullScreen ? "flex-1 w-full h-full relative overflow-hidden" : "relative w-full h-[470px] rounded-2xl border border-slate-200 overflow-hidden shadow-inner"}>
+            <div className={isFullScreen ? "flex-1 w-full h-full relative overflow-hidden" : "relative w-full h-[65vh] sm:h-[470px] rounded-2xl border border-slate-200 overflow-hidden shadow-inner"}>
               <div
                 ref={mapContainerRef}
                 className="w-full h-full"
@@ -1112,35 +1175,58 @@ export const GeoMapView: React.FC = () => {
               />
 
               {/* High-Precision Aiming Reticle HUD for Rooftop Tagging */}
-              {isTaggingMode && cursorPos && (
-                <div
-                  className="absolute pointer-events-none z-[2000] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center select-none"
-                  style={{ left: cursorPos.x, top: cursorPos.y }}
-                >
-                  {/* Concentric rings and crosshairs */}
-                  <div className="relative flex items-center justify-center w-16 h-16">
-                    {/* Outer rotating dashed ring */}
-                    <div className="absolute inset-0 rounded-full border-2 border-dashed border-cyan-400/80 animate-spin" style={{ animationDuration: '6s' }} />
-                    {/* Inner pulsing red ring */}
-                    <div className="absolute inset-2.5 rounded-full border-2 border-rose-500/90 shadow-sm animate-pulse" />
-                    {/* Precision Crosshair Lines */}
-                    <div className="absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 bg-gradient-to-b from-rose-500 via-transparent to-rose-500" />
-                    <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 bg-gradient-to-r from-rose-500 via-transparent to-rose-500" />
-                    {/* Center pinpoint red dot */}
-                    <div className="w-2.5 h-2.5 rounded-full bg-rose-600 ring-2 ring-white shadow-lg z-10" />
+              {isTaggingMode && (
+                <>
+                  {/* Center-Pin Reticle HUD (Locked at center for mobile and touch drag) */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[1100] flex flex-col items-center select-none">
+                    <div className="relative flex items-center justify-center w-14 h-14">
+                      {/* Outer rotating dashed ring */}
+                      <div className="absolute inset-0 rounded-full border-2 border-dashed border-cyan-400/80 animate-spin" style={{ animationDuration: '6s' }} />
+                      {/* Inner pulsing red ring */}
+                      <div className="absolute inset-2.5 rounded-full border-2 border-rose-500/90 shadow-sm animate-pulse" />
+                      {/* Precision Crosshair Lines */}
+                      <div className="absolute top-0 bottom-0 left-1/2 w-0.5 -translate-x-1/2 bg-gradient-to-b from-rose-500 via-transparent to-rose-500" />
+                      <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 bg-gradient-to-r from-rose-500 via-transparent to-rose-500" />
+                      {/* Center pinpoint red dot */}
+                      <div className="w-2.5 h-2.5 rounded-full bg-rose-600 ring-2 ring-white shadow-lg z-10" />
+                    </div>
                   </div>
 
-                  {/* Floating HUD Tag with Live GPS */}
-                  <div className="mt-2 px-3 py-1.5 rounded-xl bg-slate-950/90 text-white backdrop-blur-md border border-cyan-400/40 shadow-2xl text-center space-y-0.5">
-                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-black text-amber-300">
-                      <Crosshair className="w-3 h-3 text-rose-400 animate-spin" />
-                      <span>دیاریکردنی سەربانی ماڵ</span>
-                    </div>
+                  {/* Floating Action Button: دیاریکردنی ئەم سەربانە (GPS) */}
+                  <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-[1200] w-[92%] sm:w-auto max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLatLng(centerCoords);
+                        setIsTagModalOpen(true);
+                        setIsTaggingMode(false);
+                        setCursorPos(null);
+                      }}
+                      className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm shadow-2xl border-2 border-white flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                      <Crosshair className="w-4 h-4 shrink-0 animate-spin" />
+                      <span>دیاریکردنی ئەم سەربانە (GPS)</span>
+                      <span className="font-mono text-[10px] bg-black/30 px-2 py-0.5 rounded-full text-emerald-200">
+                        {centerCoords.lat.toFixed(4)}, {centerCoords.lng.toFixed(4)}
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Desktop Cursor Tracking HUD (when mouse is moving) */}
+              {isTaggingMode && cursorPos && (
+                <div
+                  className="hidden md:flex absolute pointer-events-none z-[2000] -translate-x-1/2 -translate-y-1/2 flex-col items-center select-none"
+                  style={{ left: cursorPos.x, top: cursorPos.y }}
+                >
+                  <div className="relative flex items-center justify-center w-12 h-12">
+                    <div className="absolute inset-0 rounded-full border border-dashed border-cyan-400 animate-spin" style={{ animationDuration: '6s' }} />
+                    <div className="w-2 h-2 rounded-full bg-rose-600 ring-2 ring-white shadow-lg z-10" />
+                  </div>
+                  <div className="mt-1 px-2.5 py-1 rounded-xl bg-slate-950/90 text-white backdrop-blur-md border border-cyan-400/40 shadow-xl text-center">
                     <div className="text-[10px] font-mono text-cyan-300">
-                      GPS: {cursorPos.lat}, {cursorPos.lng}
-                    </div>
-                    <div className="text-[9px] text-slate-300 font-bold">
-                      کلیک بکە بۆ دیاریکردن
+                      {cursorPos.lat}, {cursorPos.lng}
                     </div>
                   </div>
                 </div>
@@ -1175,7 +1261,7 @@ export const GeoMapView: React.FC = () => {
 
       {/* Regional Aid Equity Table (Shown in Normal View) */}
       {!isFullScreen && (
-        <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
+        <div className={`rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm ${mobileTab === 'map' ? 'hidden lg:block' : 'block'}`}>
           <div className="p-4 border-b border-slate-200 flex items-center justify-between">
             <h4 className="text-xs font-bold text-slate-900">بەراوردی دادپەروەری دابەشکردنی هاوکاری بەپێی شارەکان (کلیک بکە بۆ جوڵانی نەخشە)</h4>
             <span className="text-xs text-slate-500">بەستراوە بە پێگەی جوگرافی</span>
@@ -1247,29 +1333,36 @@ export const GeoMapView: React.FC = () => {
       )}
 
       {/* Tag House Modal */}
-      {isTagModalOpen && selectedLatLng && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-scaleUp text-slate-900 max-h-[90vh] overflow-y-auto">
-            
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                  <Home className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-black text-base text-slate-900">نیشانەکردنی ماڵی سوودمەند</h3>
-                  <p className="text-[11px] text-slate-500">بەستنەوەی ئەم پێگەیە بە دۆسیەی خێزانی سوودمەند</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsTagModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      <AdaptiveDrawerSheet
+        isOpen={isTagModalOpen && selectedLatLng !== null}
+        onClose={() => setIsTagModalOpen(false)}
+        title="نیشانەکردنی ماڵی سوودمەند"
+        description="بەستنەوەی ئەم پێگەیە بە دۆسیەی خێزانی سوودمەند"
+        icon={<Home className="w-5 h-5 text-emerald-600" />}
+        maxWidth="max-w-lg"
+        footer={
+          <div className="flex items-center justify-end gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={() => setIsTagModalOpen(false)}
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold transition-all"
+            >
+              هەڵوەشاندنەوە
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveTag}
+              disabled={tagModalMode === 'existing' ? !selectedBeneficiaryId : !newBenData.fullName.trim()}
+              className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-black transition-all shadow-md flex items-center gap-1.5"
+            >
+              <Check className="w-4 h-4" />
+              <span>پاشەکەوتکردن و نیشانەکردنی ماڵ</span>
+            </button>
+          </div>
+        }
+      >
+        {selectedLatLng && (
+          <div className="space-y-4 text-xs text-slate-900">
             {/* GPS Coordinates Display */}
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
               <div>
@@ -1334,13 +1427,13 @@ export const GeoMapView: React.FC = () => {
                     گەڕان لەنێو کەسە تۆمارکراوەکان:
                   </label>
                   <div className="relative">
-                    <Search className="w-4 h-4 absolute right-3 top-2.5 text-slate-400 pointer-events-none" />
+                    <Search className="w-4 h-4 absolute start-3 top-2.5 text-slate-400 pointer-events-none" />
                     <input
                       type="text"
                       value={tagBeneficiarySearch}
                       onChange={(e) => setTagBeneficiarySearch(e.target.value)}
                       placeholder="ناوی کەس یان ژمارە مۆبایل بنووسە..."
-                      className="w-full pe-9 ps-3 py-2 rounded-xl border border-slate-200 text-xs focus:border-cyan-500 outline-none"
+                      className="w-full ps-9 pe-3 py-2 rounded-xl border border-slate-200 text-xs focus:border-cyan-500 outline-none"
                     />
                   </div>
                 </div>
@@ -1420,7 +1513,7 @@ export const GeoMapView: React.FC = () => {
                       value={newBenData.phone}
                       onChange={(e) => setNewBenData({ ...newBenData, phone: e.target.value })}
                       placeholder="0750xxxxxxx"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:border-cyan-500 outline-none"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:border-cyan-500 outline-none font-mono"
                     />
                   </div>
                   <div>
@@ -1481,30 +1574,24 @@ export const GeoMapView: React.FC = () => {
                 </div>
               </div>
             )}
-
-            {/* Modal Actions */}
-            <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={() => setIsTagModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold transition-all"
-              >
-                هەڵوەشاندنەوە
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveTag}
-                disabled={tagModalMode === 'existing' ? !selectedBeneficiaryId : !newBenData.fullName.trim()}
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-black transition-all shadow-md flex items-center gap-1.5"
-              >
-                <Check className="w-4 h-4" />
-                <span>پاشەکەوتکردن و نیشانەکردنی ماڵ</span>
-              </button>
-            </div>
-
           </div>
+        )}
+      </AdaptiveDrawerSheet>
+
+      {/* Fullscreen Mobile Collapsible Sidebar Bottom Sheet */}
+      <AdaptiveDrawerSheet
+        isOpen={isFullScreen && isMobileFullscreenSidebarOpen}
+        onClose={() => setIsMobileFullscreenSidebarOpen(false)}
+        title={`پارێزگای ${activeStat.name}`}
+        description="زانیاری ئاماری و ماڵە نیشانەکراوەکان"
+        icon={<MapPin className="w-5 h-5 text-cyan-600" />}
+        adaptive={false}
+        maxHeight="max-h-[85dvh]"
+      >
+        <div className="space-y-4">
+          {SidebarContent({ isDark: false })}
         </div>
-      )}
+      </AdaptiveDrawerSheet>
 
     </div>
   );

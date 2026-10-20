@@ -55,6 +55,7 @@ import {
 import { getDonationCashMetrics } from '../utils/donationDistributionUtils';
 import { useFeedback } from '../components/ui/FeedbackProvider';
 import { PaginationBar } from '../components/ui/PaginationBar';
+import { AdaptiveDrawerSheet } from '../components/ui/AdaptiveDrawerSheet';
 import { computeVulnerabilityScore } from '../utils/vulnerabilityScore';
 import { useHaptics } from '../utils/useHaptics';
 
@@ -126,7 +127,6 @@ export const BeneficiariesView: React.FC = () => {
     deleteAidRecord,
     sendSMS,
     addBeneficiaryDocument,
-    updateBeneficiaryDocument,
     deleteBeneficiaryDocument,
     selectedBeneficiaryIdForView,
     setSelectedBeneficiaryIdForView,
@@ -298,7 +298,7 @@ export const BeneficiariesView: React.FC = () => {
   const singleDocInputRef = useRef<HTMLInputElement>(null);
   const editDocInputRef = useRef<HTMLInputElement>(null);
   const viewDocInputRef = useRef<HTMLInputElement>(null);
-  const [isProcessingDocs, setIsProcessingDocs] = useState(false);
+  const [_isProcessingDocs, setIsProcessingDocs] = useState(false);
 
   // Form State for Single Add (Default status: pending / لەژێر لێکۆڵینەوە)
   const [formData, setFormData] = useState({
@@ -1185,20 +1185,21 @@ export const BeneficiariesView: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Search Input */}
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5 pointer-events-none" />
+            <Search className="w-4 h-4 text-slate-400 absolute start-3.5 top-3.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="گەڕان بەپێی ناو، مۆبایل، ژمارەی نیشتمانی..."
-              className="w-full h-10 pe-10 ps-8 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400 font-bold"
+              className="w-full h-10 ps-10 pe-9 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400 font-bold"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute left-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
+                className="absolute end-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-1 rounded-lg touch-manipulation"
                 title="پاککردنەوەی گەڕان"
+                aria-label="پاککردنەوەی دەق"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2537,45 +2538,21 @@ export const BeneficiariesView: React.FC = () => {
       </div>
 
       {/* Main Dual Registration Modal (Single vs Bulk Excel) */}
-      {isAddModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-beneficiary-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
-        >
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200/90 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
-            
-            {/* Sticky Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/95 backdrop-blur-md">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-100 text-cyan-700 flex items-center justify-center font-bold shadow-xs">
-                  <Users className="w-5 h-5 text-cyan-600" />
-                </div>
-                <div>
-                  <h3 id="add-beneficiary-modal-title" className="text-base font-black text-slate-900 leading-tight">
-                    {entryMode === 'single' ? 'تۆمارکردنی کەس یان خێزانی نوێ' : 'هاوردەکردنی بەکۆمەڵ بە ئێکسڵ'}
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    {entryMode === 'single'
-                      ? 'داخڵکردنی زانیارییە سەرەکییەکان و دۆخی بژێوی بۆ ناو داتابەیس'
-                      : 'هاوردەکردنی سەدان دۆسیە لە چەند چرکەیەکدا بە فایلی Excel'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
-                title="داخستن"
-                aria-label="داخستن"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Pinned Mode Switcher Tabs */}
-            <div className="px-6 py-2.5 bg-slate-50/80 border-b border-slate-100 shrink-0">
+      <AdaptiveDrawerSheet
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title={entryMode === 'single' ? 'تۆمارکردنی کەس یان خێزانی نوێ' : 'هاوردەکردنی بەکۆمەڵ بە ئێکسڵ'}
+        description={
+          entryMode === 'single'
+            ? 'داخڵکردنی زانیارییە سەرەکییەکان و دۆخی بژێوی بۆ ناو داتابەیس'
+            : 'هاوردەکردنی سەدان دۆسیە لە چەند چرکەیەکدا بە فایلی Excel'
+        }
+        icon={<Users className="w-5 h-5 text-cyan-600" />}
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-4">
+          {/* Pinned Mode Switcher Tabs */}
+          <div className="px-2 py-2 bg-slate-50/80 rounded-2xl border border-slate-100">
               <div className="flex items-center gap-2 p-1 bg-slate-200/60 rounded-2xl max-w-md mx-auto">
                 <button
                   type="button"
@@ -3441,112 +3418,112 @@ export const BeneficiariesView: React.FC = () => {
                 </div>
               </div>
             )}
-
           </div>
-        </div>
-      )}
+        </AdaptiveDrawerSheet>
 
       {/* Beneficiary Details Modal & Aid History Drawer */}
-      {selectedBeneficiary && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="beneficiary-details-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
-        >
-          <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200/90 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
-            
-            {/* Sticky Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/95 backdrop-blur-md gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h3 id="beneficiary-details-title" className="text-lg font-black text-slate-900 leading-tight truncate">
-                    {selectedBeneficiary.fullName}
-                  </h3>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      selectedBeneficiary.gender === 'female'
-                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                        : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
-                    }`}
-                  >
-                    {selectedBeneficiary.gender === 'female' ? 'مێینە' : 'نێرینە'} ({selectedBeneficiary.age} ساڵ)
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
-                    {categoryLabels[selectedBeneficiary.needCategory]}
-                  </span>
-                  {selectedBeneficiary.isFamilyHead && (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                      سەرۆکی خێزان
-                    </span>
-                  )}
-                  {/* Primary Case Status Badge */}
-                  {selectedBeneficiary.status === 'pending' ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-600" /> لەژێر لێکۆڵینەوە
-                    </span>
-                  ) : selectedBeneficiary.status === 'approved' ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> پەسەندکراوە
-                    </span>
-                  ) : selectedBeneficiary.status === 'confidential' ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-900 border border-purple-300 flex items-center gap-1 shadow-xs">
-                      <Lock className="w-3 h-3 text-purple-700" /> سوودمەندی نهێنی و پارێزراو
-                    </span>
-                  ) : selectedBeneficiary.status === 'urgent' ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 flex items-center gap-1 animate-pulse">
-                      <AlertTriangle className="w-3 h-3 text-red-600" /> فریاگوزاری بەپەلە
-                    </span>
-                  ) : selectedBeneficiary.status === 'periodic' ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
-                      <RefreshCw className="w-3 h-3 text-blue-600" /> هاوکاری مانگانە / خولیی
-                    </span>
-                  ) : selectedBeneficiary.status === 'suspended' ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 flex items-center gap-1">
-                      <PauseCircle className="w-3 h-3 text-slate-500" /> ڕاگیراوی کاتی
-                    </span>
-                  ) : selectedBeneficiary.status === 'rejected' ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
-                      <X className="w-3 h-3 text-rose-600" /> ڕەتکراوەتەوە
-                    </span>
-                  ) : selectedBeneficiary.status === 'archived' ? (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
-                      <Archive className="w-3 h-3 text-slate-400" /> ئەرشیڤکراو
-                    </span>
-                  ) : (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1">
-                      <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو ({selectedBeneficiary.aidHistory?.length || 1})
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-600 mt-1 flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-cyan-600" /> {selectedBeneficiary.address} ({selectedBeneficiary.governorate})
-                </p>
-              </div>
-
-              {/* Edit Beneficiary & Close Button */}
-              <div className="flex items-center gap-2 shrink-0">
+      <AdaptiveDrawerSheet
+        isOpen={selectedBeneficiary !== null}
+        onClose={() => setSelectedBeneficiary(null)}
+        title={selectedBeneficiary ? selectedBeneficiary.fullName : 'دۆسیەی سوودمەند'}
+        description={
+          selectedBeneficiary
+            ? `${selectedBeneficiary.address} (${selectedBeneficiary.governorate}) • ناسنامە: ${selectedBeneficiary.nationalId}`
+            : ''
+        }
+        icon={<User className="w-5 h-5 text-cyan-600" />}
+        maxWidth="max-w-3xl"
+        footer={
+          <div className="flex items-center justify-between gap-3 w-full">
+            <button
+              type="button"
+              onClick={() => setIsSMSModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-white hover:bg-cyan-50 hover:text-cyan-700 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors border border-slate-200 shadow-xs"
+            >
+              <MessageSquare className="w-4 h-4 text-cyan-600" />
+              <span>ناردنی کورتەنامە (SMS)</span>
+            </button>
+            <div className="flex items-center gap-2">
+              {selectedBeneficiary && (
                 <button
                   type="button"
                   onClick={() => handleOpenEditModal(selectedBeneficiary)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold border border-amber-200 transition-all shadow-xs"
+                  className="px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold border border-amber-200 transition-all shadow-xs flex items-center gap-1.5"
                 >
                   <Edit3 className="w-3.5 h-3.5 text-amber-700" />
-                  <span className="hidden sm:inline">دەستکاریکردن</span>
+                  <span>دەستکاریکردن</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedBeneficiary(null)}
-                  className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
-                  title="داخستن"
-                  aria-label="داخستن"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setSelectedBeneficiary(null)}
+                className="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition-colors"
+              >
+                داخستن
+              </button>
             </div>
-
-            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+          </div>
+        }
+      >
+        {selectedBeneficiary && (
+          <div className="space-y-5">
+            {/* Badges Bar */}
+            <div className="flex items-center gap-2 flex-wrap pb-3 border-b border-slate-100">
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                  selectedBeneficiary.gender === 'female'
+                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                    : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                }`}
+              >
+                {selectedBeneficiary.gender === 'female' ? 'مێینە' : 'نێرینە'} ({selectedBeneficiary.age} ساڵ)
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                {categoryLabels[selectedBeneficiary.needCategory]}
+              </span>
+              {selectedBeneficiary.isFamilyHead && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                  سەرۆکی خێزان
+                </span>
+              )}
+              {selectedBeneficiary.status === 'pending' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-amber-600" /> لەژێر لێکۆڵینەوە
+                </span>
+              ) : selectedBeneficiary.status === 'approved' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> پەسەندکراوە
+                </span>
+              ) : selectedBeneficiary.status === 'confidential' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-900 border border-purple-300 flex items-center gap-1 shadow-xs">
+                  <Lock className="w-3 h-3 text-purple-700" /> سوودمەندی نهێنی و پارێزراو
+                </span>
+              ) : selectedBeneficiary.status === 'urgent' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 flex items-center gap-1 animate-pulse">
+                  <AlertTriangle className="w-3 h-3 text-red-600" /> فریاگوزاری بەپەلە
+                </span>
+              ) : selectedBeneficiary.status === 'periodic' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                  <RefreshCw className="w-3 h-3 text-blue-600" /> هاوکاری مانگانە / خولیی
+                </span>
+              ) : selectedBeneficiary.status === 'suspended' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 flex items-center gap-1">
+                  <PauseCircle className="w-3 h-3 text-slate-500" /> ڕاگیراوی کاتی
+                </span>
+              ) : selectedBeneficiary.status === 'rejected' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                  <X className="w-3 h-3 text-rose-600" /> ڕەتکراوەتەوە
+                </span>
+              ) : selectedBeneficiary.status === 'archived' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                  <Archive className="w-3 h-3 text-slate-400" /> ئەرشیڤکراو
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1">
+                  <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو ({selectedBeneficiary.aidHistory?.length || 1})
+                </span>
+              )}
+            </div>
 
             {/* Confidential Warning / Protection Notice */}
             {(selectedBeneficiary.isConfidential || selectedBeneficiary.status === 'confidential') && (
@@ -3895,392 +3872,331 @@ export const BeneficiariesView: React.FC = () => {
                 </div>
               )}
             </div>
-
-            </div>
-
-            {/* Sticky Footer */}
-            <div className="px-6 py-3.5 bg-slate-50/95 border-t border-slate-200/90 flex items-center justify-between gap-3 shrink-0 rounded-b-3xl">
-              <button
-                type="button"
-                onClick={() => setIsSMSModalOpen(true)}
-                className="px-4 py-2 rounded-xl bg-white hover:bg-cyan-50 hover:text-cyan-700 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors border border-slate-200 shadow-xs"
-              >
-                <MessageSquare className="w-4 h-4 text-cyan-600" />
-                <span>ناردنی کورتەنامە (SMS)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedBeneficiary(null)}
-                className="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition-colors"
-              >
-                داخستن
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </AdaptiveDrawerSheet>
 
       {/* Give Aid Modal */}
-      {isGiveAidModalOpen && selectedBeneficiary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-900 mb-2 flex items-center gap-2">
-              <Gift className="w-5 h-5 text-emerald-600" />
-              تۆمارکردنی هاوکاری بۆ: {selectedBeneficiary.fullName}
-            </h3>
+      <AdaptiveDrawerSheet
+        isOpen={isGiveAidModalOpen && selectedBeneficiary !== null}
+        onClose={() => setIsGiveAidModalOpen(false)}
+        title={`تۆمارکردنی هاوکاری بۆ: ${selectedBeneficiary?.fullName || ''}`}
+        description="دابەشکردنی کۆمەکی نەختینەیی یان کەلوپەل بە شێوەی ڕاستەوخۆ"
+        icon={<Gift className="w-5 h-5 text-emerald-600" />}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleGiveAidSubmit} className="space-y-4 text-xs">
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">جۆری هاوکاری:</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setAidForm({ ...aidForm, type: 'monetary' })}
+                className={`py-2 px-3 rounded-xl font-bold border transition-all text-center ${
+                  aidForm.type === 'monetary'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200'
+                }`}
+              >
+                نەختینەیی (پارەی کاش)
+              </button>
+              <button
+                type="button"
+                onClick={() => setAidForm({ ...aidForm, type: 'in-kind' })}
+                className={`py-2 px-3 rounded-xl font-bold border transition-all text-center ${
+                  aidForm.type === 'in-kind'
+                    ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200'
+                }`}
+              >
+                ماددی (خۆراک/کەلوپەل)
+              </button>
+            </div>
+          </div>
 
-            <form onSubmit={handleGiveAidSubmit} className="space-y-4 text-xs mt-4">
+          {aidForm.type === 'monetary' ? (
+            <>
               <div>
-                <label className="block text-slate-700 font-bold mb-1">جۆری هاوکاری:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAidForm({ ...aidForm, type: 'monetary' })}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all text-center ${
-                      aidForm.type === 'monetary'
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    نەختینەیی (پارەی کاش)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAidForm({ ...aidForm, type: 'in-kind' })}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all text-center ${
-                      aidForm.type === 'in-kind'
-                        ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    ماددی (خۆراک/کەلوپەل)
-                  </button>
-                </div>
+                <label className="block text-slate-700 font-bold mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Banknote className="w-4 h-4 text-emerald-600" />
+                    سەرچاوەی نەختینە لە خەزێنە (پسوولەی بەخشین):
+                  </span>
+                  {aidForm.selectedDonationId && (
+                    <button
+                      type="button"
+                      onClick={() => setAidForm(prev => ({ ...prev, selectedDonationId: '' }))}
+                      className="text-[10px] text-slate-400 hover:text-slate-600 underline font-normal"
+                    >
+                      پاککردنەوە
+                    </button>
+                  )}
+                </label>
+                <select
+                  value={aidForm.selectedDonationId}
+                  onChange={(e) => {
+                    const donId = e.target.value;
+                    const matched = availableCashDonations.find(item => item.donation.id === donId);
+                    setAidForm(prev => ({
+                      ...prev,
+                      selectedDonationId: donId,
+                      currency: matched?.donation.currency === 'USD' ? 'USD' : 'IQD',
+                      amountIQD: matched ? Math.min(prev.amountIQD, matched.metrics.remainingCash) : prev.amountIQD,
+                      projectTitle: matched ? `دابەشکردنی کۆمەکی نەختینەی پسوولەی ${matched.donation.receiptNumber} (${matched.donation.donorName})` : prev.projectTitle
+                    }));
+                  }}
+                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+                >
+                  <option value="">خەزێنەی گشتی (بەبێ بەستنەوە بە پسوولەی دیاریکراو)</option>
+                  {availableCashDonations.map(({ donation, metrics }) => (
+                    <option key={donation.id} value={donation.id}>
+                      پسوولەی {donation.receiptNumber} ({donation.donorName}) — ماوە: {metrics.remainingCash.toLocaleString()} {metrics.currencySymbol}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {aidForm.type === 'monetary' ? (
-                <>
+              {(() => {
+                const selectedDonMetrics = availableCashDonations.find(item => item.donation.id === aidForm.selectedDonationId);
+                return (
                   <div>
-                    <label className="block text-slate-700 font-bold mb-1 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Banknote className="w-4 h-4 text-emerald-600" />
-                        سەرچاوەی نەختینە لە خەزێنە (پسوولەی بەخشین):
-                      </span>
-                      {aidForm.selectedDonationId && (
-                        <button
-                          type="button"
-                          onClick={() => setAidForm(prev => ({ ...prev, selectedDonationId: '' }))}
-                          className="text-[10px] text-slate-400 hover:text-slate-600 underline font-normal"
-                        >
-                          پاککردنەوە
-                        </button>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-slate-700 font-bold">
+                        بڕی پارە ({aidForm.currency === 'USD' ? 'دۆلار $' : 'دینار د.ع'}):
+                      </label>
+                      {selectedDonMetrics && (
+                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                          بەردەست لە پسوولە: {selectedDonMetrics.metrics.remainingCash.toLocaleString()} {selectedDonMetrics.metrics.currencySymbol}
+                        </span>
                       )}
-                    </label>
-                    <select
-                      value={aidForm.selectedDonationId}
-                      onChange={(e) => {
-                        const donId = e.target.value;
-                        const matched = availableCashDonations.find(item => item.donation.id === donId);
-                        setAidForm(prev => ({
-                          ...prev,
-                          selectedDonationId: donId,
-                          currency: matched?.donation.currency === 'USD' ? 'USD' : 'IQD',
-                          amountIQD: matched ? Math.min(prev.amountIQD, matched.metrics.remainingCash) : prev.amountIQD,
-                          projectTitle: matched ? `دابەشکردنی کۆمەکی نەختینەی پسوولەی ${matched.donation.receiptNumber} (${matched.donation.donorName})` : prev.projectTitle
-                        }));
-                      }}
-                      className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
-                    >
-                      <option value="">خەزێنەی گشتی (بەبێ بەستنەوە بە پسوولەی دیاریکراو)</option>
-                      {availableCashDonations.map(({ donation, metrics }) => (
-                        <option key={donation.id} value={donation.id}>
-                          پسوولەی {donation.receiptNumber} ({donation.donorName}) — ماوە: {metrics.remainingCash.toLocaleString()} {metrics.currencySymbol}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {(() => {
-                    const selectedDonMetrics = availableCashDonations.find(item => item.donation.id === aidForm.selectedDonationId);
-                    return (
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-slate-700 font-bold">
-                            بڕی پارە ({aidForm.currency === 'USD' ? 'دۆلار $' : 'دینار د.ع'}):
-                          </label>
-                          {selectedDonMetrics && (
-                            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
-                              بەردەست لە پسوولە: {selectedDonMetrics.metrics.remainingCash.toLocaleString()} {selectedDonMetrics.metrics.currencySymbol}
-                            </span>
-                          )}
-                        </div>
-                        <input
-                          type="number"
-                          min={1}
-                          step="any"
-                          value={aidForm.amountIQD}
-                          onChange={(e) => setAidForm({ ...aidForm, amountIQD: Number(e.target.value) })}
-                          className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
-                        />
-                        {/* Quick preset amounts */}
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {(aidForm.currency === 'USD' ? [25, 50, 100, 200] : [25000, 50000, 100000, 150000, 250000]).map((preset) => (
-                            <button
-                              key={preset}
-                              type="button"
-                              onClick={() => {
-                                const maxAllowed = selectedDonMetrics ? selectedDonMetrics.metrics.remainingCash : preset;
-                                setAidForm(prev => ({ ...prev, amountIQD: Math.min(preset, maxAllowed) }));
-                              }}
-                              className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
-                                aidForm.amountIQD === preset
-                                  ? 'bg-emerald-600 text-white border-emerald-600'
-                                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                              }`}
-                            >
-                              {aidForm.currency === 'USD' ? `$${preset}` : `${(preset / 1000)} هەزار`}
-                            </button>
-                          ))}
-                          {selectedDonMetrics && (
-                            <button
-                              type="button"
-                              onClick={() => setAidForm(prev => ({ ...prev, amountIQD: selectedDonMetrics.metrics.remainingCash }))}
-                              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 me-auto"
-                            >
-                              تەواوی ماوە ({selectedDonMetrics.metrics.remainingCash.toLocaleString()})
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">ناوی کەلوپەل:</label>
-                    <input
-                      type="text"
-                      value={aidForm.itemName}
-                      onChange={(e) => setAidForm({ ...aidForm, itemName: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">ژمارە / دانە:</label>
+                    </div>
                     <input
                       type="number"
-                      value={aidForm.quantity}
-                      onChange={(e) => setAidForm({ ...aidForm, quantity: Number(e.target.value) })}
-                      className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+                      min={1}
+                      step="any"
+                      value={aidForm.amountIQD}
+                      onChange={(e) => setAidForm({ ...aidForm, amountIQD: Number(e.target.value) })}
+                      className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono"
                     />
+                    {/* Quick preset amounts */}
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {(aidForm.currency === 'USD' ? [25, 50, 100, 200] : [25000, 50000, 100000, 150000, 250000]).map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => {
+                            const maxAllowed = selectedDonMetrics ? selectedDonMetrics.metrics.remainingCash : preset;
+                            setAidForm(prev => ({ ...prev, amountIQD: Math.min(preset, maxAllowed) }));
+                          }}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
+                            aidForm.amountIQD === preset
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          {aidForm.currency === 'USD' ? `$${preset}` : `${(preset / 1000)} هەزار`}
+                        </button>
+                      ))}
+                      {selectedDonMetrics && (
+                        <button
+                          type="button"
+                          onClick={() => setAidForm(prev => ({ ...prev, amountIQD: selectedDonMetrics.metrics.remainingCash }))}
+                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 me-auto"
+                        >
+                          تەواوی ماوە ({selectedDonMetrics.metrics.remainingCash.toLocaleString()})
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </>
-              )}
-
+                );
+              })()}
+            </>
+          ) : (
+            <>
               <div>
-                <label className="block text-slate-700 font-bold mb-1">لە چوارچێوەی کام پڕۆژە:</label>
+                <label className="block text-slate-700 font-bold mb-1">ناوی کەلوپەل:</label>
                 <input
                   type="text"
-                  value={aidForm.projectTitle}
-                  onChange={(e) => setAidForm({ ...aidForm, projectTitle: e.target.value })}
+                  value={aidForm.itemName}
+                  onChange={(e) => setAidForm({ ...aidForm, itemName: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>
-
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsGiveAidModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
-                >
-                  پاشگەزبوونەوە
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
-                >
-                  پەسەندکردنی هاوکاری
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Beneficiary Aid Modal */}
-      {isEditBenAidModalOpen && editingBenAid && selectedBeneficiary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Edit3 className="w-5 h-5 text-emerald-600" />
-                دەستکاریکردنی هاوکاری بۆ: {selectedBeneficiary.fullName}
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditBenAidModalOpen(false);
-                  setEditingBenAid(null);
-                }}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEditBenAid} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">
-                  {editingBenAid.type === 'monetary'
-                    ? `بڕی پارە (${editingBenAid.currency === 'USD' ? 'دۆلار $' : 'دینار د.ع'}):`
-                    : `بڕ / دانە (${editingBenAid.unit || 'دانە'}):`}
-                </label>
+                <label className="block text-slate-700 font-bold mb-1">ژمارە / دانە:</label>
                 <input
                   type="number"
-                  min={1}
-                  step="any"
-                  required
-                  value={editBenAidForm.amount}
-                  onChange={(e) => setEditBenAidForm({ ...editBenAidForm, amount: Number(e.target.value) })}
-                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">لە چوارچێوەی کام پڕۆژە:</label>
-                <input
-                  type="text"
-                  value={editBenAidForm.projectTitle}
-                  onChange={(e) => setEditBenAidForm({ ...editBenAidForm, projectTitle: e.target.value })}
+                  value={aidForm.quantity}
+                  onChange={(e) => setAidForm({ ...aidForm, quantity: Number(e.target.value) })}
                   className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                 />
               </div>
+            </>
+          )}
 
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">بەروار:</label>
-                <input
-                  type="date"
-                  value={editBenAidForm.date}
-                  onChange={(e) => setEditBenAidForm({ ...editBenAidForm, date: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">تێبینی:</label>
-                <textarea
-                  rows={2}
-                  value={editBenAidForm.notes}
-                  onChange={(e) => setEditBenAidForm({ ...editBenAidForm, notes: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 resize-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditBenAidModalOpen(false);
-                    setEditingBenAid(null);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
-                >
-                  پاشگەزبوونەوە
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
-                >
-                  پاشەکەوتکردنی گۆڕانکاری
-                </button>
-              </div>
-            </form>
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">لە چوارچێوەی کام پڕۆژە:</label>
+            <input
+              type="text"
+              value={aidForm.projectTitle}
+              onChange={(e) => setAidForm({ ...aidForm, projectTitle: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+            />
           </div>
-        </div>
-      )}
+
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setIsGiveAidModalOpen(false)}
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+            >
+              پاشگەزبوونەوە
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
+            >
+              پەسەندکردنی هاوکاری
+            </button>
+          </div>
+        </form>
+      </AdaptiveDrawerSheet>
+
+      {/* Edit Beneficiary Aid Modal */}
+      <AdaptiveDrawerSheet
+        isOpen={isEditBenAidModalOpen && editingBenAid !== null && selectedBeneficiary !== null}
+        onClose={() => {
+          setIsEditBenAidModalOpen(false);
+          setEditingBenAid(null);
+        }}
+        title={`دەستکاریکردنی هاوکاری بۆ: ${selectedBeneficiary?.fullName || ''}`}
+        description="دەستکاریکردنی بڕ، پڕۆژە، بەروار یان تێبینی هاوکاری"
+        icon={<Edit3 className="w-5 h-5 text-emerald-600" />}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSaveEditBenAid} className="space-y-4 text-xs">
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">
+              {editingBenAid?.type === 'monetary'
+                ? `بڕی پارە (${editingBenAid?.currency === 'USD' ? 'دۆلار $' : 'دینار د.ع'}):`
+                : `بڕ / دانە (${editingBenAid?.unit || 'دانە'}):`}
+            </label>
+            <input
+              type="number"
+              min={1}
+              step="any"
+              required
+              value={editBenAidForm.amount}
+              onChange={(e) => setEditBenAidForm({ ...editBenAidForm, amount: Number(e.target.value) })}
+              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-mono font-bold"
+            />
+          </div>
+
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">لە چوارچێوەی کام پڕۆژە:</label>
+            <input
+              type="text"
+              value={editBenAidForm.projectTitle}
+              onChange={(e) => setEditBenAidForm({ ...editBenAidForm, projectTitle: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+            />
+          </div>
+
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">بەروار:</label>
+            <input
+              type="date"
+              value={editBenAidForm.date}
+              onChange={(e) => setEditBenAidForm({ ...editBenAidForm, date: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+            />
+          </div>
+
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">تێبینی:</label>
+            <textarea
+              rows={2}
+              value={editBenAidForm.notes}
+              onChange={(e) => setEditBenAidForm({ ...editBenAidForm, notes: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditBenAidModalOpen(false);
+                setEditingBenAid(null);
+              }}
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+            >
+              پاشگەزبوونەوە
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
+            >
+              پاشەکەوتکردنی گۆڕانکاری
+            </button>
+          </div>
+        </form>
+      </AdaptiveDrawerSheet>
 
       {/* SMS Modal */}
-      {isSMSModalOpen && selectedBeneficiary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-900 mb-2 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-cyan-600" />
-              ناردنی کورتەنامە (SMS)
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              بۆ: {selectedBeneficiary.fullName} ({selectedBeneficiary.phone})
-            </p>
-
-            <textarea
-              rows={4}
-              value={smsText}
-              onChange={(e) => setSmsText(e.target.value)}
-              className="w-full p-3 rounded-2xl liquid-input text-slate-900 text-xs leading-relaxed"
-            />
-
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
-              <button
-                type="button"
-                onClick={() => setIsSMSModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
-              >
-                داخستن
-              </button>
-              <button
-                type="button"
-                onClick={handleSendSMS}
-                className="px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold"
-              >
-                ناردنی ئێستا
-              </button>
-            </div>
+      <AdaptiveDrawerSheet
+        isOpen={isSMSModalOpen && selectedBeneficiary !== null}
+        onClose={() => setIsSMSModalOpen(false)}
+        title="ناردنی کورتەنامە (SMS)"
+        description={selectedBeneficiary ? `بۆ: ${selectedBeneficiary.fullName} (${selectedBeneficiary.phone})` : ''}
+        icon={<MessageSquare className="w-5 h-5 text-cyan-600" />}
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <button
+              type="button"
+              onClick={() => setIsSMSModalOpen(false)}
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+            >
+              داخستن
+            </button>
+            <button
+              type="button"
+              onClick={handleSendSMS}
+              className="px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold"
+            >
+              ناردنی ئێستا
+            </button>
           </div>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          <textarea
+            rows={4}
+            value={smsText}
+            onChange={(e) => setSmsText(e.target.value)}
+            className="w-full p-3 rounded-2xl liquid-input text-slate-900 text-xs leading-relaxed"
+          />
         </div>
-      )}
+      </AdaptiveDrawerSheet>
 
       {/* Modal: Edit Beneficiary & Manage Documents */}
-      {isEditModalOpen && editingBeneficiary && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-beneficiary-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
-        >
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200/90 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
-            {/* Sticky Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/95 backdrop-blur-md">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold shadow-xs">
-                  <Edit3 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 id="edit-beneficiary-modal-title" className="text-base font-black text-slate-900 leading-tight">
-                    دەستکاریکردنی دۆسیە و بەڵگەنامەکانی سوودمەند
-                  </h3>
-                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 font-medium">
-                    <span>دۆسیەی:</span>
-                    <strong className="text-slate-800">{editingBeneficiary.fullName}</strong>
-                    <span className="font-mono font-bold text-cyan-700">({editingBeneficiary.nationalId})</span>
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditModalOpen(false);
-                  setEditingBeneficiary(null);
-                }}
-                className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
-                title="داخستن"
-                aria-label="داخستن"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEditBeneficiary} className="flex flex-col flex-1 min-h-0">
-              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
+      <AdaptiveDrawerSheet
+        isOpen={isEditModalOpen && editingBeneficiary !== null}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingBeneficiary(null);
+        }}
+        title="دەستکاریکردنی دۆسیە و بەڵگەنامەکانی سوودمەند"
+        description={
+          editingBeneficiary
+            ? `دۆسیەی: ${editingBeneficiary.fullName} (${editingBeneficiary.nationalId})`
+            : ''
+        }
+        icon={<Edit3 className="w-5 h-5 text-amber-700" />}
+        maxWidth="max-w-2xl"
+      >
+        <form onSubmit={handleSaveEditBeneficiary} className="space-y-4 text-xs">
                 {editDuplicateAlert && (
                   <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2 mb-4">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -4872,10 +4788,8 @@ export const BeneficiariesView: React.FC = () => {
                 )}
               </div>
 
-              </div>
-
               {/* Sticky Footer */}
-              <div className="px-6 py-3.5 bg-slate-50/95 border-t border-slate-200/90 flex items-center justify-end gap-3 shrink-0 rounded-b-3xl">
+              <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -4894,79 +4808,62 @@ export const BeneficiariesView: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AdaptiveDrawerSheet>
 
       {/* Lightbox / Document Preview Modal */}
-      {previewDocument && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl max-h-[92vh] flex flex-col">
+      <AdaptiveDrawerSheet
+        isOpen={previewDocument !== null}
+        onClose={() => setPreviewDocument(null)}
+        title={previewDocument?.title || 'پێشبینینی بەڵگەنامە'}
+        description={previewDocument ? `${previewDocument.category} • ${previewDocument.fileSize} • بەروار: ${previewDocument.uploadDate}` : ''}
+        icon={<FileText className="w-5 h-5 text-cyan-700" />}
+        maxWidth="max-w-2xl"
+        footer={
+          <div className="flex items-center justify-between w-full">
             <button
+              type="button"
               onClick={() => setPreviewDocument(null)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
             >
-              <X className="w-5 h-5" />
+              داخستن
             </button>
-
-            <div className="flex items-center gap-2 mb-4">
-              <div className="p-2 rounded-xl bg-cyan-50 text-cyan-700">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">{previewDocument.title}</h3>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <span className="bg-slate-100 px-2 py-0.5 rounded font-bold text-slate-700">{previewDocument.category}</span>
-                  <span>{previewDocument.fileSize}</span>
-                  <span>بەروار: {previewDocument.uploadDate}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-auto rounded-2xl bg-slate-100 p-2 flex items-center justify-center min-h-[300px]">
-              {previewDocument.fileData && (previewDocument.fileData.startsWith('data:image') || previewDocument.fileType?.match(/(JPG|JPEG|PNG|WEBP|GIF)/i)) ? (
-                <img
-                  src={previewDocument.fileData}
-                  alt={previewDocument.title}
-                  className="max-h-[60vh] max-w-full rounded-xl object-contain shadow-sm"
-                />
-              ) : previewDocument.fileData && previewDocument.fileData.startsWith('data:application/pdf') ? (
-                <iframe
-                  src={previewDocument.fileData}
-                  title={previewDocument.title}
-                  className="w-full h-[60vh] rounded-xl border border-slate-200"
-                />
-              ) : (
-                <div className="text-center p-8">
-                  <FileText className="w-16 h-16 text-slate-400 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-slate-700 mb-1">{previewDocument.fileName}</p>
-                  <p className="text-xs text-slate-500 mb-4">ئەم جۆرە فایلە پشتگیری لە پیشاندانی ڕاستەوخۆ ناکات، دەتوانیت دایبەزێنیت</p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-200">
-              <button
-                type="button"
-                onClick={() => setPreviewDocument(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+            {previewDocument?.fileData && (
+              <a
+                href={previewDocument.fileData}
+                download={previewDocument.fileName || `${previewDocument.title}.png`}
+                className="px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold flex items-center gap-1.5 shadow-md"
               >
-                داخستن
-              </button>
-              {previewDocument.fileData && (
-                <a
-                  href={previewDocument.fileData}
-                  download={previewDocument.fileName || `${previewDocument.title}.png`}
-                  className="px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold flex items-center gap-1.5 shadow-md"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>داگرتنی فایل</span>
-                </a>
-              )}
-            </div>
+                <Download className="w-4 h-4" />
+                <span>داگرتنی فایل</span>
+              </a>
+            )}
           </div>
-        </div>
-      )}
+        }
+      >
+        {previewDocument && (
+          <div className="flex-1 overflow-auto rounded-2xl bg-slate-100 p-2 flex items-center justify-center min-h-[300px]">
+            {previewDocument.fileData && (previewDocument.fileData.startsWith('data:image') || previewDocument.fileType?.match(/(JPG|JPEG|PNG|WEBP|GIF)/i)) ? (
+              <img
+                src={previewDocument.fileData}
+                alt={previewDocument.title}
+                className="max-h-[60vh] max-w-full rounded-xl object-contain shadow-sm"
+              />
+            ) : previewDocument.fileData && previewDocument.fileData.startsWith('data:application/pdf') ? (
+              <iframe
+                src={previewDocument.fileData}
+                title={previewDocument.title}
+                className="w-full h-[60vh] rounded-xl border border-slate-200"
+              />
+            ) : (
+              <div className="text-center p-8">
+                <FileText className="w-16 h-16 text-slate-400 mx-auto mb-3" />
+                <p className="text-sm font-bold text-slate-700 mb-1">{previewDocument.fileName}</p>
+                <p className="text-xs text-slate-500 mb-4">ئەم جۆرە فایلە پشتگیری لە پیشاندانی ڕاستەوخۆ ناکات، دەتوانیت دایبەزێنیت</p>
+              </div>
+            )}
+          </div>
+        )}
+      </AdaptiveDrawerSheet>
 
     </div>
   );

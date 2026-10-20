@@ -365,12 +365,15 @@
   #printable-receipt *,
   #volunteer-badge,
   #volunteer-badge *,
+  #printable-beneficiary-report,
+  #printable-beneficiary-report *,
   #printable-impact-report,
   #printable-impact-report * {
     visibility: visible !important;
   }
   #printable-receipt,
   #volunteer-badge,
+  #printable-beneficiary-report,
   #printable-impact-report {
     position: fixed !important;
     top: 0 !important;

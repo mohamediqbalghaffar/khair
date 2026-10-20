@@ -46,7 +46,7 @@ export const OfficialReceiptModal: React.FC<OfficialReceiptModalProps> = ({ dona
           type="button"
           onClick={onClose}
           aria-label="داخستنی پسوولە"
-          className="no-print absolute top-5 start-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
+          className="no-print absolute top-5 end-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-all"
         >
           <X className="w-5 h-5" />
         </button>

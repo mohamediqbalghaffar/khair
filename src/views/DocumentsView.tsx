@@ -28,6 +28,7 @@ import {
   RefreshCw,
   Tag
 } from 'lucide-react';
+import { AdaptiveDrawerSheet } from '../components/ui/AdaptiveDrawerSheet';
 
 export const normalizeArabicKurdish = (text: string): string => {
   if (!text) return '';
@@ -207,7 +208,7 @@ const SearchableBeneficiaryCombobox: React.FC<SearchableBeneficiaryComboboxProps
 
       {/* Floating Dropdown List */}
       {isOpen && (
-        <div className="absolute z-50 top-full right-0 left-0 mt-1 bg-white border border-cyan-300 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 min-w-[260px]">
+        <div className="absolute z-50 top-full inset-x-0 mt-1 bg-white border border-cyan-300 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 min-w-[260px]">
           <div className="p-2 border-b border-slate-100 bg-cyan-50/60 flex items-center justify-between text-[11px] text-cyan-900 font-bold">
             <span>
               {search.trim() ? `${filtered.length} سوودمەند دۆزرایەوە` : 'هەڵبژاردنی سوودمەند:'}
@@ -918,14 +919,24 @@ export const DocumentsView: React.FC = () => {
         </div>
 
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+          <Search className="w-4 h-4 text-slate-400 absolute start-3.5 top-3" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="گەڕان بەپێی ناونیشانی فایل یان ناوی کەس..."
-            className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 shadow-sm"
+            className="w-full ps-10 pe-9 py-2 text-xs rounded-2xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 shadow-sm"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="سڕینەوەی دەق"
+              className="absolute end-2.5 top-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-lg touch-manipulation"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1095,77 +1106,26 @@ export const DocumentsView: React.FC = () => {
       )}
 
       {/* File Preview Modal */}
-      {selectedDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-7 shadow-2xl max-h-[90vh] flex flex-col justify-between">
-            <button
-              onClick={() => setSelectedDoc(null)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Modal Header */}
-            <div className="flex items-center gap-3 mb-4 pe-2">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center border border-slate-200 shrink-0">
-                {getFileIcon(selectedDoc.fileType)}
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-base font-bold text-slate-900 truncate" title={selectedDoc.title}>
-                  {selectedDoc.title}
-                </h3>
-                <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                  <span className="text-teal-700 font-bold bg-teal-50 px-2 py-0.5 rounded-lg border border-teal-200">
-                    {selectedDoc.category}
-                  </span>
-                  <span>• پەیوەستە بە: <strong className="text-slate-800">{selectedDoc.relatedEntity}</strong></span>
-                </div>
-              </div>
-            </div>
-
-            {/* Preview Body */}
-            <div className="flex-1 overflow-y-auto my-3 p-3 rounded-2xl bg-slate-50 border border-slate-200">
-              {isImageFile(selectedDoc) && (selectedDoc.fileData || selectedDoc.url) ? (
-                <div className="text-center">
-                  <img
-                    src={selectedDoc.fileData || selectedDoc.url}
-                    alt={selectedDoc.title}
-                    className="max-h-[55vh] mx-auto rounded-xl object-contain border border-slate-200 shadow-sm"
-                  />
-                </div>
-              ) : isPdfFile(selectedDoc) && (selectedDoc.fileData || selectedDoc.url) ? (
-                <div className="h-[55vh] w-full">
-                  <iframe
-                    src={selectedDoc.fileData || selectedDoc.url}
-                    title={selectedDoc.title}
-                    className="w-full h-full rounded-xl border border-slate-200 shadow-sm"
-                  />
-                </div>
-              ) : (
-                <div className="p-8 text-center space-y-3">
-                  <FileText className="w-14 h-14 text-teal-600 mx-auto" />
-                  <p className="text-sm font-bold text-slate-900">{selectedDoc.title}</p>
-                  <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-                    ئەم فایلە بە فۆرماتی {selectedDoc.fileType} پارێزراوە لە داتابەیسی ڕێکخراو. دەتوانیت ڕاستەوخۆ دایبگریت بۆ بینینی تەواوی ناوەڕۆکەکەی.
-                  </p>
-                  <div className="inline-block font-mono text-xs px-3 py-1 rounded-xl bg-white border border-slate-200 text-slate-700 shadow-sm">
-                    قەبارە: {selectedDoc.fileSize} • بەرواری تۆمارکردن: {selectedDoc.uploadDate}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200">
+      <AdaptiveDrawerSheet
+        isOpen={!!selectedDoc}
+        onClose={() => setSelectedDoc(null)}
+        title={selectedDoc?.title || 'بینینی بەڵگەنامە'}
+        description={selectedDoc ? `${selectedDoc.category} • پەیوەستە بە: ${selectedDoc.relatedEntity}` : undefined}
+        icon={selectedDoc ? getFileIcon(selectedDoc.fileType) : <Files className="w-5 h-5 text-teal-600" />}
+        maxWidth="max-w-2xl"
+        footer={
+          selectedDoc ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 w-full">
               <div className="flex items-center gap-2">
                 {(selectedDoc.beneficiaryId || (selectedDoc.entityType === 'beneficiary' && selectedDoc.entityId)) && (
                   <button
+                    type="button"
                     onClick={() => {
                       const bId = selectedDoc.beneficiaryId || (selectedDoc.entityId as string);
                       setSelectedDoc(null);
                       openBeneficiaryProfile(bId);
                     }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold transition-colors shadow-sm"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold transition-colors shadow-sm touch-manipulation active:scale-95"
                   >
                     <ExternalLink className="w-4 h-4" />
                     چوون بۆ دۆسیەی تەواوی ئەم سوودمەندە
@@ -1175,49 +1135,71 @@ export const DocumentsView: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={() => setSelectedDoc(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors touch-manipulation active:scale-95"
                 >
                   داخستن
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleDownload(selectedDoc)}
-                  className="flex items-center gap-2 px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-sm"
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-sm touch-manipulation active:scale-95"
                 >
                   <Download className="w-4 h-4" />
                   داگرتنی بەڵگەنامە
                 </button>
               </div>
             </div>
+          ) : undefined
+        }
+      >
+        {selectedDoc && (
+          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+            {isImageFile(selectedDoc) && (selectedDoc.fileData || selectedDoc.url) ? (
+              <div className="text-center">
+                <img
+                  src={selectedDoc.fileData || selectedDoc.url}
+                  alt={selectedDoc.title}
+                  className="max-h-[55vh] mx-auto rounded-xl object-contain border border-slate-200 shadow-sm"
+                />
+              </div>
+            ) : isPdfFile(selectedDoc) && (selectedDoc.fileData || selectedDoc.url) ? (
+              <div className="h-[55vh] w-full">
+                <iframe
+                  src={selectedDoc.fileData || selectedDoc.url}
+                  title={selectedDoc.title}
+                  className="w-full h-full rounded-xl border border-slate-200 shadow-sm"
+                />
+              </div>
+            ) : (
+              <div className="p-8 text-center space-y-3">
+                <FileText className="w-14 h-14 text-teal-600 mx-auto" />
+                <p className="text-sm font-bold text-slate-900">{selectedDoc.title}</p>
+                <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+                  ئەم فایلە بە فۆرماتی {selectedDoc.fileType} پارێزراوە لە داتابەیسی ڕێکخراو. دەتوانیت ڕاستەوخۆ دایبگریت بۆ بینینی تەواوی ناوەڕۆکەکەی.
+                </p>
+                <div className="inline-block font-mono text-xs px-3 py-1 rounded-xl bg-white border border-slate-200 text-slate-700 shadow-sm">
+                  قەبارە: {selectedDoc.fileSize} • بەرواری تۆمارکردن: {selectedDoc.uploadDate}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </AdaptiveDrawerSheet>
 
       {/* Main Upload Modal (Single & Bulk Modes) */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-md animate-in fade-in duration-200">
-          <div
-            className={`relative rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-2xl max-h-[94vh] flex flex-col justify-between transition-all duration-200 ${
-              uploadMode === 'bulk' ? 'w-full max-w-5xl' : 'w-full max-w-lg'
-            }`}
-          >
+      <AdaptiveDrawerSheet
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="بارکردنی بەڵگەنامەی نوێ بۆ ئەرشیف"
+        icon={<UploadCloud className="w-5 h-5 text-teal-600" />}
+        maxWidth={uploadMode === 'bulk' ? 'max-w-5xl' : 'max-w-lg'}
+      >
+        <div>
+          {/* Mode Toggle Tabs */}
+          <div className="flex items-center p-1 rounded-2xl bg-slate-100 border border-slate-200/80 mb-4 max-w-md">
             <button
-              onClick={() => setIsAddModalOpen(false)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors z-10"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Modal Title & Upload Mode Switcher */}
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <UploadCloud className="w-5 h-5 text-teal-600" />
-                <h3 className="text-lg font-bold text-slate-900">بارکردنی بەڵگەنامەی نوێ بۆ ئەرشیف</h3>
-              </div>
-
-              {/* Mode Toggle Tabs */}
-              <div className="flex items-center p-1 rounded-2xl bg-slate-100 border border-slate-200/80 mb-4 max-w-md">
-                <button
                   type="button"
                   onClick={() => setUploadMode('single')}
                   className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all ${
@@ -1739,7 +1721,7 @@ export const DocumentsView: React.FC = () => {
                           type="button"
                           disabled={isSubmittingBulk || bulkItems.length === 0}
                           onClick={handleBulkSubmit}
-                          className="flex items-center gap-2 px-6 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all"
+                          className="flex items-center gap-2 px-6 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all touch-manipulation active:scale-95"
                         >
                           {isSubmittingBulk ? (
                             <>
@@ -1759,9 +1741,7 @@ export const DocumentsView: React.FC = () => {
                 )}
               </div>
             )}
-          </div>
-        </div>
-      )}
+      </AdaptiveDrawerSheet>
     </div>
   );
 };

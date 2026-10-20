@@ -34,7 +34,7 @@ export const SettingsView: React.FC = () => {
         {/* Navigation & Permissions Settings (For Developer) */}
         {isDeveloper && (
           <div className="liquid-glass p-6 rounded-3xl border border-purple-200/80 shadow-sm relative overflow-hidden group hover:shadow-md transition-all bg-gradient-to-br from-purple-50/60 to-white">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -me-10 -mt-10 transition-transform group-hover:scale-150" />
+            <div className="absolute top-0 end-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -me-10 -mt-10 transition-transform group-hover:scale-150" />
             <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center mb-4">
               <Sliders className="w-6 h-6 text-purple-700" />
             </div>
@@ -54,7 +54,7 @@ export const SettingsView: React.FC = () => {
 
         {/* API Settings */}
         <div className="liquid-glass p-6 rounded-3xl border border-white/50 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -me-10 -mt-10 transition-transform group-hover:scale-150" />
+          <div className="absolute top-0 end-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -me-10 -mt-10 transition-transform group-hover:scale-150" />
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4">
             <Terminal className="w-6 h-6 text-indigo-600" />
           </div>
@@ -70,7 +70,7 @@ export const SettingsView: React.FC = () => {
 
         {/* Security Settings */}
         <div className="liquid-glass p-6 rounded-3xl border border-white/50 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -me-10 -mt-10 transition-transform group-hover:scale-150" />
+          <div className="absolute top-0 end-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -me-10 -mt-10 transition-transform group-hover:scale-150" />
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
             <ShieldCheck className="w-6 h-6 text-emerald-600" />
           </div>
@@ -86,7 +86,7 @@ export const SettingsView: React.FC = () => {
 
         {/* Accessibility Settings */}
         <div className="liquid-glass p-6 rounded-3xl border border-white/50 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -me-10 -mt-10 transition-transform group-hover:scale-150" />
+          <div className="absolute top-0 end-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -me-10 -mt-10 transition-transform group-hover:scale-150" />
           <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center mb-4">
             <Languages className="w-6 h-6 text-amber-600" />
           </div>

@@ -1,5 +1,3 @@
-import * as XLSX from 'xlsx';
-import ExcelJS from 'exceljs';
 import { Beneficiary, NeedCategory, OtherProvider } from '../types';
 
 export const EXCEL_COLUMNS = {
@@ -38,6 +36,7 @@ export const PRESET_OPTIONS = {
 };
 
 export const downloadBeneficiaryExcelTemplate = async () => {
+  const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'ڕێکخراوی بۆتان بامۆکی';
   workbook.created = new Date();
@@ -371,6 +370,7 @@ export interface ParseResult {
 }
 
 export const parseBeneficiaryExcelFile = async (file: File): Promise<ParseResult> => {
+  const XLSX = await import('xlsx');
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
 

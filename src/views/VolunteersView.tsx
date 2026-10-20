@@ -15,6 +15,7 @@ import {
   Edit3,
   X
 } from 'lucide-react';
+import { AdaptiveDrawerSheet } from '../components/ui/AdaptiveDrawerSheet';
 
 const SKILL_PRESETS = [
   'دابەشکردنی مەیدانی',
@@ -169,14 +170,24 @@ export const VolunteersView: React.FC = () => {
 
       {/* Search Bar */}
       <div className="relative max-w-md">
-        <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+        <Search className="w-4 h-4 text-slate-400 absolute start-3.5 top-3" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="گەڕان بەدوای ناو، لێهاتوویی، پارێزگا..."
-          className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+          className="w-full ps-10 pe-9 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
         />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            aria-label="سڕینەوەی دەق"
+            className="absolute end-2.5 top-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-lg touch-manipulation"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Volunteers Grid */}
@@ -309,17 +320,25 @@ export const VolunteersView: React.FC = () => {
       )}
 
       {/* Modal: Volunteer ID Badge */}
-      {selectedVolunteerBadge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-sm rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl text-center">
-            <button
-              onClick={() => setSelectedVolunteerBadge(null)}
-              className="no-print absolute top-4 left-4 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
-              aria-label="داخستنی کارتی ناسنامە"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
+      <AdaptiveDrawerSheet
+        isOpen={!!selectedVolunteerBadge}
+        onClose={() => setSelectedVolunteerBadge(null)}
+        title="کارتی ناسنامەی فەرمی خۆبەخش"
+        icon={<UserCheck className="w-5 h-5 text-blue-600" />}
+        maxWidth="max-w-sm"
+        footer={
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="no-print w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl liquid-button-primary text-white text-xs font-bold touch-manipulation active:scale-95"
+          >
+            <Printer className="w-4 h-4" />
+            چاپکردنی ناسنامە (Print Badge)
+          </button>
+        }
+      >
+        {selectedVolunteerBadge && (
+          <div className="text-center">
             {/* Printable Badge Area */}
             <div
               id="volunteer-badge"
@@ -373,80 +392,64 @@ export const VolunteersView: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Print Action */}
-            <div className="no-print mt-4 flex items-center justify-end gap-2">
-              <button
-                onClick={() => window.print()}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl liquid-button-primary text-white text-xs font-bold"
-              >
-                <Printer className="w-4 h-4" />
-                چاپکردنی ناسنامە (Print Badge)
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </AdaptiveDrawerSheet>
 
       {/* Modal: Log Hours */}
-      {logHoursVolunteer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="w-full max-w-sm rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-900 mb-2">تۆمارکردنی کاتژمێری خزمەت</h3>
-            <p className="text-xs text-slate-500 mb-4">بۆ: {logHoursVolunteer.fullName}</p>
+      <AdaptiveDrawerSheet
+        isOpen={!!logHoursVolunteer}
+        onClose={() => setLogHoursVolunteer(null)}
+        title="تۆمارکردنی کاتژمێری خزمەت"
+        description={logHoursVolunteer ? `بۆ: ${logHoursVolunteer.fullName}` : undefined}
+        icon={<Clock className="w-5 h-5 text-amber-600" />}
+        maxWidth="max-w-sm"
+      >
+        {logHoursVolunteer && (
+          <form onSubmit={handleLogHoursSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">ژمارەی کاتژمێری ئەنجامدراو:</label>
+              <input
+                type="number"
+                min={1}
+                max={24}
+                required
+                value={hoursToAdd}
+                onChange={(e) => setHoursToAdd(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold text-base"
+              />
+            </div>
 
-            <form onSubmit={handleLogHoursSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">ژمارەی کاتژمێری ئەنجامدراو:</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={24}
-                  required
-                  value={hoursToAdd}
-                  onChange={(e) => setHoursToAdd(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold text-base"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setLogHoursVolunteer(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
-                >
-                  داخستن
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
-                >
-                  تۆمارکردنی کاتژمێرەکان
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setLogHoursVolunteer(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold touch-manipulation active:scale-95"
+              >
+                داخستن
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold touch-manipulation active:scale-95"
+              >
+                تۆمارکردنی کاتژمێرەکان
+              </button>
+            </div>
+          </form>
+        )}
+      </AdaptiveDrawerSheet>
 
       {/* Modal: Add / Edit Volunteer */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => {
-                setIsAddModalOpen(false);
-                setEditingVolunteer(null);
-              }}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <UserCheck className="w-5 h-5 text-blue-600" />
-              {editingVolunteer ? 'دەستکاریکردنی زانیاری خۆبەخش' : 'تۆمارکردنی خۆبەخشی نوێ'}
-            </h3>
+      <AdaptiveDrawerSheet
+        isOpen={isAddModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingVolunteer(null);
+        }}
+        title={editingVolunteer ? 'دەستکاریکردنی زانیاری خۆبەخش' : 'تۆمارکردنی خۆبەخشی نوێ'}
+        icon={<UserCheck className="w-5 h-5 text-blue-600" />}
+        maxWidth="max-w-lg"
+      >
 
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
               <div>
@@ -607,21 +610,19 @@ export const VolunteersView: React.FC = () => {
                     setIsAddModalOpen(false);
                     setEditingVolunteer(null);
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold touch-manipulation active:scale-95"
                 >
                   پاشگەزبوونەوە
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white font-bold"
+                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white font-bold touch-manipulation active:scale-95"
                 >
                   {editingVolunteer ? 'پاشەکەوتکردنی گۆڕانکاری' : 'تۆمارکردن لە داتابەیس'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AdaptiveDrawerSheet>
     </div>
   );
 };

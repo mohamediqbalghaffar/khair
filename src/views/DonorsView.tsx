@@ -37,6 +37,7 @@ import { getDonationCashMetrics } from '../utils/donationDistributionUtils';
 import { useFeedback } from '../components/ui/FeedbackProvider';
 import { PaginationBar } from '../components/ui/PaginationBar';
 import { useHaptics } from '../utils/useHaptics';
+import { AdaptiveDrawerSheet } from '../components/ui/AdaptiveDrawerSheet';
 
 export const DonorsView: React.FC = () => {
   const {
@@ -817,7 +818,7 @@ export const DonorsView: React.FC = () => {
         </div>
 
         <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+          <Search className="w-4 h-4 text-slate-400 absolute start-3.5 top-3" />
           <input
             type="text"
             value={searchQuery}
@@ -826,8 +827,21 @@ export const DonorsView: React.FC = () => {
               setDonationsPage(1);
             }}
             placeholder="گەڕان بەدوای ناو، ژمارەی پسوولە..."
-            className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+            className="w-full ps-10 pe-9 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setDonationsPage(1);
+              }}
+              aria-label="سڕینەوەی دەق"
+              className="absolute end-2.5 top-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-lg touch-manipulation"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1290,42 +1304,15 @@ export const DonorsView: React.FC = () => {
       )}
 
       {/* Modal: Add Donor */}
-      {isAddDonorModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-donor-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
-        >
-          <div className="relative w-full max-w-md rounded-3xl bg-white border border-slate-200/90 shadow-2xl flex flex-col overflow-hidden my-auto max-h-[90vh]">
-            {/* Sticky Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/95 backdrop-blur-md">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center font-bold shadow-xs">
-                  <HeartHandshake className="w-5 h-5 text-emerald-600" />
-                </div>
-                <div>
-                  <h3 id="add-donor-modal-title" className="text-base font-black text-slate-900 leading-tight">
-                    تۆمارکردنی بەخشەری نوێ
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    زانیاری پەیوەندی و جۆری بەخشەر
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddDonorModalOpen(false)}
-                className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
-                title="داخستن"
-                aria-label="داخستن"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddDonorSubmit} className="flex flex-col flex-1 min-h-0">
-              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
+      <AdaptiveDrawerSheet
+        isOpen={isAddDonorModalOpen}
+        onClose={() => setIsAddDonorModalOpen(false)}
+        title="تۆمارکردنی بەخشەری نوێ"
+        description="زانیاری پەیوەندی و جۆری بەخشەر"
+        icon={<HeartHandshake className="w-5 h-5 text-emerald-600" />}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleAddDonorSubmit} className="space-y-4 text-xs">
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">ناوی تەواو یان ناوی کۆمپانیا:</label>
                   <input
@@ -1397,67 +1384,35 @@ export const DonorsView: React.FC = () => {
                     className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                   />
                 </div>
-              </div>
-
               {/* Sticky Footer */}
-              <div className="px-6 py-3.5 bg-slate-50/95 border-t border-slate-200/90 flex items-center justify-end gap-3 shrink-0 rounded-b-3xl">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsAddDonorModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs"
+                  className="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs touch-manipulation active:scale-95"
                 >
                   پەشیمانبوونەوە
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all"
+                  className="px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all touch-manipulation active:scale-95"
                 >
                   تۆمارکردن لە داتابەیس
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AdaptiveDrawerSheet>
 
       {/* Modal: Add Donation with Rich Category Selection & Details */}
-      {isAddDonationModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="add-donation-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
-        >
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200/90 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
-            
-            {/* Sticky Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/95 backdrop-blur-md">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center font-bold shadow-xs">
-                  <Receipt className="w-5 h-5 text-emerald-600" />
-                </div>
-                <div>
-                  <h3 id="add-donation-modal-title" className="text-base font-black text-slate-900 leading-tight">
-                    تۆمارکردنی بەخشین و دەرکردنی پسوولەی فەرمی
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    پۆلێنی دارایی، هەژمارکردنی خۆکاری بۆرسە و دەرکردنی پسوولە
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddDonationModalOpen(false)}
-                className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
-                title="داخستن"
-                aria-label="داخستن"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddDonationSubmit} className="flex flex-col flex-1 min-h-0">
-              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
+      <AdaptiveDrawerSheet
+        isOpen={isAddDonationModalOpen}
+        onClose={() => setIsAddDonationModalOpen(false)}
+        title="تۆمارکردنی بەخشین و دەرکردنی پسوولەی فەرمی"
+        description="پۆلێنی دارایی، هەژمارکردنی خۆکاری بۆرسە و دەرکردنی پسوولە"
+        icon={<Receipt className="w-5 h-5 text-emerald-600" />}
+        maxWidth="max-w-2xl"
+      >
+        <form onSubmit={handleAddDonationSubmit} className="space-y-4 text-xs">
                 
                 {/* Select Donor & Date of Donation */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1538,9 +1493,9 @@ export const DonorsView: React.FC = () => {
                               setDonationAmountStr(clean);
                             }}
                             placeholder={donationForm.currency === 'IQD' ? 'نموونە: 100,000' : 'نموونە: 100'}
-                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono focus:ring-2 focus:ring-emerald-500"
+                            className="w-full ps-3 pe-12 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono focus:ring-2 focus:ring-emerald-500"
                           />
-                          <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                          <span className="absolute end-3 top-2.5 text-xs font-bold text-slate-400">
                             {donationForm.currency === 'IQD' ? 'د.ع' : '$ USD'}
                           </span>
                         </div>
@@ -1850,9 +1805,9 @@ export const DonorsView: React.FC = () => {
                               value={donationUnitPriceStr ? parseInt(donationUnitPriceStr, 10).toLocaleString() : ''}
                               onChange={(e) => handleAddDonationUnitPriceChange(e.target.value)}
                               placeholder="نموونە: 50,000"
-                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
+                              className="w-full ps-3 pe-10 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
                             />
-                            <span className="absolute left-3 top-2.5 text-[11px] font-bold text-slate-400">
+                            <span className="absolute end-3 top-2.5 text-[11px] font-bold text-slate-400">
                               {donationForm.currency === 'IQD' ? 'د.ع' : '$'}
                             </span>
                           </div>
@@ -1870,9 +1825,9 @@ export const DonorsView: React.FC = () => {
                               value={donationEstValueStr ? parseInt(donationEstValueStr, 10).toLocaleString() : ''}
                               onChange={(e) => handleAddDonationTotalValueChange(e.target.value)}
                               placeholder="نموونە: 3,000,000"
-                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
+                              className="w-full ps-3 pe-10 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
                             />
-                            <span className="absolute left-3 top-2.5 text-[11px] font-bold text-slate-400">
+                            <span className="absolute end-3 top-2.5 text-[11px] font-bold text-slate-400">
                               {donationForm.currency === 'IQD' ? 'د.ع' : '$'}
                             </span>
                           </div>
@@ -1999,73 +1954,40 @@ export const DonorsView: React.FC = () => {
                 />
               </div>
 
-              </div>
-
-              {/* Sticky Modal Footer (Permanently Visible) */}
-              <div className="px-6 py-3.5 bg-slate-50/95 border-t border-slate-200/90 flex items-center justify-end gap-3 shrink-0 rounded-b-3xl">
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setIsAddDonationModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs"
+                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs touch-manipulation active:scale-95"
                 >
                   داخستن
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 touch-manipulation active:scale-95"
                 >
                   <Receipt className="w-4 h-4" />
                   <span>دەرکردنی پسوولەی فەرمی</span>
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AdaptiveDrawerSheet>
 
       {/* Modal: Edit Donation */}
-      {isEditDonationModalOpen && editingDonation && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-donation-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
-        >
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200/90 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden my-auto">
-            {/* Sticky Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/95 backdrop-blur-md">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold shadow-xs">
-                  <Receipt className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 id="edit-donation-modal-title" className="text-base font-black text-slate-900 leading-tight">
-                    دەستکاریکردنی پسوولەی بەخشین
-                  </h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[11px] font-mono font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-200">
-                      {editingDonation.receiptNumber}
-                    </span>
-                    <span className="text-xs text-slate-500 font-medium">نوێکردنەوەی زانیاری و وردەکاری بەخشین</span>
-                  </div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditDonationModalOpen(false);
-                  setEditingDonation(null);
-                }}
-                className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
-                title="داخستن"
-                aria-label="داخستن"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEditDonation} className="flex flex-col flex-1 min-h-0">
-              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
+      <AdaptiveDrawerSheet
+        isOpen={isEditDonationModalOpen && !!editingDonation}
+        onClose={() => {
+          setIsEditDonationModalOpen(false);
+          setEditingDonation(null);
+        }}
+        title="دەستکاریکردنی پسوولەی بەخشین"
+        description={editingDonation ? `پسوولە: ${editingDonation.receiptNumber} • نوێکردنەوەی زانیاری و وردەکاری بەخشین` : undefined}
+        icon={<Receipt className="w-5 h-5 text-amber-600" />}
+        maxWidth="max-w-2xl"
+      >
+        {editingDonation && (
+          <form onSubmit={handleSaveEditDonation} className="space-y-4 text-xs">
                 
                 {/* Select Donor & Date of Donation */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2141,9 +2063,9 @@ export const DonorsView: React.FC = () => {
                               setEditAmountStr(clean);
                             }}
                             placeholder={editDonationForm.currency === 'IQD' ? 'نموونە: 100,000' : 'نموونە: 100'}
-                            className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono focus:ring-2 focus:ring-emerald-500"
+                            className="w-full ps-3 pe-12 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono focus:ring-2 focus:ring-emerald-500"
                           />
-                          <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                          <span className="absolute end-3 top-2.5 text-xs font-bold text-slate-400">
                             {editDonationForm.currency === 'IQD' ? 'د.ع' : '$ USD'}
                           </span>
                         </div>
@@ -2464,9 +2386,9 @@ export const DonorsView: React.FC = () => {
                               value={editUnitPriceStr ? parseInt(editUnitPriceStr, 10).toLocaleString() : ''}
                               onChange={(e) => handleEditDonationUnitPriceChange(e.target.value)}
                               placeholder="نموونە: 50,000"
-                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
+                              className="w-full ps-3 pe-10 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
                             />
-                            <span className="absolute left-3 top-2.5 text-[11px] font-bold text-slate-400">
+                            <span className="absolute end-3 top-2.5 text-[11px] font-bold text-slate-400">
                               {editDonationForm.currency === 'IQD' ? 'د.ع' : '$'}
                             </span>
                           </div>
@@ -2484,9 +2406,9 @@ export const DonorsView: React.FC = () => {
                               value={editEstValueStr ? parseInt(editEstValueStr, 10).toLocaleString() : ''}
                               onChange={(e) => handleEditDonationTotalValueChange(e.target.value)}
                               placeholder="نموونە: 3,000,000"
-                              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
+                              className="w-full ps-3 pe-10 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-xs"
                             />
-                            <span className="absolute left-3 top-2.5 text-[11px] font-bold text-slate-400">
+                            <span className="absolute end-3 top-2.5 text-[11px] font-bold text-slate-400">
                               {editDonationForm.currency === 'IQD' ? 'د.ع' : '$'}
                             </span>
                           </div>
@@ -2612,72 +2534,43 @@ export const DonorsView: React.FC = () => {
                 />
               </div>
 
-              </div>
-
               {/* Sticky Footer */}
-              <div className="px-6 py-3.5 bg-slate-50/95 border-t border-slate-200/90 flex items-center justify-end gap-3 shrink-0 rounded-b-3xl">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => {
                     setIsEditDonationModalOpen(false);
                     setEditingDonation(null);
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs"
+                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs touch-manipulation active:scale-95"
                 >
                   پەشیمانبوونەوە
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all"
+                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all touch-manipulation active:scale-95"
                 >
                   پاشەکەوتکردنی دەستکارییەکان
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+        )}
+      </AdaptiveDrawerSheet>
 
       {/* Modal: Edit Donor */}
-      {isEditDonorModalOpen && editingDonor && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="edit-donor-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
-        >
-          <div className="relative w-full max-w-md rounded-3xl bg-white border border-slate-200/90 shadow-2xl flex flex-col overflow-hidden my-auto max-h-[90vh]">
-            {/* Sticky Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/95 backdrop-blur-md">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center font-bold shadow-xs">
-                  <HeartHandshake className="w-5 h-5 text-emerald-600" />
-                </div>
-                <div>
-                  <h3 id="edit-donor-modal-title" className="text-base font-black text-slate-900 leading-tight">
-                    دەستکاریکردنی زانیاری بەخشەر
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    نوێکردنەوەی ناونیشان، مۆبایل و تایبەتمەندی بەخشەر
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditDonorModalOpen(false);
-                  setEditingDonor(null);
-                }}
-                className="p-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors"
-                title="داخستن"
-                aria-label="داخستن"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEditDonor} className="flex flex-col flex-1 min-h-0">
-              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
+      <AdaptiveDrawerSheet
+        isOpen={isEditDonorModalOpen && !!editingDonor}
+        onClose={() => {
+          setIsEditDonorModalOpen(false);
+          setEditingDonor(null);
+        }}
+        title="دەستکاریکردنی زانیاری بەخشەر"
+        description="نوێکردنەوەی ناونیشان، مۆبایل و تایبەتمەندی بەخشەر"
+        icon={<HeartHandshake className="w-5 h-5 text-emerald-600" />}
+        maxWidth="max-w-md"
+      >
+        {editingDonor && (
+          <form onSubmit={handleSaveEditDonor} className="space-y-4 text-xs">
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">ناوی تەواو / دامەزراوە:</label>
                   <input
@@ -2763,31 +2656,28 @@ export const DonorsView: React.FC = () => {
                     className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
                   />
                 </div>
-              </div>
-
               {/* Sticky Footer */}
-              <div className="px-6 py-3.5 bg-slate-50/95 border-t border-slate-200/90 flex items-center justify-end gap-3 shrink-0 rounded-b-3xl">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => {
                     setIsEditDonorModalOpen(false);
                     setEditingDonor(null);
                   }}
-                  className="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs"
+                  className="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition-colors shadow-xs touch-manipulation active:scale-95"
                 >
                   پەشیمانبوونەوە
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all"
+                  className="px-5 py-2 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-md hover:shadow-lg transition-all touch-manipulation active:scale-95"
                 >
                   پاشەکەوتکردنی دەستکارییەکان
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+        )}
+      </AdaptiveDrawerSheet>
 
       {/* Official Receipt Generator Modal */}
       <OfficialReceiptModal

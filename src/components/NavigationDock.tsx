@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp, NavTab } from '../context/AppContext';
+import { useFeedback } from './ui/FeedbackProvider';
 import { AdaptiveDrawerSheet } from './ui/AdaptiveDrawerSheet';
 import { useHaptics } from '../utils/useHaptics';
 import {
@@ -14,7 +15,11 @@ import {
   Files,
   History,
   Settings,
-  MoreHorizontal
+  MoreHorizontal,
+  RotateCcw,
+  Database,
+  AlertTriangle,
+  Coins
 } from 'lucide-react';
 
 interface NavItem {
@@ -26,10 +31,38 @@ interface NavItem {
 }
 
 export const NavigationDock: React.FC = () => {
-  const { activeTab, setActiveTab, beneficiaries, inventory, currentRole, isTabAllowedForRole } = useApp();
+  const {
+    activeTab,
+    setActiveTab,
+    beneficiaries,
+    inventory,
+    currentRole,
+    isTabAllowedForRole,
+    currencyView,
+    setCurrencyView,
+    isCloudConnected,
+    isCloudSyncing,
+    syncLocalDataToCloud
+  } = useApp();
+  const { showToast } = useFeedback();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
   const haptics = useHaptics();
+
+  const handleManualSync = async () => {
+    haptics.medium();
+    showToast('دەستکرا بە هاوکاتکردنی داتاکان لەگەڵ هەور...', 'info');
+    try {
+      const ok = await syncLocalDataToCloud();
+      if (ok) {
+        showToast('داتاکان بەسەرکەوتوویی لەگەڵ هەور هاوکاتکران', 'success');
+      } else {
+        showToast('نەتوانرا هاوکات بکرێت، تکایە ئینتەرنێتەکەت بپشکنە', 'error');
+      }
+    } catch {
+      showToast('هەڵە لە پەیوەندی هەور', 'error');
+    }
+  };
 
   // Count items needing attention
   const pendingBeneficiaries = beneficiaries.filter(b => b.status === 'pending').length;
@@ -123,30 +156,97 @@ export const NavigationDock: React.FC = () => {
           adaptive={false}
           maxHeight="max-h-[85dvh]"
         >
-          <div className="grid grid-cols-3 gap-2.5">
-            {secondaryMobileItems.map(item => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-2.5">
+              {secondaryMobileItems.map(item => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      haptics.light();
+                      setActiveTab(item.id);
+                      setIsMoreOpen(false);
+                    }}
+                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border text-xs font-bold transition-all touch-manipulation active:scale-95 ${
+                      isActive
+                        ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white border-cyan-500 shadow-md'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80'
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-cyan-600'}`} />
+                    <span className="truncate max-w-full">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick Mobile Settings: Cloud Sync & Currency View */}
+            <div className="pt-2 border-t border-slate-100 space-y-2.5">
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-cyan-600" />
+                  <span className="text-xs font-bold text-slate-800">دراوی پیشاندان</span>
+                </div>
+                <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.light();
+                      setCurrencyView('IQD');
+                    }}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                      currencyView === 'IQD'
+                        ? 'bg-cyan-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    دینار
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.light();
+                      setCurrencyView('USD');
+                    }}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all font-mono ${
+                      currencyView === 'USD'
+                        ? 'bg-cyan-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    USD $
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="flex items-center gap-2">
+                  {isCloudConnected ? (
+                    <Database className="w-4 h-4 text-emerald-600" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                  )}
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">پەیوەندی داتابەیسی هەور</span>
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      {isCloudConnected ? 'سەرهێڵ (Supabase)' : 'ناپەیوەست'}
+                    </span>
+                  </div>
+                </div>
                 <button
-                  key={item.id}
                   type="button"
-                  onClick={() => {
-                    haptics.light();
-                    setActiveTab(item.id);
-                    setIsMoreOpen(false);
-                  }}
-                  className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border text-xs font-bold transition-all touch-manipulation active:scale-95 ${
-                    isActive
-                      ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white border-cyan-500 shadow-md'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80'
-                  }`}
+                  onClick={handleManualSync}
+                  disabled={isCloudSyncing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-cyan-700 hover:bg-cyan-50 transition-colors disabled:opacity-50 touch-manipulation active:scale-95"
                 >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-cyan-600'}`} />
-                  <span className="truncate max-w-full">{item.label}</span>
+                  <RotateCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin text-cyan-600' : ''}`} />
+                  <span>{isCloudSyncing ? 'هاوکاتکردن...' : 'هاوکاتکردن'}</span>
                 </button>
-              );
-            })}
+              </div>
+            </div>
           </div>
         </AdaptiveDrawerSheet>
 
@@ -167,7 +267,7 @@ export const NavigationDock: React.FC = () => {
                   setIsMoreOpen(false);
                 }}
                 aria-current={isActive ? 'page' : undefined}
-                className={`relative flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all touch-manipulation active:scale-95 ${
+                className={`relative flex flex-col items-center justify-center gap-0.5 py-2 px-1 min-h-[44px] rounded-xl text-[11px] font-bold transition-all touch-manipulation active:scale-95 ${
                   isActive
                     ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm'
                     : 'text-slate-600 hover:bg-slate-100'
@@ -176,7 +276,7 @@ export const NavigationDock: React.FC = () => {
                 <Icon className="w-4 h-4 shrink-0" />
                 <span className="truncate max-w-full">{item.shortLabel}</span>
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className={`absolute top-1 right-1.5 w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-black ${
+                  <span className={`absolute top-1 end-1.5 w-4 h-4 rounded-full text-[9px] flex items-center justify-center font-black ${
                     isActive ? 'bg-white text-blue-600' : 'bg-rose-500 text-white'
                   }`}>
                     {item.badge}
@@ -194,7 +294,7 @@ export const NavigationDock: React.FC = () => {
                 setIsMoreOpen(!isMoreOpen);
               }}
               aria-expanded={isMoreOpen}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all touch-manipulation active:scale-95 ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-2 px-1 min-h-[44px] rounded-xl text-[11px] font-bold transition-all touch-manipulation active:scale-95 ${
                 isSecondaryActive || isMoreOpen
                   ? 'bg-cyan-50 text-cyan-800 border border-cyan-200'
                   : 'text-slate-600 hover:bg-slate-100'

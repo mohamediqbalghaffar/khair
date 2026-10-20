@@ -24,6 +24,7 @@ import { getExchangeRateForDate, aggregateAmountsByDayRate } from '../utils/exch
 import { PaginationBar } from '../components/ui/PaginationBar';
 import { MobileKpiCarousel } from '../components/ui/MobileKpiCarousel';
 import { useHaptics } from '../utils/useHaptics';
+import { AdaptiveDrawerSheet } from '../components/ui/AdaptiveDrawerSheet';
 
 export const FinanceView: React.FC = () => {
   const {
@@ -474,8 +475,8 @@ export const FinanceView: React.FC = () => {
 
       {/* In-Kind Donations & Warehouse Assets Section (Light Liquid Glass) */}
       <div className="rounded-3xl bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/80 p-5 sm:p-6 text-slate-900 shadow-sm relative overflow-hidden border border-indigo-200/80 space-y-4">
-        <div className="absolute -top-12 -left-12 w-64 h-64 bg-cyan-400/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-12 -start-12 w-64 h-64 bg-cyan-400/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-12 -end-12 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-100 pb-4">
@@ -791,14 +792,24 @@ export const FinanceView: React.FC = () => {
         </div>
 
         <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+          <Search className="w-4 h-4 text-slate-400 absolute start-3.5 top-3" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             placeholder="گەڕان لە خەرجی، داهات، پسوولە..."
-            className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+            className="w-full ps-10 pe-9 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
+              aria-label="سڕینەوەی دەق"
+              className="absolute end-2.5 top-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-lg touch-manipulation"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1056,22 +1067,14 @@ export const FinanceView: React.FC = () => {
       </div>
 
       {/* Add Transaction Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl">
-            <button
-              onClick={() => setIsAddModalOpen(false)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-cyan-600" />
-              تۆمارکردنی جووڵەی دارایی نوێ
-            </h3>
-
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+      <AdaptiveDrawerSheet
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="تۆمارکردنی جووڵەی دارایی نوێ"
+        icon={<Wallet className="w-5 h-5 text-cyan-600" />}
+        maxWidth="max-w-lg"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
               
               <div>
                 <label className="block text-slate-700 font-bold mb-1">جۆری جووڵە:</label>
@@ -1113,9 +1116,9 @@ export const FinanceView: React.FC = () => {
                           setTxAmountStr(clean);
                         }}
                         placeholder={txForm.currency === 'IQD' ? 'نموونە: 150,000' : 'نموونە: 100'}
-                        className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono focus:ring-2 focus:ring-emerald-500"
+                        className="w-full ps-3 pe-12 py-2 rounded-xl liquid-input text-slate-900 text-base font-bold font-mono focus:ring-2 focus:ring-emerald-500"
                       />
-                      <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                      <span className="absolute end-3 top-2.5 text-xs font-bold text-slate-400">
                         {txForm.currency === 'IQD' ? 'د.ع' : '$ USD'}
                       </span>
                     </div>
@@ -1255,21 +1258,19 @@ export const FinanceView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold touch-manipulation active:scale-95"
                 >
                   پاشگەزبوونەوە
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
+                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold touch-manipulation active:scale-95"
                 >
                   تۆمارکردن لە داتابەیس
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AdaptiveDrawerSheet>
       {/* Feature 6: Online Payment Gateway Modal */}
       <OnlinePaymentModal
         isOpen={isOnlinePayOpen}

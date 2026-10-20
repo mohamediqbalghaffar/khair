@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { CheckCircle2, AlertTriangle, XCircle, Info, X } from 'lucide-react';
-import { useModalFocusTrap } from '../../utils/useModalFocusTrap';
 import { triggerHaptic } from '../../utils/useHaptics';
+import { AdaptiveDrawerSheet } from './AdaptiveDrawerSheet';
 
 export type ToastVariant = 'success' | 'warning' | 'error' | 'info';
 
@@ -135,8 +135,6 @@ export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
 
-  const confirmModalRef = useModalFocusTrap(!!confirmState?.isOpen, () => handleConfirmResolve(false));
-
   return (
     <FeedbackContext.Provider value={{ showToast, confirmAction }}>
       {children}
@@ -145,7 +143,7 @@ export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       <div
         aria-live="polite"
         aria-atomic="true"
-        className="fixed top-20 left-4 sm:left-6 z-[120] flex flex-col gap-2.5 max-w-sm w-[calc(100vw-2rem)] pointer-events-none no-print"
+        className="fixed top-20 inset-x-4 sm:inset-x-auto sm:start-6 z-[120] flex flex-col gap-2.5 max-w-sm mx-auto sm:mx-0 w-[calc(100vw-2rem)] sm:w-96 pointer-events-none no-print"
       >
         {toasts.map((t) => {
           const styles = {
@@ -217,71 +215,57 @@ export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         })}
       </div>
 
-      {/* Accessible Liquid Glass Confirmation Modal */}
-      {confirmState?.isOpen && (
-        <div
-          className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-950/45 backdrop-blur-md animate-in fade-in duration-150 no-print"
-          onClick={() => handleConfirmResolve(false)}
-        >
+      {/* Accessible Liquid Glass Confirmation Drawer / Modal */}
+      <AdaptiveDrawerSheet
+        isOpen={!!confirmState?.isOpen}
+        onClose={() => handleConfirmResolve(false)}
+        title={confirmState?.title || 'دڵنیابوونەوە لە ئەنجامدانی کردار'}
+        maxWidth="max-w-md"
+        maxHeight="max-h-[85dvh]"
+        icon={
           <div
-            ref={confirmModalRef}
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="confirm-dialog-title"
-            aria-describedby="confirm-dialog-desc"
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+            className={`w-full h-full flex items-center justify-center rounded-xl ${
+              confirmState?.variant === 'danger'
+                ? 'bg-rose-50 text-rose-600'
+                : confirmState?.variant === 'warning'
+                ? 'bg-amber-50 text-amber-600'
+                : 'bg-cyan-50 text-cyan-600'
+            }`}
           >
-            <div className="flex items-start gap-3.5">
-              <div
-                className={`p-3 rounded-2xl border shrink-0 ${
-                  confirmState.variant === 'danger'
-                    ? 'bg-rose-50 border-rose-200 text-rose-600'
-                    : confirmState.variant === 'warning'
-                    ? 'bg-amber-50 border-amber-200 text-amber-600'
-                    : 'bg-cyan-50 border-cyan-200 text-cyan-600'
-                }`}
-              >
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 id="confirm-dialog-title" className="text-base font-black text-slate-900">
-                  {confirmState.title}
-                </h3>
-                <p
-                  id="confirm-dialog-desc"
-                  className="text-xs text-slate-600 mt-1.5 leading-relaxed whitespace-pre-line"
-                >
-                  {confirmState.message}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 mt-6 pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => handleConfirmResolve(false)}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
-              >
-                {confirmState.cancelLabel || 'پاشگەزبوونەوە'}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleConfirmResolve(true)}
-                className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-sm transition-all ${
-                  confirmState.variant === 'danger'
-                    ? 'bg-rose-600 hover:bg-rose-700'
-                    : confirmState.variant === 'warning'
-                    ? 'bg-amber-600 hover:bg-amber-700'
-                    : 'liquid-button-primary'
-                }`}
-              >
-                {confirmState.confirmLabel || 'بەڵێ، دڵنیام'}
-              </button>
-            </div>
+            <AlertTriangle className="w-5 h-5" />
           </div>
+        }
+        footer={
+          <div className="flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={() => handleConfirmResolve(false)}
+              className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors touch-manipulation active:scale-95"
+            >
+              {confirmState?.cancelLabel || confirmState?.cancelText || 'پاشگەزبوونەوە'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleConfirmResolve(true)}
+              className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-sm transition-all touch-manipulation active:scale-95 ${
+                confirmState?.variant === 'danger'
+                  ? 'bg-rose-600 hover:bg-rose-700'
+                  : confirmState?.variant === 'warning'
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : 'liquid-button-primary'
+              }`}
+            >
+              {confirmState?.confirmLabel || confirmState?.confirmText || 'بەڵێ، دڵنیام'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+            {confirmState?.message}
+          </p>
         </div>
-      )}
+      </AdaptiveDrawerSheet>
     </FeedbackContext.Provider>
   );
 };

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { getExchangeRateForDate, aggregateAmountsByDayRate } from '../utils/exchangeRates';
 import { useFeedback } from '../components/ui/FeedbackProvider';
+import { AdaptiveDrawerSheet } from '../components/ui/AdaptiveDrawerSheet';
 
 const PROJECT_CATEGORIES: { id: ProjectCategory; name: string; image: string }[] = [
   {
@@ -320,14 +321,24 @@ export const ProjectsView: React.FC = () => {
       <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+          <Search className="w-4 h-4 text-slate-400 absolute start-3.5 top-3" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="گەڕان بەدوای پڕۆژە، ناونیشان، جۆر یان ئامانج..."
-            className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+            className="w-full ps-10 pe-9 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="سڕینەوەی دەق"
+              className="absolute end-2.5 top-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-lg touch-manipulation"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Category Filter */}
@@ -445,7 +456,7 @@ export const ProjectsView: React.FC = () => {
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent" />
 
                   {/* Top Bar on Image */}
-                  <div className="absolute top-3 right-3 left-3 flex items-center justify-between gap-2">
+                  <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2">
                     <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-white/95 text-slate-800 shadow-sm">
                       {proj.category}
                     </span>
@@ -490,7 +501,7 @@ export const ProjectsView: React.FC = () => {
                   </div>
 
                   {/* Title on Image */}
-                  <div className="absolute bottom-3 right-3 left-3">
+                  <div className="absolute inset-x-3 bottom-3">
                     <h3 className="text-base font-bold text-white leading-snug drop-shadow-md">
                       {proj.title}
                     </h3>
@@ -638,22 +649,14 @@ export const ProjectsView: React.FC = () => {
       {/* ========================================================
           MODAL 1: ADD NEW PROJECT
           ======================================================== */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setIsAddModalOpen(false)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
-              <FolderKanban className="w-5 h-5 text-purple-600" />
-              دەستپێکردنی پڕۆژەی خێرخوازیی نوێ
-            </h3>
-
-            <form onSubmit={handleAddSubmit} className="space-y-4 text-xs">
+      <AdaptiveDrawerSheet
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="دەستپێکردنی پڕۆژەی خێرخوازیی نوێ"
+        icon={<FolderKanban className="w-5 h-5 text-purple-600" />}
+        maxWidth="max-w-2xl"
+      >
+        <form onSubmit={handleAddSubmit} className="space-y-4 text-xs">
               {/* Project Title */}
               <div>
                 <label className="block text-slate-700 font-bold mb-1">ناونیشانی پڕۆژە / کەمپەین:</label>
@@ -750,9 +753,9 @@ export const ProjectsView: React.FC = () => {
                       setBudgetAmountStr(clean);
                     }}
                     placeholder={budgetCurrency === 'IQD' ? 'نموونە: 15,000,000 دینار' : 'نموونە: 10,000 دۆلار'}
-                    className="w-full px-4 py-2.5 rounded-xl border border-purple-200 bg-white text-slate-900 font-mono text-sm font-bold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full ps-4 pe-14 py-2.5 rounded-xl border border-purple-200 bg-white text-slate-900 font-mono text-sm font-bold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
-                  <div className="absolute left-3 top-2.5 text-xs font-bold text-slate-500">
+                  <div className="absolute end-3 top-2.5 text-xs font-bold text-slate-500">
                     {budgetCurrency === 'IQD' ? 'د.ع' : '$ دۆلار'}
                   </div>
                 </div>
@@ -898,55 +901,46 @@ export const ProjectsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold touch-manipulation active:scale-95"
                 >
                   پاشگەزبوونەوە
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white font-bold shadow-md hover:scale-[1.02] active:scale-[0.98] transition-transform"
+                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white font-bold shadow-md hover:scale-[1.02] active:scale-[0.98] transition-transform touch-manipulation"
                 >
                   تۆمارکردن و دەستپێکردنی پڕۆژە
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </AdaptiveDrawerSheet>
 
       {/* ========================================================
           MODAL 2: EDIT PROJECT
           ======================================================== */}
-      {isEditModalOpen && editingProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-2xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => {
-                setIsEditModalOpen(false);
-                setEditingProject(null);
-              }}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h3 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
-              <Edit3 className="w-5 h-5 text-purple-600" />
-              دەستکاریکردنی پڕۆژەی [{editingProject.title}]
-            </h3>
-
-            <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
-              {/* Title */}
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">ناونیشانی پڕۆژە / کەمپەین:</label>
-                <input
-                  type="text"
-                  required
-                  value={editFormData.title}
-                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-medium"
-                />
-              </div>
+      <AdaptiveDrawerSheet
+        isOpen={isEditModalOpen && !!editingProject}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingProject(null);
+        }}
+        title={editingProject ? `دەستکاریکردنی پڕۆژەی [${editingProject.title}]` : 'دەستکاریکردنی پڕۆژە'}
+        icon={<Edit3 className="w-5 h-5 text-purple-600" />}
+        maxWidth="max-w-2xl"
+      >
+        {editingProject && (
+          <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+            {/* Title */}
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">ناونیشانی پڕۆژە / کەمپەین:</label>
+              <input
+                type="text"
+                required
+                value={editFormData.title}
+                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-medium"
+              />
+            </div>
 
               {/* Category & Status */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1022,9 +1016,9 @@ export const ProjectsView: React.FC = () => {
                       setEditBudgetAmountStr(clean);
                     }}
                     placeholder={editBudgetCurrency === 'IQD' ? 'نموونە: 15,000,000 دینار' : 'نموونە: 10,000 دۆلار'}
-                    className="w-full px-4 py-2.5 rounded-xl border border-purple-200 bg-white text-slate-900 font-mono text-sm font-bold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full ps-4 pe-14 py-2.5 rounded-xl border border-purple-200 bg-white text-slate-900 font-mono text-sm font-bold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
-                  <div className="absolute left-3 top-2.5 text-xs font-bold text-slate-500">
+                  <div className="absolute end-3 top-2.5 text-xs font-bold text-slate-500">
                     {editBudgetCurrency === 'IQD' ? 'د.ع' : '$ دۆلار'}
                   </div>
                 </div>
@@ -1185,30 +1179,83 @@ export const ProjectsView: React.FC = () => {
                     setIsEditModalOpen(false);
                     setEditingProject(null);
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold touch-manipulation active:scale-95"
                 >
                   پاشگەزبوونەوە
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white font-bold shadow-md hover:scale-[1.02] active:scale-[0.98] transition-transform"
+                  className="px-6 py-2.5 rounded-xl liquid-button-primary text-white font-bold shadow-md hover:scale-[1.02] active:scale-[0.98] transition-transform touch-manipulation"
                 >
                   پاشەکەوتکردنی گۆڕانکارییەکان
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+        )}
+      </AdaptiveDrawerSheet>
 
       {/* ========================================================
           MODAL 3: PROJECT DETAILS & DOSSIER
           ======================================================== */}
-      {selectedProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/55 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200 overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
+      <AdaptiveDrawerSheet
+        isOpen={!!selectedProject}
+        onClose={() => setSelectedProject(null)}
+        title={selectedProject?.title || 'پوختەی پڕۆژە'}
+        icon={<FolderKanban className="w-5 h-5 text-purple-600" />}
+        maxWidth="max-w-3xl"
+        footer={
+          selectedProject ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toEdit = selectedProject;
+                    setSelectedProject(null);
+                    openEditModal(toEdit);
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs touch-manipulation active:scale-95"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  دەستکاریکردنی پڕۆژە
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await confirmAction({
+                      title: 'سڕینەوەی پڕۆژە',
+                      message: `دڵنیایت لە سڕینەوەی پڕۆژەی [${selectedProject.title}]؟`,
+                      confirmLabel: 'بەڵێ، بیسڕەوە',
+                      variant: 'danger'
+                    });
+                    if (ok) {
+                      deleteProject(selectedProject.id);
+                      setSelectedProject(null);
+                      showToast(`پڕۆژەی «${selectedProject.title}» سڕایەوە.`, 'info');
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs touch-manipulation active:scale-95"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  سڕینەوە
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedProject(null)}
+                className="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs touch-manipulation active:scale-95"
+              >
+                داخستن
+              </button>
+            </div>
+          ) : undefined
+        }
+      >
+        {selectedProject && (
+          <div className="space-y-6 text-xs">
             {/* Header with image */}
-            <div className="relative h-48 sm:h-56 w-full shrink-0">
+            <div className="relative h-44 sm:h-52 w-full rounded-2xl overflow-hidden shrink-0">
               <img
                 src={selectedProject.image || PROJECT_CATEGORIES[0].image}
                 alt={selectedProject.title}
@@ -1216,14 +1263,7 @@ export const ProjectsView: React.FC = () => {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent" />
 
-              <button
-                onClick={() => setSelectedProject(null)}
-                className="absolute top-4 left-4 p-2 rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="absolute top-4 right-4 flex items-center gap-2">
+              <div className="absolute top-3 start-3 flex items-center gap-2">
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-800 shadow-sm">
                   {selectedProject.category}
                 </span>
@@ -1238,15 +1278,15 @@ export const ProjectsView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="absolute bottom-4 right-5 left-5">
-                <h2 className="text-xl sm:text-2xl font-black text-white drop-shadow-md">
+              <div className="absolute bottom-3 inset-x-4">
+                <h2 className="text-lg sm:text-xl font-black text-white drop-shadow-md">
                   {selectedProject.title}
                 </h2>
               </div>
             </div>
 
-            {/* Scrollable Content Body */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+            {/* Content Body */}
+            <div className="space-y-6">
               {/* Description */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 leading-relaxed text-slate-700">
                 <h4 className="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
@@ -1441,52 +1481,9 @@ export const ProjectsView: React.FC = () => {
                 );
               })()}
             </div>
-
-            {/* Modal Bottom Actions */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    const toEdit = selectedProject;
-                    setSelectedProject(null);
-                    openEditModal(toEdit);
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  دەستکاریکردنی پڕۆژە
-                </button>
-                <button
-                  onClick={async () => {
-                    const ok = await confirmAction({
-                      title: 'سڕینەوەی پڕۆژە',
-                      message: `دڵنیایت لە سڕینەوەی پڕۆژەی [${selectedProject.title}]؟`,
-                      confirmLabel: 'بەڵێ، بیسڕەوە',
-                      variant: 'danger'
-                    });
-                    if (ok) {
-                      deleteProject(selectedProject.id);
-                      setSelectedProject(null);
-                      showToast(`پڕۆژەی «${selectedProject.title}» سڕایەوە.`, 'info');
-                    }
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  سڕینەوە
-                </button>
-              </div>
-
-              <button
-                onClick={() => setSelectedProject(null)}
-                className="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs"
-              >
-                داخستن
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </AdaptiveDrawerSheet>
 
     </div>
   );

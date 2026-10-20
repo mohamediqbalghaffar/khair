@@ -39,6 +39,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { useHaptics } from '../utils/useHaptics';
+import { AdaptiveDrawerSheet } from '../components/ui/AdaptiveDrawerSheet';
+import { MobileKpiCarousel } from '../components/ui/MobileKpiCarousel';
 
 export type DistributionTarget =
   | { type: 'item'; item: InventoryItem; sourceDonation?: Donation }
@@ -589,7 +591,7 @@ export const InventoryView: React.FC = () => {
       </div>
 
       {/* KPI Stats Overview */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <MobileKpiCarousel breakpoint="md" desktopGridClassName="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-3xl bg-white/90 backdrop-blur-xl border border-slate-200/80 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 mb-1.5 text-xs font-bold">
             <span>کاڵاکانی کۆگا</span>
@@ -633,7 +635,7 @@ export const InventoryView: React.FC = () => {
             <span className="text-[11px] text-slate-400 font-bold">دۆسیەی هاوکاری</span>
           </div>
         </div>
-      </div>
+      </MobileKpiCarousel>
 
       {/* Sub-Navigation Tabs & Search */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -677,14 +679,24 @@ export const InventoryView: React.FC = () => {
 
         {/* Search */}
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
+          <Search className="w-4 h-4 text-slate-400 absolute start-3.5 top-3" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="گەڕان بەپێی کاڵا، بەخشەر، ژمارەی پسوولە، شوێن..."
-            className="w-full pe-10 ps-3 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
+            className="w-full ps-10 pe-9 py-2 text-xs rounded-2xl liquid-input text-slate-900 placeholder-slate-400"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="سڕینەوەی دەق"
+              className="absolute end-2.5 top-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1630,42 +1642,24 @@ export const InventoryView: React.FC = () => {
       )}
 
       {/* Multi-Beneficiary Distribution Modal (Items & Cash) */}
-      {isDistributeModalOpen && distributionTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/50 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-          <div className="relative w-full max-w-3xl rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 shadow-2xl my-auto">
-            
-            {/* Close Button */}
-            <button
-              onClick={() => setIsDistributeModalOpen(false)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Modal Header */}
-            <div className="flex items-start gap-3 mb-4">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-                distributionTarget.type === 'cash' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-              }`}>
-                {distributionTarget.type === 'cash' ? (
-                  <Banknote className="w-6 h-6" />
-                ) : (
-                  <Users className="w-6 h-6" />
-                )}
-              </div>
-              <div className="flex-1 pe-1">
-                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                  {distributionTarget.type === 'cash'
-                    ? 'دابەشکردنی بە کۆمەڵی هاوکاری نەختینەیی (پارەی کاش)'
-                    : 'دابەشکردنی بە کۆمەڵی هاوکاری و کاڵاکان'}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {distributionTarget.type === 'cash'
-                    ? 'دیاریکردنی یەک یان چەندین خێزانی سوودمەند بۆ وەرگرتنی هاوکاری نەختینەیی لەم پسوولەی بەخشینە'
-                    : 'دەتوانیت یەک یان چەندین خێزانی سوودمەند لە یەک کاتدا دیاری بکەیت بۆ وەرگرتنی ئەم کاڵایە'}
-                </p>
-              </div>
-            </div>
+      <AdaptiveDrawerSheet
+        isOpen={isDistributeModalOpen && !!distributionTarget}
+        onClose={() => {
+          setIsDistributeModalOpen(false);
+          setDistributionTarget(null);
+        }}
+        title={distributionTarget?.type === 'cash'
+          ? 'دابەشکردنی بە کۆمەڵی هاوکاری نەختینەیی (پارەی کاش)'
+          : 'دابەشکردنی بە کۆمەڵی هاوکاری و کاڵاکان'}
+        description={distributionTarget?.type === 'cash'
+          ? 'دیاریکردنی یەک یان چەندین خێزانی سوودمەند بۆ وەرگرتنی هاوکاری نەختینەیی لەم پسوولەی بەخشینە'
+          : 'دەتوانیت یەک یان چەندین خێزانی سوودمەند لە یەک کاتدا دیاری بکەیت بۆ وەرگرتنی ئەم کاڵایە'}
+        icon={distributionTarget?.type === 'cash' ? <Banknote className="w-5 h-5 text-emerald-600" /> : <Users className="w-5 h-5 text-amber-600" />}
+        maxWidth="max-w-3xl"
+        maxHeight="max-h-[92dvh]"
+      >
+        {distributionTarget && (
+          <div>
 
             {/* Target Overview Card */}
             {distributionTarget.type === 'cash' ? (
@@ -1770,11 +1764,19 @@ export const InventoryView: React.FC = () => {
 
                 {allocationMode === 'equal' && (
                   <div className="space-y-2.5 pt-2 border-t border-slate-100">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
                       <label className="text-slate-700 font-bold whitespace-nowrap">
                         {distributionTarget.type === 'cash' ? 'بڕی پارە بۆ هەر خێزانێک:' : 'بڕ بۆ هەر خێزانێک:'}
                       </label>
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setQtyPerBeneficiary(Math.max(1, qtyPerBeneficiary - 1))}
+                          className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-lg touch-manipulation active:scale-95 shrink-0"
+                          aria-label="کەمکردنەوە"
+                        >
+                          -
+                        </button>
                         <input
                           type="number"
                           min={1}
@@ -1782,11 +1784,43 @@ export const InventoryView: React.FC = () => {
                           required
                           value={qtyPerBeneficiary}
                           onChange={(e) => setQtyPerBeneficiary(Math.max(1, Number(e.target.value) || 0))}
-                          className="w-32 px-3 py-1.5 rounded-xl liquid-input font-bold text-sm text-center text-slate-900 font-mono"
+                          className="w-24 sm:w-32 h-11 px-3 rounded-xl liquid-input font-bold text-sm text-center text-slate-900 font-mono"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setQtyPerBeneficiary(qtyPerBeneficiary + 1)}
+                          className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-lg touch-manipulation active:scale-95 shrink-0"
+                          aria-label="زیادکردن"
+                        >
+                          +
+                        </button>
                         <span className="text-slate-700 font-bold">{distributionUnit}</span>
                       </div>
                     </div>
+
+                    {/* Quick Preset Buttons for In-Kind Stock */}
+                    {distributionTarget.type !== 'cash' && (
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                        <span className="text-[10px] text-slate-400 font-bold">بڕە خێراکان:</span>
+                        {[1, 5, 10].map(step => (
+                          <button
+                            key={step}
+                            type="button"
+                            onClick={() => setQtyPerBeneficiary(prev => prev + step)}
+                            className="px-2.5 py-1 rounded-xl text-xs font-bold font-mono transition-all border bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 touch-manipulation active:scale-95"
+                          >
+                            +{step}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setQtyPerBeneficiary(Math.max(1, totalStockAvailable))}
+                          className="px-2.5 py-1 rounded-xl text-xs font-bold transition-all border bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border-cyan-200 touch-manipulation active:scale-95"
+                        >
+                          هەمووی ({totalStockAvailable})
+                        </button>
+                      </div>
+                    )}
 
                     {/* Quick Preset Buttons for Cash */}
                     {distributionTarget.type === 'cash' && (
@@ -1820,14 +1854,24 @@ export const InventoryView: React.FC = () => {
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   {/* Search Bar */}
                   <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute start-3 top-2.5" />
                     <input
                       type="text"
                       value={modalBenSearch}
                       onChange={(e) => setModalBenSearch(e.target.value)}
                       placeholder="گەڕان بەپێی ناوی خێزان، ژمارە تەلەفۆن، ناسنامە، ناونیشان..."
-                      className="w-full pe-8 ps-3 py-2 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400"
+                      className="w-full ps-9 pe-8 py-2 text-xs rounded-xl liquid-input text-slate-900 placeholder-slate-400"
                     />
+                    {modalBenSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setModalBenSearch('')}
+                        aria-label="سڕینەوەی دەق"
+                        className="absolute end-2 top-2 p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Governorate Filter */}
@@ -2065,149 +2109,162 @@ export const InventoryView: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </AdaptiveDrawerSheet>
 
       {/* Add New Item Modal */}
-      {isAddItemModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl">
-            <button
-              onClick={() => setIsAddItemModalOpen(false)}
-              className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      <AdaptiveDrawerSheet
+        isOpen={isAddItemModalOpen}
+        onClose={() => setIsAddItemModalOpen(false)}
+        title="تۆمارکردنی کاڵای نوێ لە کۆگا"
+        description="تۆمارکردنی بڕ و شوێنی کاڵا و پێداویستی نوێ"
+        icon={<Plus className="w-5 h-5 text-amber-600" />}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleAddItemSubmit} className="space-y-4 text-xs">
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">ناوی کاڵا:</label>
+            <input
+              type="text"
+              required
+              value={newItemForm.name}
+              onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
+            />
+          </div>
 
-            <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Plus className="w-5 h-5 text-amber-600" />
-              تۆمارکردنی کاڵای نوێ لە کۆگا
-            </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">پۆلێن / جۆر:</label>
+              <select
+                value={newItemForm.category}
+                onChange={(e) => setNewItemForm({ ...newItemForm, category: e.target.value as InventoryItem['category'] })}
+                className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+              >
+                <option value="خۆراک">خۆراک</option>
+                <option value="پۆشاک">پۆشاک</option>
+                <option value="پێداویستی پزیشکی">پێداویستی پزیشکی</option>
+                <option value="گەرمکەرەوە و سووتەمەنی">گەرمکەرەوە و سووتەمەنی</option>
+                <option value="کەلوپەلی ناوماڵ">کەلوپەلی ناوماڵ</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">یەکە:</label>
+              <select
+                value={newItemForm.unit}
+                onChange={(e) => setNewItemForm({ ...newItemForm, unit: e.target.value as InventoryItem['unit'] })}
+                className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+              >
+                <option value="دانە">دانە</option>
+                <option value="سەبەتە">سەبەتە</option>
+                <option value="کارتۆن">کارتۆن</option>
+                <option value="سێت">سێت</option>
+                <option value="لیتر">لیتر</option>
+                <option value="تەن">تەن</option>
+              </select>
+            </div>
+          </div>
 
-            <form onSubmit={handleAddItemSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">ناوی کاڵا:</label>
-                <input
-                  type="text"
-                  required
-                  value={newItemForm.name}
-                  onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">پۆلێن / جۆر:</label>
-                  <select
-                    value={newItemForm.category}
-                    onChange={(e) => setNewItemForm({ ...newItemForm, category: e.target.value as InventoryItem['category'] })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
-                  >
-                    <option value="خۆراک">خۆراک</option>
-                    <option value="پۆشاک">پۆشاک</option>
-                    <option value="پێداویستی پزیشکی">پێداویستی پزیشکی</option>
-                    <option value="گەرمکەرەوە و سووتەمەنی">گەرمکەرەوە و سووتەمەنی</option>
-                    <option value="کەلوپەلی ناوماڵ">کەلوپەلی ناوماڵ</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">یەکە:</label>
-                  <select
-                    value={newItemForm.unit}
-                    onChange={(e) => setNewItemForm({ ...newItemForm, unit: e.target.value as InventoryItem['unit'] })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
-                  >
-                    <option value="دانە">دانە</option>
-                    <option value="سەبەتە">سەبەتە</option>
-                    <option value="کارتۆن">کارتۆن</option>
-                    <option value="سێت">سێت</option>
-                    <option value="لیتر">لیتر</option>
-                    <option value="تەن">تەن</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">بڕی سەرەتایی:</label>
-                  <input
-                    type="number"
-                    min={0}
-                    required
-                    value={newItemForm.quantity}
-                    onChange={(e) => setNewItemForm({ ...newItemForm, quantity: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">ئاستی هۆشداری کەمبوونەوە:</label>
-                  <input
-                    type="number"
-                    min={1}
-                    required
-                    value={newItemForm.minAlertThreshold}
-                    onChange={(e) => setNewItemForm({ ...newItemForm, minAlertThreshold: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">شوێنی کۆگا:</label>
-                <select
-                  value={newItemForm.location}
-                  onChange={(e) => setNewItemForm({ ...newItemForm, location: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
-                >
-                  <option value="هەولێر - کۆگای سەرەکی بەحرکە">هەولێر - کۆگای سەرەکی بەحرکە</option>
-                  <option value="سلێمانی - کۆگای تاسڵوجە">سلێمانی - کۆگای تاسڵوجە</option>
-                  <option value="دهۆک - کۆگای ناوەندی">دهۆک - کۆگای ناوەندی</option>
-                  <option value="هەڵەبجە - بنکەی دابەشکردن">هەڵەبجە - بنکەی دابەشکردن</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">بڕی سەرەتایی:</label>
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setIsAddItemModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                  onClick={() => setNewItemForm({ ...newItemForm, quantity: Math.max(0, newItemForm.quantity - 1) })}
+                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-lg touch-manipulation active:scale-95 shrink-0"
+                  aria-label="کەمکردنەوە"
                 >
-                  پاشگەزبوونەوە
+                  -
                 </button>
+                <input
+                  type="number"
+                  min={0}
+                  required
+                  value={newItemForm.quantity}
+                  onChange={(e) => setNewItemForm({ ...newItemForm, quantity: Number(e.target.value) })}
+                  className="w-full h-11 px-3 rounded-xl liquid-input text-slate-900 font-bold text-center font-mono"
+                />
                 <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
+                  type="button"
+                  onClick={() => setNewItemForm({ ...newItemForm, quantity: newItemForm.quantity + 1 })}
+                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-lg touch-manipulation active:scale-95 shrink-0"
+                  aria-label="زیادکردن"
                 >
-                  تۆمارکردن لە کۆگا
+                  +
                 </button>
               </div>
-            </form>
+              <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                {[1, 5, 10, 50].map(step => (
+                  <button
+                    key={step}
+                    type="button"
+                    onClick={() => setNewItemForm(prev => ({ ...prev, quantity: prev.quantity + step }))}
+                    className="px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono transition-all border bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 touch-manipulation active:scale-95"
+                  >
+                    +{step}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">ئاستی هۆشداری کەمبوونەوە:</label>
+              <input
+                type="number"
+                min={1}
+                required
+                value={newItemForm.minAlertThreshold}
+                onChange={(e) => setNewItemForm({ ...newItemForm, minAlertThreshold: Number(e.target.value) })}
+                className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold"
+              />
+            </div>
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-slate-700 font-bold mb-1">شوێنی کۆگا:</label>
+            <select
+              value={newItemForm.location}
+              onChange={(e) => setNewItemForm({ ...newItemForm, location: e.target.value })}
+              className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 bg-white"
+            >
+              <option value="هەولێر - کۆگای سەرەکی بەحرکە">هەولێر - کۆگای سەرەکی بەحرکە</option>
+              <option value="سلێمانی - کۆگای تاسڵوجە">سلێمانی - کۆگای تاسڵوجە</option>
+              <option value="دهۆک - کۆگای ناوەندی">دهۆک - کۆگای ناوەندی</option>
+              <option value="هەڵەبجە - بنکەی دابەشکردن">هەڵەبجە - بنکەی دابەشکردن</option>
+            </select>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setIsAddItemModalOpen(false)}
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold touch-manipulation active:scale-95"
+            >
+              پاشگەزبوونەوە
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold touch-manipulation active:scale-95"
+            >
+              تۆمارکردن لە کۆگا
+            </button>
+          </div>
+        </form>
+      </AdaptiveDrawerSheet>
 
       {/* Edit Single Distribution Modal */}
-      {isEditDistModalOpen && editingDist && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Edit3 className="w-5 h-5 text-emerald-600" />
-                دەستکاریکردنی تۆماری هاوکاری
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditDistModalOpen(false);
-                  setEditingDist(null);
-                }}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
+      <AdaptiveDrawerSheet
+        isOpen={isEditDistModalOpen && !!editingDist}
+        onClose={() => {
+          setIsEditDistModalOpen(false);
+          setEditingDist(null);
+        }}
+        title="دەستکاریکردنی تۆماری هاوکاری"
+        icon={<Edit3 className="w-5 h-5 text-emerald-600" />}
+        maxWidth="max-w-md"
+      >
+        {editingDist && (
+          <div>
             <div className="p-3 mb-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
               <p><span className="text-slate-500 font-bold">سوودمەند:</span> <span className="font-black text-slate-900">{editingDist.beneficiaryName}</span></p>
               {editingDist.receiptNumber && (
@@ -2297,96 +2354,86 @@ export const InventoryView: React.FC = () => {
                     setIsEditDistModalOpen(false);
                     setEditingDist(null);
                   }}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold touch-manipulation active:scale-95"
                 >
                   پاشگەزبوونەوە
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold"
+                  className="px-5 py-2 rounded-xl liquid-button-primary text-white font-bold touch-manipulation active:scale-95"
                 >
                   پاشەکەوتکردنی گۆڕانکاری
                 </button>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
+      </AdaptiveDrawerSheet>
 
       {/* Bulk Edit Modal */}
-      {isBulkEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Edit3 className="w-5 h-5 text-cyan-600" />
-                دەستکاریکردنی بەکۆمەڵی بڕ بۆ ({selectedDistKeys.size}) تۆمار
-              </h3>
+      <AdaptiveDrawerSheet
+        isOpen={isBulkEditModalOpen}
+        onClose={() => setIsBulkEditModalOpen(false)}
+        title={`دەستکاریکردنی بەکۆمەڵی بڕ بۆ (${selectedDistKeys.size}) تۆمار`}
+        icon={<Edit3 className="w-5 h-5 text-cyan-600" />}
+        maxWidth="max-w-md"
+      >
+        <div>
+          <p className="text-xs text-slate-600 mb-4">
+            ئەم بڕەی خوارەوە بە شێوەیەکی یەکسان بۆ سەرجەم <span className="font-bold text-slate-900 font-mono">({selectedDistKeys.size})</span> تۆماری هەڵبژێردراو دادەنرێت:
+          </p>
+
+          <form onSubmit={handleBulkEditSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">
+                بڕی نوێ (دینار / ژمارە):
+              </label>
+              <input
+                type="number"
+                min={1}
+                step="any"
+                required
+                value={bulkEditAmount}
+                onChange={(e) => setBulkEditAmount(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-base text-center"
+              />
+              {/* Preset Chips */}
+              <div className="flex flex-wrap gap-1.5 mt-2 justify-center">
+                {[25000, 50000, 75000, 100000, 150000, 200000, 250000].map(preset => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setBulkEditAmount(preset)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors touch-manipulation ${
+                      bulkEditAmount === preset
+                        ? 'bg-cyan-600 text-white border-cyan-600'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {preset === 150000 ? '★ ۱۵۰،۰۰۰ د.ع' : `${preset / 1000} هەزار`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() => setIsBulkEditModalOpen(false)}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold touch-manipulation active:scale-95"
               >
-                <X className="w-5 h-5" />
+                پاشگەزبوونەوە
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white font-bold touch-manipulation active:scale-95"
+              >
+                جێبەجێکردن بۆ هەموویان
               </button>
             </div>
-
-            <p className="text-xs text-slate-600 mb-4">
-              ئەم بڕەی خوارەوە بە شێوەیەکی یەکسان بۆ سەرجەم <span className="font-bold text-slate-900 font-mono">({selectedDistKeys.size})</span> تۆماری هەڵبژێردراو دادەنرێت:
-            </p>
-
-            <form onSubmit={handleBulkEditSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">
-                  بڕی نوێ (دینار / ژمارە):
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  step="any"
-                  required
-                  value={bulkEditAmount}
-                  onChange={(e) => setBulkEditAmount(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl liquid-input text-slate-900 font-bold font-mono text-base text-center"
-                />
-                {/* Preset Chips */}
-                <div className="flex flex-wrap gap-1.5 mt-2 justify-center">
-                  {[25000, 50000, 75000, 100000, 150000, 200000, 250000].map(preset => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setBulkEditAmount(preset)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
-                        bulkEditAmount === preset
-                          ? 'bg-cyan-600 text-white border-cyan-600'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {preset === 150000 ? '★ ۱۵۰،۰۰۰ د.ع' : `${preset / 1000} هەزار`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setIsBulkEditModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
-                >
-                  پاشگەزبوونەوە
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white font-bold"
-                >
-                  جێبەجێکردن بۆ هەموویان
-                </button>
-              </div>
-            </form>
-          </div>
+          </form>
         </div>
-      )}
+      </AdaptiveDrawerSheet>
 
       {/* Official Receipt Modal Viewer */}
       {activeReceipt && (

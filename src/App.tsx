@@ -109,7 +109,7 @@ const MainContent: React.FC = () => {
   };
 
   return (
-    <div className="relative h-full text-slate-900 flex flex-col overflow-hidden select-text">
+    <div className="relative h-dvh min-h-dvh text-slate-900 flex flex-col overflow-hidden select-text">
       {/* Background Liquid Atmosphere */}
       <LiquidBackground />
 
@@ -120,7 +120,7 @@ const MainContent: React.FC = () => {
 
       {/* Main Content Area with Adaptive Layout - bounded cleanly between Topbar and Navigation Dock */}
       <main className="relative z-10 flex-1 min-h-0 w-full overflow-y-auto">
-        <div className="max-w-[1536px] w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-28 lg:pb-8">
+        <div className="max-w-[1536px] w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-6 sm:pb-8">
           <ErrorBoundary>
             <Suspense fallback={<ViewLoadingFallback />}>
               {renderActiveView()}
@@ -146,7 +146,7 @@ const MainApp: React.FC = () => {
 
   if (!isLoaded) {
     return (
-      <div className="relative min-h-screen w-full flex flex-col items-center justify-center bg-slate-950 text-white select-none">
+      <div className="relative h-dvh min-h-dvh w-full flex flex-col items-center justify-center bg-slate-950 text-white select-none">
         <LiquidBackground />
         <div className="relative z-10 flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-3 border-cyan-500 border-t-transparent rounded-full animate-spin" />
