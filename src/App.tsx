@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense, lazy } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { useUrlTabSync } from './utils/useUrlTabSync';
 import { AppProvider, useApp } from './context/AppContext';
 import { FeedbackProvider } from './components/ui/FeedbackProvider';
@@ -11,9 +11,12 @@ import { loadAndApplyAccessibilityPrefs } from './components/AccessibilityModal'
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAuth } from '@clerk/react';
 import { ClerkAuthView } from './views/ClerkAuthView';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, Activity } from 'lucide-react';
 
 // Lazy-loaded Views for bundle splitting
+const StravaMobileShell = lazy(() =>
+  import('./components/StravaMobileShell').then(m => ({ default: m.StravaMobileShell }))
+);
 const DashboardView = lazy(() =>
   import('./views/DashboardView').then(m => ({ default: m.DashboardView }))
 );
@@ -59,8 +62,26 @@ const MainContent: React.FC = () => {
   const { activeTab, setActiveTab, currentRole, isTabAllowedForRole } = useApp();
   useUrlTabSync(activeTab, setActiveTab);
 
+  // Automatically detect mobile / tablet viewport (< 1024px) to switch into the full Strava Mobile App
+  const [isMobileViewport, setIsMobileViewport] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
+  );
+  // Allow user to toggle classic vs Strava on mobile, or preview Strava Mobile on desktop
+  const [mobileUseClassicOverride, setMobileUseClassicOverride] = useState<boolean>(false);
+  const [desktopStravaPreview, setDesktopStravaPreview] = useState<boolean>(false);
+
   useEffect(() => {
     loadAndApplyAccessibilityPrefs();
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobileViewport(e.matches);
+    };
+    handleChange(mq);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
   }, []);
 
   const renderActiveView = () => {
@@ -108,6 +129,37 @@ const MainContent: React.FC = () => {
     }
   };
 
+  const showStravaApp =
+    (isMobileViewport && !mobileUseClassicOverride) || (!isMobileViewport && desktopStravaPreview);
+
+  if (showStravaApp) {
+    return (
+      <div className="relative h-full w-full bg-slate-900/95 flex flex-col overflow-hidden select-text">
+        <ErrorBoundary>
+          <Suspense fallback={<ViewLoadingFallback />}>
+            <StravaMobileShell
+              renderClassicView={renderActiveView}
+              isDesktopPreview={!isMobileViewport && desktopStravaPreview}
+              onExitStravaMode={() => {
+                if (isMobileViewport) {
+                  setMobileUseClassicOverride(true);
+                } else {
+                  setDesktopStravaPreview(false);
+                }
+              }}
+            />
+          </Suspense>
+        </ErrorBoundary>
+
+        {/* Global Spotlight Search Modal */}
+        <SpotlightModal />
+
+        {/* iOS 26 Liquid Lock Screen Modal */}
+        <LockScreenModal />
+      </div>
+    );
+  }
+
   return (
     <div className="relative h-full text-slate-900 flex flex-col overflow-hidden select-text">
       {/* Background Liquid Atmosphere */}
@@ -128,6 +180,23 @@ const MainContent: React.FC = () => {
           </ErrorBoundary>
         </div>
       </main>
+
+      {/* Quick Floating Trigger to Launch/Return to Strava Mobile Mode */}
+      <button
+        type="button"
+        onClick={() => {
+          if (isMobileViewport) {
+            setMobileUseClassicOverride(false);
+          } else {
+            setDesktopStravaPreview(true);
+          }
+        }}
+        title="کردنەوەی ڕووکاری مۆبایلی STRAVA"
+        className="fixed bottom-20 start-4 z-40 h-10 px-3.5 rounded-full bg-[#FC4C02] hover:bg-[#e04300] text-white text-xs font-black flex items-center gap-1.5 shadow-[0_6px_20px_rgba(252,76,2,0.4)] transition-transform hover:scale-105 no-print"
+      >
+        <Activity className="w-4 h-4 stroke-[2.5]" />
+        <span>مۆبایلی STRAVA</span>
+      </button>
 
       {/* Bottom Navigation Dock Area */}
       <NavigationDock />
