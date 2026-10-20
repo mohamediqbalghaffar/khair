@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Smartphone, CheckCircle2, X, Sparkles, Receipt } from 'lucide-react';
+import { Smartphone, CheckCircle2, Sparkles, Receipt } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { useModalFocusTrap } from '../utils/useModalFocusTrap';
+import { AdaptiveDrawerSheet } from './ui/AdaptiveDrawerSheet';
+import { useHaptics } from '../utils/useHaptics';
 
 interface Props {
   isOpen: boolean;
@@ -12,7 +13,7 @@ interface Props {
 
 export const OnlinePaymentModal: React.FC<Props> = ({ isOpen, onClose, onReceiptGenerated }) => {
   const { addDonation, donors, projects } = useApp();
-  const modalRef = useModalFocusTrap(isOpen, onClose);
+  const haptics = useHaptics();
 
   const [gateway, setGateway] = useState<'fib' | 'fastpay' | 'zaincash' | 'card'>('fib');
   const [amount, setAmount] = useState<number>(50000);
@@ -23,8 +24,6 @@ export const OnlinePaymentModal: React.FC<Props> = ({ isOpen, onClose, onReceipt
   const [notes] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [successReceipt, setSuccessReceipt] = useState<string | null>(null);
-
-  if (!isOpen) return null;
 
   const handlePay = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,49 +50,27 @@ export const OnlinePaymentModal: React.FC<Props> = ({ isOpen, onClose, onReceipt
         spread: 60,
         origin: { y: 0.6 }
       });
+      haptics.success();
     }, 800);
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="online-gateway-title"
-        onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-200"
-      >
-        {/* Close */}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="داخستن"
-          className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Header */}
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-200 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-600 shrink-0">
-            <Smartphone className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 id="online-gateway-title" className="text-lg font-black text-slate-900 flex items-center gap-2">
-              دەروازەی بەخشینی ئەلیکترۆنی (Online Gateway)
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-cyan-100 text-cyan-800">
-                ڕاستەوخۆ
-              </span>
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">بەخشینی نەختینەیی پارێزراو لە ڕێگەی FIB، FastPay، زین کاش</p>
-          </div>
+    <AdaptiveDrawerSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        <div className="flex items-center gap-2">
+          <span>دەروازەی بەخشینی ئەلیکترۆنی</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-800">
+            ڕاستەوخۆ
+          </span>
         </div>
-
-        {successReceipt ? (
+      }
+      description="بەخشینی نەختینەیی پارێزراو لە ڕێگەی FIB، FastPay، زین کاش"
+      icon={<Smartphone className="w-5 h-5 text-cyan-600" />}
+      maxWidth="max-w-lg"
+    >
+      {successReceipt ? (
           <div className="text-center py-6 space-y-4">
             <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="w-10 h-10" />
@@ -267,7 +244,6 @@ export const OnlinePaymentModal: React.FC<Props> = ({ isOpen, onClose, onReceipt
             </div>
           </form>
         )}
-      </div>
-    </div>
+    </AdaptiveDrawerSheet>
   );
 };

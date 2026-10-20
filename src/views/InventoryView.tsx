@@ -34,8 +34,11 @@ import {
   Check,
   Calendar,
   FileText,
-  Edit3
+  Edit3,
+  Phone,
+  ExternalLink
 } from 'lucide-react';
+import { useHaptics } from '../utils/useHaptics';
 
 export type DistributionTarget =
   | { type: 'item'; item: InventoryItem; sourceDonation?: Donation }
@@ -55,6 +58,7 @@ export const InventoryView: React.FC = () => {
     inventory,
     beneficiaries,
     donations,
+    donors,
     addInventoryItem,
     deleteInventoryItem,
     updateInventoryQuantity,
@@ -69,6 +73,7 @@ export const InventoryView: React.FC = () => {
     setActiveTab
   } = useApp();
   const { showToast, confirmAction } = useFeedback();
+  const haptics = useHaptics();
 
   const [activeSubTab, setActiveSubTab] = useState<'stock' | 'receipts' | 'distributions'>('stock');
   const [distTypeFilter, setDistTypeFilter] = useState<'all' | 'in-kind' | 'monetary'>('all');
@@ -178,6 +183,7 @@ export const InventoryView: React.FC = () => {
     });
 
     if (success) {
+      haptics.success();
       setIsEditDistModalOpen(false);
       setEditingDist(null);
       showToast('تۆماری هاوکارییەکە بە سەرکەوتوویی نوێکرایەوە.', 'success');
@@ -193,6 +199,7 @@ export const InventoryView: React.FC = () => {
     });
     if (!ok) return;
 
+    haptics.warning();
     const success = deleteAidRecord(dist.beneficiaryId, dist.id);
     if (success) {
       setSelectedDistKeys(prev => {
@@ -287,6 +294,7 @@ export const InventoryView: React.FC = () => {
   const handleAddItemSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemForm.name) return;
+    haptics.success();
     addInventoryItem(newItemForm);
     setIsAddItemModalOpen(false);
     setNewItemForm({
@@ -357,12 +365,14 @@ export const InventoryView: React.FC = () => {
 
   // Beneficiary Selection Handlers
   const handleToggleBeneficiary = (id: string) => {
+    haptics.selection();
     setSelectedBeneficiaryIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
 
   const handleSelectAllFiltered = () => {
+    haptics.selection();
     const filteredIds = filteredModalBeneficiaries.map(b => b.id);
     const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedBeneficiaryIds.includes(id));
     if (allSelected) {
@@ -494,6 +504,7 @@ export const InventoryView: React.FC = () => {
       );
 
       if (success) {
+        haptics.success();
         confetti({
           particleCount: 70,
           spread: 70,
@@ -525,6 +536,7 @@ export const InventoryView: React.FC = () => {
       );
 
       if (success) {
+        haptics.success();
         confetti({
           particleCount: 70,
           spread: 70,
@@ -921,7 +933,129 @@ export const InventoryView: React.FC = () => {
             </div>
           ) : (
             <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
+              {/* Mobile Viewport In-Kind Receipt Cards (< 1024px) */}
+              <div className="block lg:hidden p-3.5 space-y-3">
+                {filteredDonations.map(don => {
+                  const isInKind = don.category && don.category !== 'cash';
+                  const matchingInv = isInKind
+                    ? inventory.find(i => i.sourceReceiptNumber === don.receiptNumber || i.sourceDonationId === don.id)
+                    : null;
+                  const donor = donors.find(d => d.id === don.donorId);
+
+                  return (
+                    <div
+                      key={don.id}
+                      className="rounded-2xl bg-white border border-slate-200 p-4 shadow-xs space-y-2.5 touch-manipulation active:scale-[0.99] transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-50 border border-cyan-200 font-mono font-black text-cyan-800 text-xs">
+                            <Receipt className="w-3.5 h-3.5 text-cyan-600" />
+                            {don.receiptNumber}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 text-[10px] font-bold border border-slate-200">
+                            {don.categoryLabel || 'بەخشین'}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-mono font-bold text-slate-400">
+                          {don.date}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-bold text-slate-900 text-sm">{don.donorName}</p>
+                            {donor?.phone && (
+                              <div className="pt-1">
+                                <a
+                                  href={`tel:${donor.phone}`}
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 font-mono text-[11px] font-bold transition-colors touch-manipulation"
+                                  title="پەیوەندیکردن بە بەخشەر"
+                                >
+                                  <Phone className="w-3 h-3 text-emerald-600" />
+                                  <span>{donor.phone}</span>
+                                </a>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="text-start">
+                            {isInKind && don.itemDetails ? (
+                              <div>
+                                <span className="font-bold text-slate-900 text-sm block">
+                                  {don.itemDetails.quantity} {don.itemDetails.unit}
+                                </span>
+                                {don.itemDetails.weightKgPerUnit ? (
+                                  <span className="text-[10px] text-slate-500 font-mono block">
+                                    {don.itemDetails.weightKgPerUnit} کگم / یەکە
+                                  </span>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <span className="font-mono font-black text-emerald-700 text-sm block">
+                                {don.amount.toLocaleString()} {don.currency === 'IQD' ? 'د.ع' : '$'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {isInKind && don.itemDetails?.contentsDescription && (
+                          <p className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                            پێکهاتە: {don.itemDetails.contentsDescription}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Warehouse Status & Location */}
+                      <div className="flex items-center justify-between text-[11px] pt-1">
+                        <span className="text-slate-500">مەبەست: <strong className="text-slate-700">{don.projectName || 'کۆگای سەرەکی'}</strong></span>
+                        <div>
+                          {matchingInv ? (
+                            matchingInv.quantity > 0 ? (
+                              <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 text-[10px]">
+                                لە کۆگا ({matchingInv.quantity} {matchingInv.unit})
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-bold border border-slate-200 text-[10px]">
+                                دابەشکراوە
+                              </span>
+                            )
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 font-bold border border-slate-200 text-[10px]">
+                              نەختینەیی
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => setActiveReceipt(don)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold border border-slate-200 transition-colors touch-manipulation active:scale-95"
+                        >
+                          <Eye className="w-3.5 h-3.5 text-cyan-700" />
+                          <span>پسوولە</span>
+                        </button>
+
+                        {((isInKind && matchingInv && matchingInv.quantity > 0) || (!isInKind && getDonationCashMetrics(don, beneficiaries).remainingAmount > 0)) && (
+                          <button
+                            onClick={() => isInKind ? handleQuickDistributeFromDonation(don) : handleOpenDistributeCash(don)}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl liquid-button-primary text-white text-xs font-bold shadow-xs transition-all touch-manipulation active:scale-95"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>دابەشکردن</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Viewport Table (>= 1024px) */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full text-end text-xs">
                   <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
                     <tr>
@@ -1199,7 +1333,132 @@ export const InventoryView: React.FC = () => {
             </div>
           ) : (
             <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
+              {/* Mobile Viewport Distribution Cards (< 1024px) */}
+              <div className="block lg:hidden p-3.5 space-y-3">
+                {filteredDistributions
+                  .filter(d => distTypeFilter === 'all' || d.type === distTypeFilter)
+                  .map((dist, idx) => {
+                    const ben = beneficiaries.find(b => b.id === dist.beneficiaryId);
+                    const lat = ben?.location?.lat;
+                    const lng = ben?.location?.lng;
+                    const hasGps = Boolean(lat && lng);
+
+                    return (
+                      <div
+                        key={`${dist.id}-${idx}`}
+                        className="rounded-2xl bg-white border border-slate-200 p-4 shadow-xs space-y-2.5 touch-manipulation active:scale-[0.99] transition-all"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                              dist.type === 'monetary'
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-800 border border-amber-200'
+                            }`}>
+                              {dist.type === 'monetary' ? '💵 نەختینە' : '📦 عەینی'}
+                            </span>
+                            <span className="font-bold text-slate-900 text-sm">{dist.beneficiaryName}</span>
+                          </div>
+                          <span className="text-[11px] font-mono font-bold text-slate-400">
+                            {dist.date}
+                          </span>
+                        </div>
+
+                        {/* Governorate, Phone & GPS */}
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                            {dist.beneficiaryGovernorate}
+                          </span>
+
+                          {dist.beneficiaryPhone && (
+                            <a
+                              href={`tel:${dist.beneficiaryPhone}`}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-50 text-cyan-800 font-mono text-[11px] font-bold border border-cyan-200 hover:bg-cyan-100 transition-colors touch-manipulation"
+                              title="پەیوەندیکردن بە سوودمەند"
+                            >
+                              <Phone className="w-3 h-3 text-cyan-600" />
+                              <span>{dist.beneficiaryPhone}</span>
+                            </a>
+                          )}
+
+                          {hasGps && (
+                            <a
+                              href={`https://www.google.com/maps?q=${lat},${lng}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 font-mono text-[10px] font-bold border border-slate-200 hover:bg-slate-200 transition-colors touch-manipulation"
+                              title="بینینی شوێن لەسەر گووگڵ ماپ"
+                            >
+                              <ExternalLink className="w-3 h-3 text-cyan-600" />
+                              <span>GPS</span>
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Aid Item / Amount */}
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] text-slate-500 block">جۆری هاوکاری:</span>
+                            <span className="text-xs font-bold text-slate-900">
+                              {dist.type === 'monetary' ? 'هاوکاری نەختینەیی' : (dist.itemName || 'کۆمەکی عەینی')}
+                            </span>
+                          </div>
+                          <div className="text-start">
+                            <span className="text-[10px] text-slate-500 block">بڕ:</span>
+                            {dist.type === 'monetary' ? (
+                              <span className="text-sm font-black font-mono text-emerald-700">
+                                {dist.currency === 'USD' ? `$${(dist.amount || 0).toLocaleString()}` : `${(dist.amount || dist.amountIQD || 0).toLocaleString()} د.ع`}
+                              </span>
+                            ) : (
+                              <span className="text-sm font-black font-mono text-amber-700">
+                                {dist.quantity ? `${dist.quantity} ${dist.unit || 'دانە'}` : '-'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Project & Receipt Source */}
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+                          <span>پڕۆژە: <strong className="text-slate-700">{dist.projectTitle}</strong></span>
+                          {dist.receiptNumber && (
+                            <span className="font-mono text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-200">
+                              {dist.receiptNumber}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                          <span className="text-[11px] text-slate-500">
+                            دابەشکراوە لەلایەن: <strong className="text-slate-700">{dist.distributedBy || 'ڕێکخراو'}</strong>
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditDist(dist)}
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-700 transition-colors touch-manipulation active:scale-95"
+                              title="دەستکاری"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDist(dist)}
+                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors border border-rose-200 touch-manipulation active:scale-95"
+                              title="سڕینەوە"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Desktop Viewport Table (>= 1024px) */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full text-end text-xs">
                   <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold">
                     <tr>

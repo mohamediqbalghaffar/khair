@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp, NavTab } from '../context/AppContext';
+import { AdaptiveDrawerSheet } from './ui/AdaptiveDrawerSheet';
+import { useHaptics } from '../utils/useHaptics';
 import {
   LayoutDashboard,
   Users,
@@ -12,8 +14,7 @@ import {
   Files,
   History,
   Settings,
-  MoreHorizontal,
-  X
+  MoreHorizontal
 } from 'lucide-react';
 
 interface NavItem {
@@ -28,6 +29,7 @@ export const NavigationDock: React.FC = () => {
   const { activeTab, setActiveTab, beneficiaries, inventory, currentRole, isTabAllowedForRole } = useApp();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const haptics = useHaptics();
 
   // Count items needing attention
   const pendingBeneficiaries = beneficiaries.filter(b => b.status === 'pending').length;
@@ -71,7 +73,7 @@ export const NavigationDock: React.FC = () => {
   }, []);
 
   return (
-    <footer className="w-full shrink-0 z-30 py-2 px-3 flex justify-center bg-white/90 backdrop-blur-2xl border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(15,23,42,0.03)] no-print">
+    <footer className="w-full shrink-0 z-30 py-2 pb-safe px-3 flex justify-center bg-white/90 backdrop-blur-2xl border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(15,23,42,0.03)] no-print">
       {/* Desktop Full Dock (lg+) */}
       <nav
         aria-label="ڕێڕەوی سەرەکی سیستەم"
@@ -84,9 +86,12 @@ export const NavigationDock: React.FC = () => {
             <button
               key={item.id}
               type="button"
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                haptics.light();
+                setActiveTab(item.id);
+              }}
               aria-current={isActive ? 'page' : undefined}
-              className={`relative flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 group ${
+              className={`relative flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 group touch-manipulation active:scale-95 ${
                 isActive
                   ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_4px_16px_rgba(2,132,199,0.35),inset_0_1px_1px_rgba(255,255,255,0.6)] scale-[1.02]'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/90'
@@ -109,49 +114,41 @@ export const NavigationDock: React.FC = () => {
 
       {/* Mobile & Tablet Adaptive Dock (< lg) — Always shows readable Kurdish labels */}
       <div ref={moreRef} className="relative flex lg:hidden w-full max-w-xl">
-        {isMoreOpen && secondaryMobileItems.length > 0 && (
-          <div
-            role="dialog"
-            aria-label="بەشەکانی تری سیستەم"
-            className="absolute bottom-full mb-3 left-0 right-0 rounded-3xl bg-white/95 backdrop-blur-2xl border border-slate-200 p-3.5 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200"
-          >
-            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100 px-1">
-              <span className="text-xs font-black text-slate-800">بەشەکانی تری سیستەم</span>
-              <button
-                type="button"
-                onClick={() => setIsMoreOpen(false)}
-                aria-label="داخستن"
-                className="p-1 rounded-full bg-slate-100 text-slate-500 hover:text-slate-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {secondaryMobileItems.map(item => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      setIsMoreOpen(false);
-                    }}
-                    className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border text-xs font-bold transition-all ${
-                      isActive
-                        ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white border-cyan-500 shadow-md'
-                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80'
-                    }`}
-                  >
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-cyan-600'}`} />
-                    <span className="truncate max-w-full">{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+        {/* iOS-like Physics Bottom Sheet Drawer (Vaul) for More Tabs */}
+        <AdaptiveDrawerSheet
+          isOpen={isMoreOpen}
+          onClose={() => setIsMoreOpen(false)}
+          title="بەشەکانی تری سیستەم"
+          description="بەشە سەرەکی و کارگێڕییەکانی تر هەڵبژێرە"
+          adaptive={false}
+          maxHeight="max-h-[85dvh]"
+        >
+          <div className="grid grid-cols-3 gap-2.5">
+            {secondaryMobileItems.map(item => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    haptics.light();
+                    setActiveTab(item.id);
+                    setIsMoreOpen(false);
+                  }}
+                  className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl border text-xs font-bold transition-all touch-manipulation active:scale-95 ${
+                    isActive
+                      ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white border-cyan-500 shadow-md'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-cyan-600'}`} />
+                  <span className="truncate max-w-full">{item.label}</span>
+                </button>
+              );
+            })}
           </div>
-        )}
+        </AdaptiveDrawerSheet>
 
         <nav
           aria-label="ڕێڕەوی مۆبایل"
@@ -165,11 +162,12 @@ export const NavigationDock: React.FC = () => {
                 key={item.id}
                 type="button"
                 onClick={() => {
+                  haptics.light();
                   setActiveTab(item.id);
                   setIsMoreOpen(false);
                 }}
                 aria-current={isActive ? 'page' : undefined}
-                className={`relative flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all ${
+                className={`relative flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all touch-manipulation active:scale-95 ${
                   isActive
                     ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-sm'
                     : 'text-slate-600 hover:bg-slate-100'
@@ -191,9 +189,12 @@ export const NavigationDock: React.FC = () => {
           {secondaryMobileItems.length > 0 && (
             <button
               type="button"
-              onClick={() => setIsMoreOpen(!isMoreOpen)}
+              onClick={() => {
+                haptics.medium();
+                setIsMoreOpen(!isMoreOpen);
+              }}
               aria-expanded={isMoreOpen}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all ${
+              className={`flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all touch-manipulation active:scale-95 ${
                 isSecondaryActive || isMoreOpen
                   ? 'bg-cyan-50 text-cyan-800 border border-cyan-200'
                   : 'text-slate-600 hover:bg-slate-100'

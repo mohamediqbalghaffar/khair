@@ -31,6 +31,7 @@ import { UserRole } from '../types';
 import { useFeedback } from './ui/FeedbackProvider';
 import { AccessibilityModal } from './AccessibilityModal';
 import { getExchangeRateForDate } from '../utils/exchangeRates';
+import { useHaptics } from '../utils/useHaptics';
 
 const SYSTEM_ROLES: { role: UserRole; titleKurdish: string; english: string; desc: string; icon: string }[] = [
   {
@@ -80,6 +81,7 @@ export const Topbar: React.FC = () => {
   } = useApp();
 
   const { showToast } = useFeedback();
+  const haptics = useHaptics();
   const { user, isLoaded, isSignedIn } = useUser();
 
   const [showNotifMenu, setShowNotifMenu] = useState(false);
@@ -181,12 +183,14 @@ export const Topbar: React.FC = () => {
   };
 
   const handleSyncClick = async () => {
+    haptics.medium();
     const res = await syncLocalDataToCloud();
     showToast(res.message, res.success ? 'success' : 'warning');
   };
 
   // Quick navigation helpers
   const handleQuickAction = (tab: 'beneficiaries' | 'donors' | 'inventory' | 'dashboard', extraAction?: () => void) => {
+    haptics.light();
     setShowQuickMenu(false);
     setActiveTab(tab);
     if (extraAction) extraAction();

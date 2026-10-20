@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { ShieldCheck, Lock, Key, Download, Upload, CheckCircle2, AlertCircle, X, RefreshCw, KeyRound } from 'lucide-react';
-import { useModalFocusTrap } from '../utils/useModalFocusTrap';
+import { ShieldCheck, Lock, Key, Download, Upload, CheckCircle2, AlertCircle, RefreshCw, KeyRound } from 'lucide-react';
+import { AdaptiveDrawerSheet } from './ui/AdaptiveDrawerSheet';
 import { useFeedback } from './ui/FeedbackProvider';
 import { SYSTEM_LOCK_PIN_KEY, getStoredLockPin } from './LockScreenModal';
 
@@ -16,9 +16,6 @@ export const SecurityModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [jsonInput, setJsonInput] = useState<string>('');
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
   const [lockPin, setLockPin] = useState<string>(() => getStoredLockPin());
-  const modalRef = useModalFocusTrap(isOpen, onClose);
-
-  if (!isOpen) return null;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -63,41 +60,27 @@ export const SecurityModal: React.FC<Props> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="security-modal-title"
-        onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-xl rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-2xl max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-200"
-      >
-        {/* Close Button */}
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="داخستن"
-          className="absolute top-5 left-5 p-2 rounded-full bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Header */}
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-200 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 id="security-modal-title" className="text-lg font-black text-slate-900">سەنتەری ئاسایش و پاراستنی داتابەیس</h3>
-            <p className="text-xs text-slate-500 mt-0.5">ڕێکخراوی بۆتان بامۆکی • ڕاستاندنی دوو هەنگاوی و کۆپی یەدەگ</p>
-          </div>
+    <AdaptiveDrawerSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="سەنتەری ئاسایش و پاراستنی داتابەیس"
+      description="ڕێکخراوی بۆتان بامۆکی • ڕاستاندنی دوو هەنگاوی و کۆپی یەدەگ"
+      icon={<ShieldCheck className="w-5 h-5 text-emerald-600" />}
+      maxWidth="max-w-xl"
+      footer={
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors touch-manipulation active:scale-95"
+          >
+            داخستن
+          </button>
         </div>
-
-        {/* Security Features List */}
-        <div className="space-y-4 mb-6">
+      }
+    >
+      {/* Security Features List */}
+      <div className="space-y-4 mb-6">
           {/* 1. 2FA Two-Factor Authentication */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -264,17 +247,6 @@ export const SecurityModal: React.FC<Props> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end pt-3 border-t border-slate-200">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
-          >
-            داخستن
-          </button>
-        </div>
-      </div>
-    </div>
+    </AdaptiveDrawerSheet>
   );
 };

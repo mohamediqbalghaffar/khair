@@ -34,6 +34,8 @@ import {
 import { aggregateAmountsByDayRate, getExchangeRateForDate } from '../utils/exchangeRates';
 import { useModalFocusTrap } from '../utils/useModalFocusTrap';
 import { useFeedback } from '../components/ui/FeedbackProvider';
+import { MobileKpiCarousel } from '../components/ui/MobileKpiCarousel';
+import { useHaptics } from '../utils/useHaptics';
 
 type ActiveModalType = 'donations' | 'beneficiaries' | 'projects' | 'volunteers' | 'impact-report' | null;
 type DatePresetType = 'all' | 'this_month' | 'last_3_months' | 'this_year' | 'custom';
@@ -63,6 +65,7 @@ export const DashboardView: React.FC = () => {
     setActiveTab
   } = useApp();
   const { showToast } = useFeedback();
+  const haptics = useHaptics();
 
   // Style Mode Toggle ("Enhanced UI/UX" vs "Classic Previous Style") so user can redo/revert in 1 click
   const [styleMode, setStyleMode] = useState<DashboardStyleMode>(() => {
@@ -71,6 +74,7 @@ export const DashboardView: React.FC = () => {
   });
 
   const handleToggleStyleMode = (mode: DashboardStyleMode) => {
+    haptics.selection();
     setStyleMode(mode);
     localStorage.setItem('ngo_dashboard_style_mode', mode);
     showToast(
@@ -128,6 +132,7 @@ export const DashboardView: React.FC = () => {
 
   // Apply quick time preset (Rule 1.4: Surface essential micro-actions)
   const applyDatePreset = (preset: DatePresetType) => {
+    haptics.selection();
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     setDatePreset(preset);
@@ -591,8 +596,8 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
 
-        {/* Classic KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
+        {/* Classic KPI Cards (Embla Touch Carousel on mobile, Grid on desktop) */}
+        <MobileKpiCarousel desktopGridClassName="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
           <div
             role="button"
             tabIndex={0}
@@ -720,7 +725,7 @@ export const DashboardView: React.FC = () => {
               <span className="px-2.5 py-0.5 rounded-full bg-slate-100 font-bold text-slate-600 text-xs">{filteredVolunteers.length} کەس</span>
             </div>
           </div>
-        </div>
+        </MobileKpiCarousel>
 
         {/* Classic Analytics Row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1107,9 +1112,9 @@ export const DashboardView: React.FC = () => {
       </div>
 
       {/* ===================================================================== */}
-      {/* 3. KPI CARDS GRID (build-impact-chart + Rule 2.1, 5.1, 6.2, 7.1)      */}
+      {/* 3. KPI CARDS (Embla Touch Carousel on mobile, Grid on desktop) */}
       {/* ===================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+      <MobileKpiCarousel desktopGridClassName="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
         
         {/* KPI 1: Total Donations */}
         <div
@@ -1268,7 +1273,7 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
 
-      </div>
+      </MobileKpiCarousel>
 
       {/* ===================================================================== */}
       {/* 4. PRECISION GOVERNORATE BAR CHART WITH Y-AXIS & DONUT GAUGE (Rule 8) */}

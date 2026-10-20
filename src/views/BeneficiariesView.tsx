@@ -49,12 +49,14 @@ import {
   SlidersHorizontal,
   ChevronUp,
   ChevronDown,
-  Filter
+  Filter,
+  Phone
 } from 'lucide-react';
 import { getDonationCashMetrics } from '../utils/donationDistributionUtils';
 import { useFeedback } from '../components/ui/FeedbackProvider';
 import { PaginationBar } from '../components/ui/PaginationBar';
 import { computeVulnerabilityScore } from '../utils/vulnerabilityScore';
+import { useHaptics } from '../utils/useHaptics';
 
 const categoryLabels: Record<NeedCategory, string> = {
   poor: 'هەژار و دەستکورت',
@@ -135,6 +137,7 @@ export const BeneficiariesView: React.FC = () => {
     syncLocalDataToCloud
   } = useApp();
   const { showToast, confirmAction } = useFeedback();
+  const haptics = useHaptics();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -788,6 +791,7 @@ export const BeneficiariesView: React.FC = () => {
       }
 
       setIsAddModalOpen(false);
+      haptics.success();
       resetSingleForm();
     } catch (err: any) {
       setDuplicateAlert('هەڵەیەک ڕوویدا لە کاتی پەیوەندیکردن بە سێرڤەر: ' + (err?.message || 'تکایە دووبارە هەوڵ بدەوە'));
@@ -1055,6 +1059,7 @@ export const BeneficiariesView: React.FC = () => {
     });
 
     setIsGiveAidModalOpen(false);
+    haptics.success();
     const updated = beneficiaries.find(b => b.id === selectedBeneficiary.id);
     if (updated) setSelectedBeneficiary(updated);
     showToast('هاوکارییەکە بە سەرکەوتوویی تۆمارکرا.', 'success');
@@ -1647,10 +1652,298 @@ export const BeneficiariesView: React.FC = () => {
           </div>
         </div>
 
-        {/* Scroll Container with Screen-Interactive Layout & Prominent Scrollbar */}
+        {/* Mobile View: High-density Touch Cards (< 1024px) */}
+        <div className="block lg:hidden p-3 space-y-3">
+          {beneficiaries.length === 0 ? (
+            <div className="py-12 text-center bg-white rounded-2xl border border-slate-200">
+              <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-700">هیچ کەسێکی سوودمەند تۆمار نەکراوە (سفر تۆمار)</p>
+              <p className="text-xs text-slate-400 mt-1">
+                دەتوانیت بە یەک بە یەک تۆماریان بکەیت یان فایلی ئێکسڵ بە کۆمەڵ هاوردە بکەیت
+              </p>
+            </div>
+          ) : sortedBeneficiaries.length === 0 ? (
+            <div className="py-10 text-center bg-white rounded-2xl border border-slate-200">
+              <Search className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="font-bold text-slate-600 text-sm">هیچ کەسێک نەدۆزرایەوە بەپێی ئەم فلتەرانە</p>
+              <p className="text-xs text-slate-400 mt-1">دەتوانیت فلتەرەکان پاکبکەیتەوە تا هەموو لیستەکە دەربکەوێت</p>
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="mt-2.5 px-3.5 py-1.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 text-xs font-bold transition-all shadow-xs"
+              >
+                سڕینەوەی سەرجەم فلتەرەکان
+              </button>
+            </div>
+          ) : (
+            paginatedBeneficiaries.map(ben => {
+              const vuln = computeVulnerabilityScore(ben);
+              return (
+                <div
+                  key={ben.id}
+                  onClick={() => {
+                    haptics.selection();
+                    setSelectedBeneficiary(ben);
+                  }}
+                  className={`rounded-2xl border p-3.5 transition-all shadow-xs active:scale-[0.99] touch-manipulation cursor-pointer ${
+                    selectedBeneficiary?.id === ben.id
+                      ? 'bg-cyan-50/90 border-cyan-300 ring-2 ring-cyan-400/20'
+                      : 'bg-white hover:border-cyan-300 border-slate-200/90'
+                  }`}
+                >
+                  {/* Card Header: Avatar/Gender, Name, Status Badge */}
+                  <div className="flex items-start justify-between gap-2 mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                          ben.gender === 'female'
+                            ? 'bg-rose-100 text-rose-700'
+                            : 'bg-cyan-100 text-cyan-700'
+                        }`}
+                        title={ben.gender === 'female' ? 'مێینە' : 'نێرینە'}
+                      >
+                        {ben.gender === 'female' ? 'مێ' : 'نێر'}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="font-bold text-slate-900 text-sm">{ben.fullName}</h4>
+                          {(ben.isConfidential || ben.status === 'confidential') && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-bold">
+                              <Lock className="w-2.5 h-2.5 text-purple-600" />
+                              <span>نهێنی</span>
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          {ben.age ? `${ben.age} ساڵ` : ''} {ben.isFamilyHead ? '• سەرۆکی خێزان' : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Status badge & Vulnerability */}
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      {ben.status === 'pending' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-600" /> لەژێر لێکۆڵینەوە
+                        </span>
+                      ) : ben.status === 'approved' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> پەسەندکراوە
+                        </span>
+                      ) : ben.status === 'confidential' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-purple-600" /> نهێنی
+                        </span>
+                      ) : ben.status === 'urgent' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1 animate-pulse">
+                          <AlertTriangle className="w-3 h-3 text-rose-600" /> بەپەلە
+                        </span>
+                      ) : ben.status === 'periodic' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                          <RefreshCw className="w-3 h-3 text-blue-600" /> مانگانە
+                        </span>
+                      ) : ben.status === 'suspended' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 flex items-center gap-1">
+                          <PauseCircle className="w-3 h-3 text-slate-500" /> ڕاگیراو
+                        </span>
+                      ) : ben.status === 'rejected' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                          <X className="w-3 h-3 text-rose-600" /> ڕەتکراوەتەوە
+                        </span>
+                      ) : ben.status === 'archived' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                          <Archive className="w-3 h-3 text-slate-400" /> ئەرشیڤ
+                        </span>
+                      ) : ben.status === 'aided' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1">
+                          <Gift className="w-3 h-3 text-cyan-600" /> هاوکاریکراو ({ben.aidHistory?.length || 1})
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-600" /> لەژێر لێکۆڵینەوە
+                        </span>
+                      )}
+
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${vuln.badgeClass}`}
+                        title={`نمرەی پێویستی خێزان: ${vuln.score}/100 (${vuln.label})`}
+                      >
+                        <span>{vuln.score}%</span>
+                        <span>• {vuln.label}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Card Body Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-slate-100">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-medium">ناسنامەی باری شارستانی:</span>
+                      <span className="font-mono font-bold text-cyan-800 text-[11px]">{ben.nationalId || '—'}</span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-medium">مۆبایل:</span>
+                      {ben.phone ? (
+                        <a
+                          href={`tel:${ben.phone}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            haptics.light();
+                          }}
+                          className="inline-flex items-center gap-1 font-mono font-bold text-cyan-700 hover:text-cyan-800 hover:underline text-[11px]"
+                        >
+                          <Phone className="w-3 h-3 text-cyan-600 shrink-0" />
+                          <span>{ben.phone}</span>
+                        </a>
+                      ) : (
+                        <span className="text-slate-400 text-[11px]">—</span>
+                      )}
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-medium">پارێزگا و ناونیشان:</span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className="font-bold text-slate-800 text-[11px]">{ben.governorate}</span>
+                        {ben.address && (
+                          <span className="text-[11px] text-slate-500 truncate max-w-[120px]" title={ben.address}>
+                            • {ben.address}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-medium">پێداویستی و ئەندامان:</span>
+                      <span className="text-[11px] font-bold text-amber-800">
+                        {categoryLabels[ben.needCategory] || ben.needCategory} ({ben.familyMembers} کەس)
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-medium">داهاتی مانگانە:</span>
+                      <span className={`text-[11px] font-bold ${ben.monthlyIncomeIQD === 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                        {ben.monthlyIncomeIQD === 0 ? 'بێ داهات' : `${ben.monthlyIncomeIQD.toLocaleString()} د.ع`}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-medium">پێگەی بژێوی:</span>
+                      <span className="text-[11px] text-slate-700 font-medium">
+                        {ben.isProvider ? 'دابینکەری سەرەکی' : `نابەخێوکەر (${ben.providerName || 'کەسی تر'})`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Secondary Badges & Actions */}
+                  <div className="flex items-center justify-between gap-2 mt-2 pt-1 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {ben.aidHistory && ben.aidHistory.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center gap-1">
+                          <Gift className="w-2.5 h-2.5 text-cyan-600" />
+                          <span>هاوکاری: {ben.aidHistory.length} جار</span>
+                        </span>
+                      )}
+
+                      {ben.location && (
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              haptics.selection();
+                              navigateToLocationOnMap(ben.location!.lat, ben.location!.lng, ben.location!.label || ben.fullName, ben.id);
+                            }}
+                            className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 transition-colors shadow-xs"
+                            title={`GPS: ${ben.location.lat}, ${ben.location.lng}`}
+                          >
+                            <MapPin className="w-2.5 h-2.5 text-emerald-600" />
+                            <span>GPS نەخشە</span>
+                          </button>
+                          <a
+                            href={`https://www.google.com/maps?q=${ben.location.lat},${ben.location.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 rounded bg-slate-100 text-slate-600 hover:text-cyan-700"
+                            title="Google Maps"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-1.5 ms-auto" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptics.light();
+                          setSelectedBeneficiary(ben);
+                          setIsGiveAidModalOpen(true);
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold transition-colors flex items-center gap-1"
+                        title="پێدانی هاوکاری بە سوودمەند"
+                      >
+                        <Gift className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>هاوکاری</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptics.light();
+                          setSelectedBeneficiary(ben);
+                        }}
+                        className="p-1.5 rounded-xl bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border border-cyan-200 transition-colors"
+                        title="بینینی دۆسیە"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          haptics.light();
+                          handleOpenEditModal(ben);
+                        }}
+                        className="p-1.5 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 transition-colors"
+                        title="دەستکاری"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          haptics.warning();
+                          const ok = await confirmAction({
+                            title: 'سڕینەوەی دۆسیەی سوودمەند',
+                            message: `دڵنیایت لە سڕینەوەی دۆسیەی (${ben.fullName}) لە داتابەیسی سەرهێڵ؟`,
+                            confirmLabel: 'بەڵێ، دۆسیەکە بسڕەوە',
+                            variant: 'danger'
+                          });
+                          if (ok) {
+                            const res = await deleteBeneficiary(ben.id);
+                            if (res && !res.success) {
+                              showToast(res.message || 'هەڵەیەک ڕوویدا لە کاتی سڕینەوەی سوودمەند لە سێرڤەر.', 'error');
+                            } else {
+                              showToast(`دۆسیەی (${ben.fullName}) سڕایەوە.`, 'info');
+                            }
+                          }
+                        }}
+                        className="p-1.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors"
+                        title="سڕینەوە لە داتابەیس"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop Table View (>= 1024px) */}
         <div
           ref={tableContainerRef}
-          className={`overflow-x-auto overflow-y-auto interactive-table-scrollbar ${
+          className={`hidden lg:block overflow-x-auto overflow-y-auto interactive-table-scrollbar ${
             isFullscreenTable ? 'flex-1 min-h-0' : 'max-h-[calc(100vh-270px)] min-h-[420px]'
           }`}
         >

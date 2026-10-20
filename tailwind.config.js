@@ -1,3 +1,6 @@
+import tailwindcssAnimate from 'tailwindcss-animate';
+import tailwindcssSafeArea from 'tailwindcss-safe-area';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -97,5 +100,8 @@ export default {
       }
     },
   },
-  plugins: [],
+  plugins: [
+    tailwindcssAnimate,
+    tailwindcssSafeArea,
+  ],
 }

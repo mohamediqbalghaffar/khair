@@ -22,6 +22,8 @@ import { OnlinePaymentModal } from '../components/OnlinePaymentModal';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 import { getExchangeRateForDate, aggregateAmountsByDayRate } from '../utils/exchangeRates';
 import { PaginationBar } from '../components/ui/PaginationBar';
+import { MobileKpiCarousel } from '../components/ui/MobileKpiCarousel';
+import { useHaptics } from '../utils/useHaptics';
 
 export const FinanceView: React.FC = () => {
   const {
@@ -33,6 +35,7 @@ export const FinanceView: React.FC = () => {
     currencyView,
     setActiveTab
   } = useApp();
+  const haptics = useHaptics();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense' | 'in_kind' | 'cash'>('all');
@@ -263,6 +266,7 @@ export const FinanceView: React.FC = () => {
 
   const handleTxCurrencySwitch = (newCurr: 'IQD' | 'USD') => {
     if (newCurr === txForm.currency) return;
+    haptics.light();
     const clean = txAmountStr.replace(/[^0-9]/g, '');
     const num = clean ? parseInt(clean, 10) : 0;
     const rate = getExchangeRateForDate(txForm.date).rate;
@@ -280,6 +284,7 @@ export const FinanceView: React.FC = () => {
     e.preventDefault();
     const cleanAmount = txAmountStr.replace(/[^0-9]/g, '');
     const amountVal = cleanAmount ? parseInt(cleanAmount, 10) : 0;
+    haptics.success();
     addTransaction({ ...txForm, amount: amountVal });
     setIsAddModalOpen(false);
     setTxAmountStr('');
@@ -354,8 +359,8 @@ export const FinanceView: React.FC = () => {
         </div>
       </div>
 
-      {/* Financial Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      {/* Financial Summary Cards (Embla Touch Carousel on mobile, Grid on desktop) */}
+      <MobileKpiCarousel desktopGridClassName="grid grid-cols-1 sm:grid-cols-3 gap-5">
         
         {/* Income Card */}
         <div className="rounded-3xl bg-emerald-50/70 backdrop-blur-2xl p-5 border border-emerald-200 shadow-sm flex flex-col justify-between">
@@ -465,7 +470,7 @@ export const FinanceView: React.FC = () => {
           </div>
         </div>
 
-      </div>
+      </MobileKpiCarousel>
 
       {/* In-Kind Donations & Warehouse Assets Section (Light Liquid Glass) */}
       <div className="rounded-3xl bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/80 p-5 sm:p-6 text-slate-900 shadow-sm relative overflow-hidden border border-indigo-200/80 space-y-4">
@@ -799,7 +804,125 @@ export const FinanceView: React.FC = () => {
 
       {/* Transactions Table */}
       <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        {/* Mobile Viewport Card Stack (< 1024px) */}
+        <div className="block lg:hidden p-3.5 space-y-3">
+          {transactions.length === 0 ? (
+            <div className="py-12 text-center">
+              <Wallet className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-bold text-slate-700">هیچ جووڵەیەکی دارایی تۆمار نەکراوە</p>
+              <p className="text-xs text-slate-400 mt-1">بۆ تۆمارکردنی داهات یان خەرجی، کلیک لە دوگمەی سەرەوە بکە</p>
+            </div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs font-bold">
+              هیچ تۆمارێکی دارایی بەپێی ئەم فلتەرە نەدۆزرایەوە
+            </div>
+          ) : (
+            paginatedTransactions.map(tx => {
+              const inKind = isInKindTx(tx);
+              const dayRate = tx.exchangeRateAtDate || getExchangeRateForDate(tx.date).rate;
+              const conv = tx.convertedAmount || (
+                tx.currency === 'IQD'
+                  ? Number((tx.amount / dayRate).toFixed(2))
+                  : Math.round(tx.amount * dayRate)
+              );
+              return (
+                <div
+                  key={tx.id}
+                  className="rounded-2xl bg-white border border-slate-200 p-4 shadow-xs space-y-2.5 touch-manipulation active:scale-[0.99] transition-all"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        tx.type === 'income'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}>
+                        {tx.type === 'income' ? 'داهات +' : 'خەرجی -'}
+                      </span>
+                      {inKind ? (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          📦 عەینی
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                          💵 نەختینە
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200">
+                        {tx.category}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold text-slate-400 shrink-0">
+                      {tx.date}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div className={`text-lg font-black font-mono tracking-tight ${
+                      tx.type === 'income' ? 'text-emerald-700' : 'text-rose-700'
+                    }`}>
+                      {tx.type === 'income' ? '+' : '-'}{tx.amount.toLocaleString()} {tx.currency === 'IQD' ? 'د.ع' : '$'}
+                    </div>
+                    <div className="text-[11px] font-mono font-bold text-slate-500">
+                      {tx.currency === 'IQD' ? `≈ $${conv.toLocaleString()}` : `≈ ${conv.toLocaleString()} د.ع`}
+                    </div>
+                  </div>
+
+                  {tx.description && (
+                    <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                      {tx.description}
+                    </p>
+                  )}
+
+                  {(tx.itemQuantity || tx.itemUnitPrice) && (
+                    <div className="flex items-center gap-2 flex-wrap pt-0.5 text-[10px]">
+                      {tx.itemQuantity && (
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono font-bold border border-slate-200">
+                          بڕ: {tx.itemQuantity} {tx.itemUnit || 'دانە'}
+                        </span>
+                      )}
+                      {tx.itemUnitPrice && (
+                        <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-mono font-bold border border-indigo-200">
+                          نرخی تاک: {tx.itemUnitPrice.toLocaleString()} د.ع
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <span>تۆمارکار:</span>
+                      <span className="font-bold text-slate-700">{tx.recordedBy}</span>
+                    </span>
+                    {tx.receiptNumber && (() => {
+                      const matchDon = donations.find(d => d.receiptNumber === tx.receiptNumber);
+                      return matchDon ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            haptics.light();
+                            setActiveReceiptDonation(matchDon);
+                          }}
+                          className="font-mono font-bold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 px-2 py-0.5 rounded-md border border-cyan-200 transition-colors touch-manipulation active:scale-95"
+                          title="بینینی پسوولەی فەرمی"
+                        >
+                          پسوولە: {tx.receiptNumber}
+                        </button>
+                      ) : (
+                        <span className="font-mono font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-200">
+                          پسوولە: {tx.receiptNumber}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop Viewport Table (>= 1024px) */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full text-end text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
               <tr>

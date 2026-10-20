@@ -28,13 +28,15 @@ import {
   TrendingUp,
   BadgeCheck,
   MessageCircle,
-  Award
+  Award,
+  Phone
 } from 'lucide-react';
 import { OfficialReceiptModal } from '../components/OfficialReceiptModal';
 import { getExchangeRateForDate, convertByDateRate, aggregateAmountsByDayRate } from '../utils/exchangeRates';
 import { getDonationCashMetrics } from '../utils/donationDistributionUtils';
 import { useFeedback } from '../components/ui/FeedbackProvider';
 import { PaginationBar } from '../components/ui/PaginationBar';
+import { useHaptics } from '../utils/useHaptics';
 
 export const DonorsView: React.FC = () => {
   const {
@@ -53,6 +55,7 @@ export const DonorsView: React.FC = () => {
     sendSMS
   } = useApp();
   const { showToast, confirmAction } = useFeedback();
+  const haptics = useHaptics();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSubTab, setActiveSubTab] = useState<'donors' | 'donations'>('donors');
@@ -181,6 +184,7 @@ export const DonorsView: React.FC = () => {
 
   const handleAddDonorSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    haptics.success();
     addDonor(donorForm);
     setIsAddDonorModalOpen(false);
     setDonorForm({
@@ -473,6 +477,7 @@ export const DonorsView: React.FC = () => {
     });
 
     setIsAddDonationModalOpen(false);
+    haptics.success();
     setActiveReceipt(newDonation);
     resetDonationForm();
   };
@@ -694,6 +699,7 @@ export const DonorsView: React.FC = () => {
     };
 
     updateDonation(updatedDonation);
+    haptics.success();
     setIsEditDonationModalOpen(false);
     setEditingDonation(null);
     showToast('پسوولەی بەخشین بە سەرکەوتوویی نوێکرایەوە.', 'success');
@@ -708,12 +714,14 @@ export const DonorsView: React.FC = () => {
       variant: 'danger'
     });
     if (ok) {
+      haptics.warning();
       deleteDonation(don.id);
       showToast(`پسوولەی [${don.receiptNumber}] سڕایەوە.`, 'info');
     }
   };
 
   const handleOpenEditDonor = (donor: Donor) => {
+    haptics.light();
     setEditingDonor(donor);
     setEditDonorForm({
       fullName: donor.fullName,
@@ -730,6 +738,7 @@ export const DonorsView: React.FC = () => {
   const handleSaveEditDonor = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDonor) return;
+    haptics.success();
     updateDonor({
       ...editingDonor,
       fullName: editDonorForm.fullName,
@@ -903,7 +912,14 @@ export const DonorsView: React.FC = () => {
                     )}
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-slate-500">مۆبایل ({donorDonations.length} پسوولە):</span>
-                      <span className="font-mono font-bold text-slate-700">{donor.phone}</span>
+                      <a
+                        href={`tel:${donor.phone}`}
+                        className="font-mono font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 bg-emerald-50/70 hover:bg-emerald-100 px-2 py-0.5 rounded-lg border border-emerald-200 transition-colors touch-manipulation"
+                        title="پەیوەندیکردن بە بەخشەر"
+                      >
+                        <Phone className="w-3 h-3 text-emerald-600" />
+                        <span>{donor.phone}</span>
+                      </a>
                     </div>
                   </div>
                 </div>
@@ -985,7 +1001,150 @@ export const DonorsView: React.FC = () => {
       {/* View 2: Official Receipts Table */}
       {activeSubTab === 'donations' && (
         <div className="rounded-3xl bg-white/90 backdrop-blur-2xl border border-slate-200/90 overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+          {/* Mobile Viewport Receipt Cards (< 1024px) */}
+          <div className="block lg:hidden p-3.5 space-y-3">
+            {donations.length === 0 ? (
+              <div className="py-12 text-center">
+                <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm font-bold text-slate-700">هیچ پسوولەیەکی بەخشین تۆمار نەکراوە</p>
+                <p className="text-xs text-slate-400 mt-1">بۆ تۆمارکردنی بەخشینی نوێ، دوگمەی سەرەوە دابگرە</p>
+              </div>
+            ) : (
+              paginatedDonations.map(don => {
+                const donor = donors.find(d => d.id === don.donorId);
+                const isCash = !don.category || don.category === 'cash';
+                const hasBalance = isCash
+                  ? getDonationCashMetrics(don, beneficiaries).remainingAmount > 0
+                  : (() => {
+                      const invItem = inventory.find(
+                        i => i.sourceReceiptNumber === don.receiptNumber || i.sourceDonationId === don.id
+                      );
+                      return invItem && invItem.quantity > 0;
+                    })();
+
+                const dayRate = don.exchangeRateAtDate || getExchangeRateForDate(don.date).rate;
+                const conv = don.convertedAmount || (
+                  don.currency === 'IQD'
+                    ? Number((don.amount / dayRate).toFixed(2))
+                    : Math.round(don.amount * dayRate)
+                );
+
+                return (
+                  <div
+                    key={don.id}
+                    className="rounded-2xl bg-white border border-slate-200 p-4 shadow-xs space-y-3 touch-manipulation active:scale-[0.99] transition-all"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-50 border border-cyan-200 font-mono font-black text-cyan-800 text-xs">
+                          <Receipt className="w-3.5 h-3.5 text-cyan-600" />
+                          {don.receiptNumber}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-200">
+                          {don.method}
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-mono font-bold text-slate-400">
+                        {don.date}
+                      </span>
+                    </div>
+
+                    {/* Donor & Amount */}
+                    <div className="space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm">{don.donorName}</p>
+                          <span className="text-xs text-emerald-700 font-bold block mt-0.5">
+                            {don.categoryLabel || 'کۆمەکی نەختینەیی'}
+                            {don.itemDetails?.quantity ? ` (${don.itemDetails.quantity} ${don.itemDetails.unit || ''})` : ''}
+                          </span>
+                        </div>
+
+                        {don.amount > 0 ? (
+                          <div className="text-start">
+                            <span className="font-black text-emerald-700 font-mono text-base block">
+                              {don.amount.toLocaleString()} {don.currency === 'IQD' ? 'د.ع' : '$'}
+                            </span>
+                            <span className="text-[10px] font-mono font-bold text-slate-500 block">
+                              {don.currency === 'IQD' ? `≈ $${conv.toLocaleString()}` : `≈ ${conv.toLocaleString()} د.ع`}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
+                            بەخشینی عەینی
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Tap-to-call link if donor has phone */}
+                      {donor?.phone && (
+                        <div className="pt-1">
+                          <a
+                            href={`tel:${donor.phone}`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 font-mono text-xs font-bold transition-colors touch-manipulation"
+                            title="پەیوەندیکردن بە بەخشەر"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{donor.phone}</span>
+                            <span className="text-[10px] text-emerald-600 font-sans font-normal">(پەیوەندی)</span>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Purpose / Project */}
+                    <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
+                      <span className="text-slate-500">پڕۆژە / مەبەست:</span>
+                      <span className="font-bold text-slate-800">{don.projectName || 'سندووقی گشتی هاوکاری'}</span>
+                    </div>
+
+                    {/* Actions Toolbar */}
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {hasBalance && (
+                          <button
+                            onClick={() => openDistributionForDonation(don.id)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl liquid-button-primary text-white font-bold text-xs shadow-xs touch-manipulation active:scale-95"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            دابەشکردن
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setActiveReceipt(don)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-cyan-50 text-cyan-800 hover:bg-cyan-100 font-bold text-xs border border-cyan-200 touch-manipulation active:scale-95"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-cyan-600" />
+                          پسوولە
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleOpenEditDonation(don)}
+                          className="p-2 rounded-xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold text-xs border border-amber-200 touch-manipulation active:scale-95"
+                          title="دەستکاری"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDonation(don)}
+                          className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 font-bold text-xs border border-rose-200 touch-manipulation active:scale-95"
+                          title="سڕینەوە"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Viewport Table (>= 1024px) */}
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-end text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
                 <tr>

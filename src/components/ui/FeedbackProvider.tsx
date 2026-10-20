@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { CheckCircle2, AlertTriangle, XCircle, Info, X } from 'lucide-react';
 import { useModalFocusTrap } from '../../utils/useModalFocusTrap';
+import { triggerHaptic } from '../../utils/useHaptics';
 
 export type ToastVariant = 'success' | 'warning' | 'error' | 'info';
 
@@ -68,6 +69,15 @@ export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      triggerHaptic(
+        resolvedVariant === 'error'
+          ? 'error'
+          : resolvedVariant === 'warning'
+          ? 'warning'
+          : resolvedVariant === 'success'
+          ? 'success'
+          : 'light'
+      );
       setToasts((prev) => [
         ...prev.slice(-4),
         {
@@ -105,6 +115,7 @@ export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             variant: options.variant || 'danger'
           };
 
+    triggerHaptic('warning');
     setConfirmState({ ...normalized, isOpen: true });
     return new Promise<boolean>((resolve) => {
       resolverRef.current = resolve;
@@ -113,6 +124,11 @@ export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const handleConfirmResolve = useCallback((result: boolean) => {
     setConfirmState(null);
+    if (result) {
+      triggerHaptic('medium');
+    } else {
+      triggerHaptic('light');
+    }
     if (resolverRef.current) {
       resolverRef.current(result);
       resolverRef.current = null;
